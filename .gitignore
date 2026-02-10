@@ -1,0 +1,33 @@
+# Node
+node_modules/
+frontend/node_modules/
+
+# Frontend build
+frontend/dist/
+
+# .NET
+**/bin/
+**/obj/
+
+# IDE
+.vscode/
+.idea/
+.vs/
+backend/.vs/
+*.suo
+*.user
+*.userosscache
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+.phase*.json
+New Text Document.txt
+
+# OS
+.DS_Store
+Thumbs.db
