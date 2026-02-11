@@ -137,6 +137,20 @@ export type PortfolioSummary = {
   repaidPrincipal: number
 }
 
+export type NotificationItem = {
+  id: string
+  userId: string
+  channel: string
+  type: string
+  title: string
+  message: string
+  status: string
+  createdAt: string
+  sentAt: string | null
+  readAt: string | null
+  payloadJson: string | null
+}
+
 export type ArrearsItem = {
   loanId: string
   applicationId: string
@@ -413,4 +427,19 @@ export async function getArrears(accessToken: string): Promise<ArrearsItem[]> {
     headers: authHeaders(accessToken)
   })
   return parseResponse<ArrearsItem[]>(response)
+}
+
+export async function listNotifications(accessToken: string, unreadOnly = false): Promise<NotificationItem[]> {
+  const response = await fetch(`${apiBaseUrl}/api/notifications?unreadOnly=${unreadOnly ? 'true' : 'false'}`, {
+    headers: authHeaders(accessToken)
+  })
+  return parseResponse<NotificationItem[]>(response)
+}
+
+export async function markNotificationRead(accessToken: string, id: string): Promise<void> {
+  const response = await fetch(`${apiBaseUrl}/api/notifications/${id}/read`, {
+    method: 'POST',
+    headers: authHeaders(accessToken)
+  })
+  await parseResponse<void>(response)
 }

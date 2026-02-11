@@ -1,0 +1,20 @@
+name: Uptime Check
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check API health
+        env:
+          API_HEALTH_URL: ${{ secrets.API_HEALTH_URL }}
+        run: |
+          if [ -z "$API_HEALTH_URL" ]; then
+            echo "API_HEALTH_URL secret is not set."
+            exit 1
+          fi
+          curl --fail --silent --show-error "$API_HEALTH_URL/health"

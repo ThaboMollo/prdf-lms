@@ -54,6 +54,9 @@ create table if not exists public.loan_documents (
   doc_type text not null,
   storage_path text not null,
   status text not null default 'Pending',
+  verification_note text,
+  verified_by uuid references auth.users(id) on delete set null,
+  verified_at timestamptz,
   uploaded_by uuid not null references auth.users(id) on delete restrict,
   uploaded_at timestamptz not null default now()
 );
@@ -83,6 +86,52 @@ create table if not exists public.notes (
   body text not null,
   created_by uuid not null references auth.users(id) on delete restrict,
   created_at timestamptz not null default now()
+);
+
+create table if not exists public.document_requirements (
+  id uuid primary key default gen_random_uuid(),
+  loan_product_id uuid references public.loan_products(id) on delete cascade,
+  required_at_status text not null,
+  doc_type text not null,
+  is_required boolean not null default true,
+  created_at timestamptz not null default now(),
+  unique (loan_product_id, required_at_status, doc_type)
+);
+
+create table if not exists public.notification_templates (
+  id uuid primary key default gen_random_uuid(),
+  type text not null unique,
+  channel text not null default 'InApp',
+  title_template text not null,
+  body_template text not null,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.user_preferences (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null unique references auth.users(id) on delete cascade,
+  in_app_enabled boolean not null default true,
+  email_enabled boolean not null default false,
+  sms_enabled boolean not null default false,
+  quiet_hours_start time,
+  quiet_hours_end time,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  channel text not null default 'InApp',
+  type text not null,
+  title text not null,
+  message text not null,
+  status text not null default 'Sent',
+  payload jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  sent_at timestamptz,
+  read_at timestamptz
 );
 
 create table if not exists public.audit_log (
@@ -148,10 +197,14 @@ create index if not exists idx_clients_user_id on public.clients(user_id);
 create index if not exists idx_loan_applications_client_id on public.loan_applications(client_id);
 create index if not exists idx_loan_applications_assigned on public.loan_applications(assigned_to_user_id);
 create index if not exists idx_loan_documents_application_id on public.loan_documents(application_id);
+create index if not exists idx_loan_documents_status on public.loan_documents(status);
 create index if not exists idx_status_history_application_id on public.application_status_history(application_id);
 create index if not exists idx_tasks_application_id on public.tasks(application_id);
 create index if not exists idx_notes_application_id on public.notes(application_id);
 create index if not exists idx_notes_created_at on public.notes(created_at);
+create index if not exists idx_document_requirements_status on public.document_requirements(required_at_status);
+create index if not exists idx_notifications_user_created on public.notifications(user_id, created_at desc);
+create index if not exists idx_notifications_unread on public.notifications(user_id) where read_at is null;
 create index if not exists idx_audit_log_actor on public.audit_log(actor_user_id);
 create index if not exists idx_loans_application on public.loans(application_id);
 create index if not exists idx_disbursements_loan on public.disbursements(loan_id);
@@ -159,3 +212,25 @@ create index if not exists idx_repayments_loan on public.repayments(loan_id);
 create index if not exists idx_repayments_paid_at on public.repayments(paid_at);
 create index if not exists idx_repayment_schedule_loan on public.repayment_schedule(loan_id);
 create index if not exists idx_repayment_schedule_due_date on public.repayment_schedule(due_date);
+
+create or replace function public.prevent_immutable_document_changes()
+returns trigger
+language plpgsql
+as $$
+begin
+  if old.application_id <> new.application_id
+     or old.doc_type <> new.doc_type
+     or old.storage_path <> new.storage_path
+     or old.uploaded_by <> new.uploaded_by
+     or old.uploaded_at <> new.uploaded_at then
+    raise exception 'Immutable loan_documents fields cannot be changed';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_prevent_immutable_document_changes on public.loan_documents;
+create trigger trg_prevent_immutable_document_changes
+before update on public.loan_documents
+for each row
+execute function public.prevent_immutable_document_changes();

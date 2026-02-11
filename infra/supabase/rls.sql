@@ -27,6 +27,10 @@ alter table public.loan_documents enable row level security;
 alter table public.application_status_history enable row level security;
 alter table public.tasks enable row level security;
 alter table public.notes enable row level security;
+alter table public.document_requirements enable row level security;
+alter table public.notification_templates enable row level security;
+alter table public.user_preferences enable row level security;
+alter table public.notifications enable row level security;
 alter table public.audit_log enable row level security;
 
 -- roles table remains readable without RLS, per plan
@@ -261,6 +265,58 @@ with check (
       and c.user_id = auth.uid()
   )
 );
+
+create policy "doc requirements staff read write"
+on public.document_requirements
+for all
+to authenticated
+using (
+  public.is_in_role(auth.uid(), 'Admin')
+  or public.is_in_role(auth.uid(), 'LoanOfficer')
+)
+with check (
+  public.is_in_role(auth.uid(), 'Admin')
+  or public.is_in_role(auth.uid(), 'LoanOfficer')
+);
+
+create policy "notification templates staff read write"
+on public.notification_templates
+for all
+to authenticated
+using (
+  public.is_in_role(auth.uid(), 'Admin')
+  or public.is_in_role(auth.uid(), 'LoanOfficer')
+)
+with check (
+  public.is_in_role(auth.uid(), 'Admin')
+  or public.is_in_role(auth.uid(), 'LoanOfficer')
+);
+
+create policy "user preferences self read write"
+on public.user_preferences
+for all
+to authenticated
+using (user_id = auth.uid() or public.is_in_role(auth.uid(), 'Admin'))
+with check (user_id = auth.uid() or public.is_in_role(auth.uid(), 'Admin'));
+
+create policy "notifications self read"
+on public.notifications
+for select
+to authenticated
+using (user_id = auth.uid() or public.is_in_role(auth.uid(), 'Admin'));
+
+create policy "notifications self update read status"
+on public.notifications
+for update
+to authenticated
+using (user_id = auth.uid() or public.is_in_role(auth.uid(), 'Admin'))
+with check (user_id = auth.uid() or public.is_in_role(auth.uid(), 'Admin'));
+
+create policy "notifications insert by service users"
+on public.notifications
+for insert
+to authenticated
+with check (auth.uid() is not null);
 
 create policy "audit log admin read"
 on public.audit_log

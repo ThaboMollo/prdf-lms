@@ -1,0 +1,59 @@
+name: CI-CD
+
+on:
+  push:
+    branches:
+      - main
+      - phase-*
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Restore backend
+        run: dotnet restore backend/PRDF.Lms.sln --configfile backend/NuGet.Config
+
+      - name: Build backend
+        run: dotnet build backend/PRDF.Lms.sln --no-restore --configfile backend/NuGet.Config
+
+      - name: Test backend
+        run: dotnet test backend/PRDF.Lms.sln --no-build
+
+      - name: Install frontend
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: build-test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy placeholder
+        run: |
+          echo "Deploy frontend to Vercel/Netlify and backend to Azure Container Apps."
+          echo "Use environment secrets documented in docs/runbook.md."

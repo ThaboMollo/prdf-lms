@@ -198,6 +198,7 @@ public sealed class LoanApplicationService(
 
         await InsertStatusHistoryAsync(connection, applicationId, LoanApplicationStatus.Draft, LoanApplicationStatus.Submitted, actor.UserId, note, cancellationToken);
         await InsertAuditLogAsync(connection, "loan_applications", applicationId, "SubmitApplication", actor.UserId, new { note }, cancellationToken);
+        await CreateStatusNotificationsAsync(connection, applicationId, LoanApplicationStatus.Submitted, actor.UserId, note, cancellationToken);
 
         return await GetByIdInternalAsync(connection, applicationId, cancellationToken);
     }
@@ -379,8 +380,8 @@ public sealed class LoanApplicationService(
             order by uploaded_at desc;
             """;
 
-        var rows = await connection.QueryAsync<ApplicationDocumentDto>(new CommandDefinition(sql, new { ApplicationId = applicationId }, cancellationToken: cancellationToken));
-        return rows.ToArray();
+        var rows = await connection.QueryAsync<DocumentRow>(new CommandDefinition(sql, new { ApplicationId = applicationId }, cancellationToken: cancellationToken));
+        return rows.Select(MapDocument).ToArray();
     }
 
     public async Task<ApplicationDetailsDto?> ChangeStatusAsync(CurrentUserContext actor, Guid applicationId, LoanApplicationStatus toStatus, string? note, CancellationToken cancellationToken)
@@ -419,6 +420,7 @@ public sealed class LoanApplicationService(
 
         await InsertStatusHistoryAsync(connection, applicationId, fromStatus, toStatus, actor.UserId, note, cancellationToken);
         await InsertAuditLogAsync(connection, "loan_applications", applicationId, "ChangeApplicationStatus", actor.UserId, new { fromStatus, toStatus, note }, cancellationToken);
+        await CreateStatusNotificationsAsync(connection, applicationId, toStatus, actor.UserId, note, cancellationToken);
         if (toStatus == LoanApplicationStatus.Approved)
         {
             await EnsureLoanCreatedForApprovedApplicationAsync(connection, applicationId, cancellationToken);
@@ -813,6 +815,51 @@ public sealed class LoanApplicationService(
             cancellationToken: cancellationToken));
     }
 
+    private static async Task CreateStatusNotificationsAsync(
+        IDbConnection connection,
+        Guid applicationId,
+        LoanApplicationStatus status,
+        Guid actorUserId,
+        string? note,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            select c.user_id as ClientUserId,
+                   la.assigned_to_user_id as AssignedToUserId
+            from public.loan_applications la
+            join public.clients c on c.id = la.client_id
+            where la.id = @ApplicationId;
+            """;
+
+        var projection = await connection.QuerySingleOrDefaultAsync<NotificationProjection>(new CommandDefinition(
+            sql,
+            new { ApplicationId = applicationId },
+            cancellationToken: cancellationToken));
+        if (projection is null)
+        {
+            return;
+        }
+
+        var targets = new[] { projection.ClientUserId, projection.AssignedToUserId }
+            .Where(x => x.HasValue)
+            .Select(x => x!.Value)
+            .Distinct()
+            .Where(x => x != actorUserId)
+            .ToArray();
+
+        foreach (var target in targets)
+        {
+            await InsertNotificationAsync(
+                connection,
+                target,
+                "ApplicationStatusChanged",
+                "Application status updated",
+                $"Application status changed to {status}.",
+                new { applicationId, status = status.ToString(), note },
+                cancellationToken);
+        }
+    }
+
     private static async Task<ApplicationDocumentDto?> GetDocumentByIdAsync(IDbConnection connection, Guid documentId, CancellationToken cancellationToken)
     {
         const string sql = """
@@ -827,7 +874,8 @@ public sealed class LoanApplicationService(
             where id = @Id;
             """;
 
-        return await connection.QuerySingleOrDefaultAsync<ApplicationDocumentDto>(new CommandDefinition(sql, new { Id = documentId }, cancellationToken: cancellationToken));
+        var row = await connection.QuerySingleOrDefaultAsync<DocumentRow>(new CommandDefinition(sql, new { Id = documentId }, cancellationToken: cancellationToken));
+        return row is null ? null : MapDocument(row);
     }
 
     private async Task<string> CreateSignedUploadUrlAsync(string bucket, string storagePath, CancellationToken cancellationToken)
@@ -961,6 +1009,38 @@ public sealed class LoanApplicationService(
             cancellationToken: cancellationToken));
     }
 
+    private static async Task InsertNotificationAsync(
+        IDbConnection connection,
+        Guid userId,
+        string type,
+        string title,
+        string message,
+        object payload,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            insert into public.notifications (
+                id, user_id, channel, type, title, message, status, payload, created_at, sent_at
+            )
+            values (
+                @Id, @UserId, 'InApp', @Type, @Title, @Message, 'Sent', cast(@PayloadJson as jsonb), now(), now()
+            );
+            """;
+
+        await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Type = type,
+                Title = title,
+                Message = message,
+                PayloadJson = JsonSerializer.Serialize(payload)
+            },
+            cancellationToken: cancellationToken));
+    }
+
     private static ApplicationListItemDto MapListItem(ApplicationRow row)
     {
         return new ApplicationListItemDto(
@@ -987,6 +1067,18 @@ public sealed class LoanApplicationService(
             new DateTimeOffset(DateTime.SpecifyKind(row.CreatedAt, DateTimeKind.Utc)),
             row.SubmittedAt is null ? null : new DateTimeOffset(DateTime.SpecifyKind(row.SubmittedAt.Value, DateTimeKind.Utc)),
             row.AssignedToUserId);
+    }
+
+    private static ApplicationDocumentDto MapDocument(DocumentRow row)
+    {
+        return new ApplicationDocumentDto(
+            row.Id,
+            row.ApplicationId,
+            row.DocType,
+            row.StoragePath,
+            row.Status,
+            row.UploadedBy,
+            new DateTimeOffset(DateTime.SpecifyKind(row.UploadedAt, DateTimeKind.Utc)));
     }
 
     private sealed record ApplicationRow(
@@ -1021,4 +1113,16 @@ public sealed class LoanApplicationService(
     private sealed record LoanSeedRow(decimal RequestedAmount, int TermMonths);
 
     private sealed record InfoRequestProjection(Guid? ClientUserId);
+
+    private sealed record NotificationProjection(Guid? ClientUserId, Guid? AssignedToUserId);
+
+    private sealed record DocumentRow(
+        Guid Id,
+        Guid ApplicationId,
+        string DocType,
+        string StoragePath,
+        string Status,
+        Guid UploadedBy,
+        DateTime UploadedAt
+    );
 }

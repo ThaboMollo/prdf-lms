@@ -97,6 +97,10 @@ public sealed class TaskService(IConnectionFactory connectionFactory) : ITaskSer
             request.AssignedTo,
             request.DueDate
         }, cancellationToken);
+        if (request.AssignedTo is Guid assignedTo && assignedTo != actor.UserId)
+        {
+            await InsertNotificationAsync(connection, assignedTo, "TaskAssigned", "New task assigned", request.Title, new { taskId, request.ApplicationId }, cancellationToken);
+        }
 
         return await GetTaskByIdAsync(connection, taskId, cancellationToken)
             ?? throw new InvalidOperationException("Failed to load created task.");
@@ -177,6 +181,10 @@ public sealed class TaskService(IConnectionFactory connectionFactory) : ITaskSer
         }
 
         await InsertAuditLogAsync(connection, "tasks", taskId, "CompleteTask", actor.UserId, new { note }, cancellationToken);
+        if (projection.ClientOwnerUserId is Guid clientUserId && clientUserId != actor.UserId)
+        {
+            await InsertNotificationAsync(connection, clientUserId, "TaskCompleted", "Task completed", "A task linked to your application has been completed.", new { taskId, task.ApplicationId }, cancellationToken);
+        }
         return await GetTaskByIdAsync(connection, taskId, cancellationToken);
     }
 
@@ -422,6 +430,38 @@ public sealed class TaskService(IConnectionFactory connectionFactory) : ITaskSer
                 Action = action,
                 ActorUserId = actorUserId,
                 MetadataJson = JsonSerializer.Serialize(metadata)
+            },
+            cancellationToken: cancellationToken));
+    }
+
+    private static async Task InsertNotificationAsync(
+        IDbConnection connection,
+        Guid userId,
+        string type,
+        string title,
+        string message,
+        object payload,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            insert into public.notifications (
+                id, user_id, channel, type, title, message, status, payload, created_at, sent_at
+            )
+            values (
+                @Id, @UserId, 'InApp', @Type, @Title, @Message, 'Sent', cast(@PayloadJson as jsonb), now(), now()
+            );
+            """;
+
+        await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Type = type,
+                Title = title,
+                Message = message,
+                PayloadJson = JsonSerializer.Serialize(payload)
             },
             cancellationToken: cancellationToken));
     }
