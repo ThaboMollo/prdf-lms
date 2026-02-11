@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
@@ -22,15 +22,24 @@ export function RegisterPage() {
   }
 
   return (
-    <div style={{ maxWidth: 420, margin: '48px auto', fontFamily: 'Segoe UI, sans-serif' }}>
-      <h1>Register</h1>
-      <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" required />
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" required />
-        <button type="submit">Create Account</button>
-      </form>
-      {error ? <p style={{ color: 'crimson' }}>{error}</p> : null}
-      <p>Already have an account? <Link to="/login">Login</Link></p>
-    </div>
+    <main className="auth-wrap">
+      <section className="auth-card">
+        <h1>Create Account</h1>
+        <p>Register to access PRDF loan management workflows.</p>
+        <form onSubmit={onSubmit} className="form-grid">
+          <label>
+            Email
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          </label>
+          <label>
+            Password
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          </label>
+          <button className="btn" type="submit">Create Account</button>
+        </form>
+        {error ? <p className="text-error">{error}</p> : null}
+        <p>Already have an account? <Link to="/login">Login</Link></p>
+      </section>
+    </main>
   )
 }
