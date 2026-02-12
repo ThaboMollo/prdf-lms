@@ -1,7 +1,7 @@
 ﻿import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Session } from '@supabase/supabase-js'
-import { disburseLoan, getLoan, recordRepayment } from '../lib/api'
+import { createLoansUseCases } from '../logic/usecases/loans'
 import { EmptyState } from '../components/shared/EmptyState'
 import { PageHeader } from '../components/shared/PageHeader'
 import { formatCurrency, formatDateTime } from '../lib/format'
@@ -13,6 +13,7 @@ type LoanDetailsPageProps = {
 export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
   const queryClient = useQueryClient()
   const accessToken = session.access_token
+  const loansUseCases = useMemo(() => createLoansUseCases(accessToken), [accessToken])
   const [loanId, setLoanId] = useState('')
   const [submittedLoanId, setSubmittedLoanId] = useState('')
   const [disburseAmount, setDisburseAmount] = useState(0)
@@ -23,12 +24,12 @@ export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
 
   const loanQuery = useQuery({
     queryKey: ['loan-details', submittedLoanId],
-    queryFn: () => getLoan(accessToken, submittedLoanId),
+    queryFn: () => loansUseCases.getLoan(submittedLoanId),
     enabled: Boolean(submittedLoanId)
   })
 
   const disburseMutation = useMutation({
-    mutationFn: () => disburseLoan(accessToken, submittedLoanId, disburseAmount, disburseReference),
+    mutationFn: () => loansUseCases.disburseLoan(submittedLoanId, disburseAmount, disburseReference),
     onSuccess: async () => {
       setFormError(null)
       await queryClient.invalidateQueries({ queryKey: ['loan-details', submittedLoanId] })
@@ -39,7 +40,7 @@ export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
   })
 
   const repaymentMutation = useMutation({
-    mutationFn: () => recordRepayment(accessToken, submittedLoanId, repaymentAmount, repaymentReference),
+    mutationFn: () => loansUseCases.recordRepayment(submittedLoanId, repaymentAmount, repaymentReference),
     onSuccess: async () => {
       setFormError(null)
       await queryClient.invalidateQueries({ queryKey: ['loan-details', submittedLoanId] })

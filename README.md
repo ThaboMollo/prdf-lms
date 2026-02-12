@@ -41,6 +41,7 @@ Copy `.env.example` to `.env` and set:
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 - `VITE_API_BASE_URL`
+- `VITE_DATA_PROVIDER` (`supabase` or `api`, default: `supabase`)
 - `SUPABASE_DB_CONNECTION_STRING` (Npgsql format)
 - Optional notification providers:
   - `SENDGRID_API_KEY`
@@ -76,6 +77,12 @@ Run in this order in Supabase SQL editor (dev first):
 - `GET /me` (requires Supabase JWT)
 - `GET /api/notifications`
 - `GET /api/reports/*`
+
+## Data Provider Switch
+- Frontend data provider is controlled by `VITE_DATA_PROVIDER`.
+- `supabase`: use Supabase adapters as primary data layer.
+- `api`: use .NET API adapters.
+- The .NET API remains retained and buildable for fallback and future migration phases.
 
 ## Deployment
 - CI/CD workflow: `.github/workflows/ci-cd.yml`

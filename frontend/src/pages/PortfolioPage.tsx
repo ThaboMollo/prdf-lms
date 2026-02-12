@@ -1,7 +1,8 @@
 ﻿import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { Session } from '@supabase/supabase-js'
-import { getArrears, getPortfolioSummary, type ArrearsItem } from '../lib/api'
+import type { ArrearsItem } from '../lib/api'
+import { createReportsUseCases } from '../logic/usecases/reports'
 import { EmptyState } from '../components/shared/EmptyState'
 import { PageHeader } from '../components/shared/PageHeader'
 import { formatCurrency } from '../lib/format'
@@ -29,15 +30,16 @@ function toArrearsCsv(items: ArrearsItem[]): string {
 
 export function PortfolioPage({ session }: PortfolioPageProps) {
   const accessToken = session.access_token
+  const reportsUseCases = useMemo(() => createReportsUseCases(accessToken), [accessToken])
 
   const summaryQuery = useQuery({
     queryKey: ['portfolio-summary', session.user.id],
-    queryFn: () => getPortfolioSummary(accessToken)
+    queryFn: () => reportsUseCases.getPortfolioSummary()
   })
 
   const arrearsQuery = useQuery({
     queryKey: ['portfolio-arrears', session.user.id],
-    queryFn: () => getArrears(accessToken)
+    queryFn: () => reportsUseCases.getArrears()
   })
 
   const csvHref = useMemo(() => {

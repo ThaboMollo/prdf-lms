@@ -12,7 +12,8 @@ import { LoginPage } from './pages/LoginPage'
 import { LoanDetailsPage } from './pages/LoanDetailsPage'
 import { PortfolioPage } from './pages/PortfolioPage'
 import { RegisterPage } from './pages/RegisterPage'
-import { fetchMe } from './lib/api'
+import { fetchMe, type MeResponse } from './lib/api'
+import { getDataProvider } from './lib/config/dataProvider'
 import { supabase } from './lib/supabase'
 
 export function App() {
@@ -43,7 +44,18 @@ export function App() {
 
   const meQuery = useQuery({
     queryKey: ['me', session?.user.id],
-    queryFn: () => fetchMe(session?.access_token ?? ''),
+    queryFn: async () => {
+      if (!session) {
+        throw new Error('No active session.')
+      }
+
+      const provider = getDataProvider()
+      if (provider === 'supabase') {
+        return resolveMeFromSession(session)
+      }
+
+      return fetchMe(session.access_token)
+    },
     enabled: Boolean(session?.access_token)
   })
 
@@ -91,4 +103,27 @@ export function App() {
       <Route path="*" element={<Navigate to={session ? '/dashboard' : '/login'} replace />} />
     </Routes>
   )
+}
+
+function resolveMeFromSession(session: Session): MeResponse {
+  const appMetadata = session.user.app_metadata as Record<string, unknown> | undefined
+  const userMetadata = session.user.user_metadata as Record<string, unknown> | undefined
+
+  const appRoles = Array.isArray(appMetadata?.roles) ? appMetadata.roles.filter((x): x is string => typeof x === 'string') : []
+  const userRoles = Array.isArray(userMetadata?.roles) ? userMetadata.roles.filter((x): x is string => typeof x === 'string') : []
+  const mergedRoles = [...new Set([...appRoles, ...userRoles])]
+  const firstName = typeof userMetadata?.first_name === 'string' ? userMetadata.first_name.trim() : ''
+  const lastName = typeof userMetadata?.last_name === 'string' ? userMetadata.last_name.trim() : ''
+  const fallbackName = `${firstName} ${lastName}`.trim()
+  const fullName =
+    typeof userMetadata?.full_name === 'string' && userMetadata.full_name.trim()
+      ? userMetadata.full_name
+      : (fallbackName || null)
+
+  return {
+    userId: session.user.id,
+    email: session.user.email ?? null,
+    fullName,
+    roles: mergedRoles.length ? mergedRoles : ['Client']
+  }
 }

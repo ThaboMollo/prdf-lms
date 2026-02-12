@@ -2,7 +2,7 @@
 import type { Session } from '@supabase/supabase-js'
 import { Outlet } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { listNotifications, markNotificationRead, type MeResponse } from '../../lib/api'
+import type { MeResponse } from '../../lib/api'
 import { supabase } from '../../lib/supabase'
 import { toAppRoles } from '../../lib/rbac'
 import { useToast } from '../../components/shared/ToastProvider'
@@ -10,6 +10,7 @@ import { MobileNavDrawer } from './MobileNavDrawer'
 import { navItems } from './navigation'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
+import { createNotificationsUseCases } from '../../logic/usecases/notifications'
 
 type AppShellProps = {
   session: Session
@@ -19,6 +20,7 @@ type AppShellProps = {
 export function AppShell({ session, me }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const accessToken = session.access_token
+  const notificationsUseCases = useMemo(() => createNotificationsUseCases(accessToken), [accessToken])
   const queryClient = useQueryClient()
   const toast = useToast()
 
@@ -29,12 +31,13 @@ export function AppShell({ session, me }: AppShellProps) {
 
   const notificationsQuery = useQuery({
     queryKey: ['notifications', session.user.id],
-    queryFn: () => listNotifications(accessToken, true),
-    refetchInterval: 30000
+    queryFn: () => notificationsUseCases.listNotifications(true),
+    refetchInterval: false,
+    enabled: false
   })
 
   const markReadMutation = useMutation({
-    mutationFn: (id: string) => markNotificationRead(accessToken, id),
+    mutationFn: (id: string) => notificationsUseCases.markRead(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['notifications', session.user.id] })
     },

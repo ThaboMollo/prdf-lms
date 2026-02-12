@@ -4,22 +4,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
 import {
-  changeStatus,
-  completeTask,
-  confirmUpload,
-  createApplication,
-  createNote,
-  createTask,
-  getApplication,
-  getHistory,
-  listApplications,
-  listDocuments,
-  listNotes,
-  listTasks,
-  presignUpload,
-  submitApplication,
-  updateApplication,
-  uploadToSignedUrl,
   type ApplicationDetails,
   type ApplicationDocument,
   type LoanApplicationStatus,
@@ -28,6 +12,10 @@ import {
   type StatusHistoryItem,
   type TaskItem
 } from '../lib/api'
+import { createApplicationsUseCases } from '../logic/usecases/applications'
+import { createDocumentsUseCases } from '../logic/usecases/documents'
+import { createNotesUseCases } from '../logic/usecases/notes'
+import { createTasksUseCases } from '../logic/usecases/tasks'
 import { createApplicationSchema, statusChangeSchema, uploadSchema, type CreateApplicationFormData } from '../features/applications/validation'
 import { EmptyState } from '../components/shared/EmptyState'
 import { PageHeader } from '../components/shared/PageHeader'
@@ -84,6 +72,10 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
   const queryClient = useQueryClient()
   const toast = useToast()
   const accessToken = session.access_token
+  const applicationsUseCases = useMemo(() => createApplicationsUseCases(accessToken), [accessToken])
+  const documentsUseCases = useMemo(() => createDocumentsUseCases(accessToken), [accessToken])
+  const notesUseCases = useMemo(() => createNotesUseCases(accessToken), [accessToken])
+  const tasksUseCases = useMemo(() => createTasksUseCases(accessToken), [accessToken])
   const roles = toAppRoles(me.roles)
   const isInternal = hasAnyRole(roles, ['Intern', 'Originator', 'LoanOfficer', 'Admin'])
 
@@ -93,7 +85,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
 
   const applicationsQuery = useQuery({
     queryKey: ['applications', session.user.id],
-    queryFn: () => listApplications(accessToken)
+    queryFn: () => applicationsUseCases.listApplications()
   })
 
   const filteredApplications = useMemo(() => {
@@ -121,44 +113,36 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
 
   const detailsQuery = useQuery({
     queryKey: ['application-details', selectedApplicationId],
-    queryFn: () => getApplication(accessToken, selectedApplicationId as string),
+    queryFn: () => applicationsUseCases.getApplication(selectedApplicationId as string),
     enabled: Boolean(selectedApplicationId)
   })
 
   const docsQuery = useQuery({
     queryKey: ['application-documents', selectedApplicationId],
-    queryFn: () => listDocuments(accessToken, selectedApplicationId as string),
+    queryFn: () => documentsUseCases.getDocuments(selectedApplicationId as string),
     enabled: Boolean(selectedApplicationId)
   })
 
   const historyQuery = useQuery({
     queryKey: ['application-history', selectedApplicationId],
-    queryFn: () => getHistory(accessToken, selectedApplicationId as string),
+    queryFn: () => applicationsUseCases.getHistory(selectedApplicationId as string),
     enabled: Boolean(selectedApplicationId)
   })
 
   const tasksQuery = useQuery({
     queryKey: ['application-tasks', selectedApplicationId],
-    queryFn: () => listTasks(accessToken, { applicationId: selectedApplicationId as string }),
+    queryFn: () => tasksUseCases.listTasks({ applicationId: selectedApplicationId as string }),
     enabled: Boolean(selectedApplicationId)
   })
 
   const notesQuery = useQuery({
     queryKey: ['application-notes', selectedApplicationId],
-    queryFn: () => listNotes(accessToken, selectedApplicationId as string),
+    queryFn: () => notesUseCases.listNotes(selectedApplicationId as string),
     enabled: Boolean(selectedApplicationId)
   })
 
   const createDraftMutation = useMutation({
-    mutationFn: (payload: CreateApplicationFormData) =>
-      createApplication(accessToken, {
-        requestedAmount: payload.requestedAmount,
-        termMonths: payload.termMonths,
-        purpose: payload.purpose,
-        businessName: payload.businessName,
-        registrationNo: payload.registrationNo,
-        address: payload.address
-      }),
+    mutationFn: (payload: CreateApplicationFormData) => applicationsUseCases.createDraft(payload),
     onSuccess: async (created) => {
       toast.push('Draft application created.', 'success')
       await queryClient.invalidateQueries({ queryKey: ['applications'] })
@@ -173,7 +157,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
   })
 
   const submitMutation = useMutation({
-    mutationFn: (id: string) => submitApplication(accessToken, id),
+    mutationFn: (id: string) => applicationsUseCases.submitApplication(id),
     onSuccess: async () => {
       toast.push('Application submitted.', 'success')
       await refreshSelected(queryClient, selectedApplicationId)
@@ -188,9 +172,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
       const parsed = uploadSchema.safeParse({ docType })
       if (!parsed.success) throw new Error(parsed.error.issues[0].message)
 
-      const presign = await presignUpload(accessToken, selectedApplicationId, docType, docFile.name, docFile.type)
-      await uploadToSignedUrl(presign.uploadUrl, docFile)
-      await confirmUpload(accessToken, selectedApplicationId, docType, presign.storagePath, 'Uploaded')
+      await documentsUseCases.uploadDocumentFlow(selectedApplicationId, docType, docFile, 'Uploaded')
     },
     onSuccess: async () => {
       toast.push('Document uploaded.', 'success')
@@ -207,7 +189,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
       const parsed = statusChangeSchema.safeParse({ toStatus: statusTarget, note: statusNote })
       if (!parsed.success) throw new Error(parsed.error.issues[0].message)
 
-      return changeStatus(accessToken, selectedApplicationId, statusTarget, statusNote)
+      return applicationsUseCases.transitionStatus(selectedApplicationId, statusTarget, statusNote)
     },
     onSuccess: async () => {
       toast.push('Status updated.', 'success')
@@ -221,7 +203,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
     mutationFn: async () => {
       if (!selectedApplicationId || !detailsQuery.data) throw new Error('Select an application first.')
 
-      return updateApplication(accessToken, selectedApplicationId, {
+      return applicationsUseCases.assignApplication(selectedApplicationId, {
         requestedAmount: detailsQuery.data.requestedAmount,
         termMonths: detailsQuery.data.termMonths,
         purpose: detailsQuery.data.purpose,
@@ -238,7 +220,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
   const createTaskMutation = useMutation({
     mutationFn: async () => {
       if (!selectedApplicationId) throw new Error('Select an application first.')
-      return createTask(accessToken, {
+      return tasksUseCases.createTask({
         applicationId: selectedApplicationId,
         title: taskTitle,
         assignedTo: taskAssignTo || undefined,
@@ -256,7 +238,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
   })
 
   const completeTaskMutation = useMutation({
-    mutationFn: (task: TaskItem) => completeTask(accessToken, task.id, 'Completed from UI.'),
+    mutationFn: (task: TaskItem) => tasksUseCases.completeTask(task.id, 'Completed from UI.'),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['application-tasks', selectedApplicationId] })
     },
@@ -266,7 +248,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
   const createNoteMutation = useMutation({
     mutationFn: async () => {
       if (!selectedApplicationId) throw new Error('Select an application first.')
-      return createNote(accessToken, selectedApplicationId, noteBody)
+      return notesUseCases.createNote(selectedApplicationId, noteBody)
     },
     onSuccess: async () => {
       toast.push('Note added.', 'success')
@@ -279,7 +261,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
   const infoRequestedMutation = useMutation({
     mutationFn: async () => {
       if (!selectedApplicationId) throw new Error('Select an application first.')
-      return changeStatus(accessToken, selectedApplicationId, 'InfoRequested', infoRequestNote)
+      return applicationsUseCases.transitionStatus(selectedApplicationId, 'InfoRequested', infoRequestNote)
     },
     onSuccess: async () => {
       toast.push('Info request submitted.', 'success')

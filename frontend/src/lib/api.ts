@@ -1,3 +1,5 @@
+import { env } from './config/env'
+
 export type MeResponse = {
   userId: string
   email: string | null
@@ -66,6 +68,8 @@ export type ApplicationDocument = {
   uploadedBy: string
   uploadedAt: string
 }
+
+export type DocumentVerificationStatus = 'Verified' | 'Rejected'
 
 export type CreateApplicationInput = {
   clientId?: string
@@ -162,7 +166,13 @@ export type ArrearsItem = {
   daysOverdue: number
 }
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL as string
+const apiBaseUrl = env.VITE_API_BASE_URL
+
+function assertApiProviderEnabled(endpoint: string): void {
+  if (env.VITE_ENABLE_API_PROVIDER !== 'true') {
+    throw new Error(`API provider is disabled. Attempted API call: ${endpoint}`)
+  }
+}
 
 function authHeaders(accessToken: string): HeadersInit {
   return {
@@ -197,6 +207,7 @@ export async function fetchMe(accessToken: string): Promise<MeResponse> {
 }
 
 export async function createApplication(accessToken: string, input: CreateApplicationInput): Promise<ApplicationDetails> {
+  assertApiProviderEnabled('/api/applications')
   const response = await fetch(`${apiBaseUrl}/api/applications`, {
     method: 'POST',
     headers: authHeaders(accessToken),
@@ -206,6 +217,7 @@ export async function createApplication(accessToken: string, input: CreateApplic
 }
 
 export async function updateApplication(accessToken: string, id: string, input: UpdateApplicationInput): Promise<ApplicationDetails> {
+  assertApiProviderEnabled(`/api/applications/${id}`)
   const response = await fetch(`${apiBaseUrl}/api/applications/${id}`, {
     method: 'PUT',
     headers: authHeaders(accessToken),
@@ -215,6 +227,7 @@ export async function updateApplication(accessToken: string, id: string, input: 
 }
 
 export async function submitApplication(accessToken: string, id: string, note?: string): Promise<ApplicationDetails> {
+  assertApiProviderEnabled(`/api/applications/${id}/submit`)
   const response = await fetch(`${apiBaseUrl}/api/applications/${id}/submit`, {
     method: 'POST',
     headers: authHeaders(accessToken),
@@ -224,6 +237,7 @@ export async function submitApplication(accessToken: string, id: string, note?: 
 }
 
 export async function listApplications(accessToken: string): Promise<ApplicationSummary[]> {
+  assertApiProviderEnabled('/api/applications')
   const response = await fetch(`${apiBaseUrl}/api/applications`, {
     headers: authHeaders(accessToken)
   })
@@ -231,6 +245,7 @@ export async function listApplications(accessToken: string): Promise<Application
 }
 
 export async function getApplication(accessToken: string, id: string): Promise<ApplicationDetails> {
+  assertApiProviderEnabled(`/api/applications/${id}`)
   const response = await fetch(`${apiBaseUrl}/api/applications/${id}`, {
     headers: authHeaders(accessToken)
   })
@@ -287,6 +302,22 @@ export async function listDocuments(accessToken: string, applicationId: string):
     headers: authHeaders(accessToken)
   })
   return parseResponse<ApplicationDocument[]>(response)
+}
+
+export async function verifyDocument(
+  accessToken: string,
+  applicationId: string,
+  documentId: string,
+  status: DocumentVerificationStatus,
+  note?: string
+): Promise<void> {
+  const response = await fetch(`${apiBaseUrl}/api/applications/${applicationId}/documents/${documentId}/verify`, {
+    method: 'POST',
+    headers: authHeaders(accessToken),
+    body: JSON.stringify({ status, note: note ?? null })
+  })
+
+  await parseResponse<void>(response)
 }
 
 export async function changeStatus(

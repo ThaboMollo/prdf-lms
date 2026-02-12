@@ -101,11 +101,24 @@ builder.Services.AddCors(options =>
 
     options.AddPolicy("FrontendPolicy", policy =>
     {
-        policy.WithOrigins(allowedOrigins)
+        policy.SetIsOriginAllowed(origin =>
+            allowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase)
+            || IsLocalDevOrigin(origin))
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
 });
+
+static bool IsLocalDevOrigin(string origin)
+{
+    if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+    {
+        return false;
+    }
+
+    return string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(uri.Host, "127.0.0.1", StringComparison.OrdinalIgnoreCase);
+}
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

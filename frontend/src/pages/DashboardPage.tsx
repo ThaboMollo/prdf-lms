@@ -1,4 +1,5 @@
 ﻿import type { Session } from '@supabase/supabase-js'
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { EmptyState } from '../components/shared/EmptyState'
 import { KPIStatCard } from '../components/shared/KPIStatCard'
@@ -6,9 +7,6 @@ import { ListSkeleton } from '../components/shared/Skeletons'
 import { PageHeader } from '../components/shared/PageHeader'
 import { StatusBadge } from '../components/shared/StatusBadge'
 import {
-  listApplications,
-  listNotifications,
-  listTasks,
   type ApplicationSummary,
   type MeResponse,
   type NotificationItem,
@@ -16,6 +14,9 @@ import {
 } from '../lib/api'
 import { formatDateTime } from '../lib/format'
 import { getPrimaryRole, toAppRoles } from '../lib/rbac'
+import { createApplicationsUseCases } from '../logic/usecases/applications'
+import { createNotificationsUseCases } from '../logic/usecases/notifications'
+import { createTasksUseCases } from '../logic/usecases/tasks'
 
 type DashboardPageProps = {
   session: Session
@@ -24,22 +25,26 @@ type DashboardPageProps = {
 
 export function DashboardPage({ session, me }: DashboardPageProps) {
   const accessToken = session.access_token
+  const applicationsUseCases = useMemo(() => createApplicationsUseCases(accessToken), [accessToken])
+  const tasksUseCases = useMemo(() => createTasksUseCases(accessToken), [accessToken])
+  const notificationsUseCases = useMemo(() => createNotificationsUseCases(accessToken), [accessToken])
   const roles = toAppRoles(me.roles)
   const primaryRole = getPrimaryRole(roles)
 
   const appsQuery = useQuery({
     queryKey: ['dashboard-applications', session.user.id],
-    queryFn: () => listApplications(accessToken)
+    queryFn: () => applicationsUseCases.listApplications()
   })
 
   const tasksQuery = useQuery({
     queryKey: ['dashboard-tasks', session.user.id],
-    queryFn: () => listTasks(accessToken, { assignedToMe: true })
+    queryFn: () => tasksUseCases.listTasks({ assignedToMe: true })
   })
 
   const notificationsQuery = useQuery({
     queryKey: ['dashboard-notifications', session.user.id],
-    queryFn: () => listNotifications(accessToken, true)
+    queryFn: () => notificationsUseCases.listNotifications(true),
+    enabled: false
   })
 
   const applications = appsQuery.data ?? []
