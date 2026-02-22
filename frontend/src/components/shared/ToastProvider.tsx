@@ -1,4 +1,4 @@
-﻿import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 
 type ToastKind = 'success' | 'error' | 'info'
 
@@ -6,6 +6,7 @@ type ToastItem = {
   id: number
   message: string
   kind: ToastKind
+  leaving: boolean
 }
 
 type ToastApi = {
@@ -19,7 +20,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const push = useCallback((message: string, kind: ToastKind = 'info') => {
     const id = Date.now() + Math.floor(Math.random() * 100)
-    setToasts((current) => [...current, { id, message, kind }])
+    setToasts((current) => [...current, { id, message, kind, leaving: false }])
+    window.setTimeout(() => {
+      setToasts((current) => current.map((item) => (item.id === id ? { ...item, leaving: true } : item)))
+    }, 3200)
     window.setTimeout(() => {
       setToasts((current) => current.filter((item) => item.id !== id))
     }, 3500)
@@ -32,7 +36,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="toast-stack" aria-live="polite" aria-label="Notifications">
         {toasts.map((toast) => (
-          <div key={toast.id} className={`toast toast-${toast.kind}`}>
+          <div key={toast.id} className={`toast toast-${toast.kind}${toast.leaving ? ' toast-leaving' : ''}`}>
             {toast.message}
           </div>
         ))}

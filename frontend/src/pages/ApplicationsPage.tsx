@@ -687,6 +687,8 @@ function DetailsTab({ application }: { application: ApplicationDetails }) {
 }
 
 function DocumentsTab(props: ApplicationDetailProps) {
+  const [dragging, setDragging] = useState(false)
+
   return (
     <div className="stack-sm">
       <h3>Document Checklist</h3>
@@ -702,11 +704,20 @@ function DocumentsTab(props: ApplicationDetailProps) {
         })}
       </ul>
 
-      <div className="dropzone" onDragOver={(event) => event.preventDefault()} onDrop={(event) => {
-        event.preventDefault()
-        const file = event.dataTransfer.files?.[0]
-        props.setDocFile(file ?? null)
-      }}>
+      <div
+        className={`dropzone${dragging ? ' dropzone-active' : ''}`}
+        onDragEnter={() => setDragging(true)}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node)) setDragging(false)
+        }}
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={(event) => {
+          event.preventDefault()
+          setDragging(false)
+          const file = event.dataTransfer.files?.[0]
+          props.setDocFile(file ?? null)
+        }}
+      >
         <p>Drag and drop file here, or choose file below.</p>
         <label>
           Document type
