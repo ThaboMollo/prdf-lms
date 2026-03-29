@@ -1,0 +1,69 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 2695 >>
+stream
+BT
+/F1 11 Tf
+54 738 Td (PRDF LMS ? HIGH-LEVEL WORK REPORT) Tj
+54 710 Td (Date: 2026-03-29) Tj
+54 682 Td (Overview) Tj
+54 668 Td (This report summarizes the high-level work completed across the PRDF Loan Management System, focusing on the separation of the client and admin experiences, core workflow alignment, and foundational platform capabilities.) Tj
+54 640 Td (Product Surfaces) Tj
+54 626 Td (? Client UI and Admin UI are treated as two distinct apps, each with its own build and runtime.) Tj
+54 612 Td (? Client UI: https://prdf-lms.vercel.app/) Tj
+54 598 Td (? Admin UI: https://prdf-admin.vercel.app/) Tj
+54 570 Td (Client UI Progress) Tj
+54 556 Td (? Implemented a guided client flow: login ? apply ? upload documents ? submit ? dashboard unlocks.) Tj
+54 542 Td (? Dashboard and status views are gated until a first application is submitted.) Tj
+54 528 Td (? Application wizard moved to modal and embedded into the apply flow.) Tj
+54 514 Td (? Document upload integrated into the apply process \(not a separate page\).) Tj
+54 500 Td (? Added ?abandon/withdraw? behavior for in-progress applications.) Tj
+54 486 Td (? Standardized a black/white theme with royal-blue accents and font-awesome icons.) Tj
+54 458 Td (Admin UI Progress) Tj
+54 444 Td (? Admin UI themed to match the black/white/royal-blue system.) Tj
+54 430 Td (? Application review workspace updated with improved details, actions, and status handling.) Tj
+54 416 Td (? Added assign-to dropdown populated from staff roles \(Admin/LoanOfficer/Originator/Intern\).) Tj
+54 402 Td (? Enabled document view/download via signed URLs.) Tj
+54 388 Td (? Expanded application details to include client profile and business fields.) Tj
+54 374 Td (? Added employment status visibility in the application review details.) Tj
+54 346 Td (Data & Security Foundations) Tj
+54 332 Td (? RLS policies updated to allow correct document uploads and status history inserts.) Tj
+54 318 Td (? Added storage policies to enable admins to download documents.) Tj
+54 304 Td (? Added patch files for incremental DB updates.) Tj
+54 290 Td (? RBAC guidance captured and enforced in app logic.) Tj
+54 262 Td (Deliverables Summary) Tj
+54 248 Td (? Two independent UI apps \(client/admin\) with aligned styling and workflows.) Tj
+54 234 Td (? Improved review context for admins \(client identity, contact, business details, employment status\).) Tj
+54 220 Td (? Functional document upload, audit trail, and download support.) Tj
+54 192 Td (Notes) Tj
+54 178 Td (? Employment status requires the `clients.employment_status` column to exist in Supabase.) Tj
+54 164 Td (? Some fields \(like email\) remain restricted unless copied into the profiles table.) Tj
+ET
+
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000002988 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+3058
+%EOF
