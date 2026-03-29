@@ -26,7 +26,9 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: |
+            client-ui/package-lock.json
+            admin-ui/package-lock.json
 
       - name: Restore backend
         run: dotnet restore backend/PRDF.Lms.sln --configfile backend/NuGet.Config
@@ -37,13 +39,21 @@ jobs:
       - name: Test backend
         run: dotnet test backend/PRDF.Lms.sln --no-build
 
-      - name: Install frontend
+      - name: Install client UI
         run: npm ci
-        working-directory: frontend
+        working-directory: client-ui
 
-      - name: Build frontend
+      - name: Build client UI
         run: npm run build
-        working-directory: frontend
+        working-directory: client-ui
+
+      - name: Install admin UI
+        run: npm ci
+        working-directory: admin-ui
+
+      - name: Build admin UI
+        run: npm run build
+        working-directory: admin-ui
 
   deploy:
     if: github.ref == 'refs/heads/main'
@@ -55,5 +65,5 @@ jobs:
 
       - name: Deploy placeholder
         run: |
-          echo "Deploy frontend to Vercel/Netlify and backend to Azure Container Apps."
+          echo "Deploy client UI/admin UI to Vercel/Netlify and backend to Azure Container Apps."
           echo "Use environment secrets documented in docs/runbook.md."

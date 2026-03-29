@@ -9,7 +9,7 @@ Get-Content 'prdf-lms/.env' -ErrorAction SilentlyContinue | ForEach-Object {
     $envMap[$matches[1].Trim()] = $matches[2].Trim()
   }
 }
-Get-Content 'prdf-lms/frontend/.env' | ForEach-Object {
+Get-Content 'prdf-lms/client-ui/.env' | ForEach-Object {
   if ($_ -match '^\s*([^#=]+)=(.*)$') {
     $envMap[$matches[1].Trim()] = $matches[2].Trim()
   }

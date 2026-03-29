@@ -1,9 +1,11 @@
 # Node
 node_modules/
-frontend/node_modules/
+client-ui/node_modules/
+admin-ui/node_modules/
 
 # Frontend build
-frontend/dist/
+client-ui/dist/
+admin-ui/dist/
 
 # .NET
 **/bin/

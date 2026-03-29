@@ -132,6 +132,27 @@ with check (
   )
 );
 
+create policy "applications update by client"
+on public.loan_applications
+for update
+to authenticated
+using (
+  exists (
+    select 1
+    from public.clients c
+    where c.id = loan_applications.client_id
+      and c.user_id = auth.uid()
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.clients c
+    where c.id = loan_applications.client_id
+      and c.user_id = auth.uid()
+  )
+);
+
 create policy "documents read by related role"
 on public.loan_documents
 for select
@@ -151,9 +172,33 @@ using (
   )
 );
 
-create policy "documents write by staff"
+create policy "documents insert by client"
 on public.loan_documents
-for all
+for insert
+to authenticated
+with check (
+  exists (
+    select 1
+    from public.loan_applications la
+    join public.clients c on c.id = la.client_id
+    where la.id = loan_documents.application_id
+      and c.user_id = auth.uid()
+  )
+  or public.is_in_role(auth.uid(), 'Admin')
+  or public.is_in_role(auth.uid(), 'LoanOfficer')
+  or (
+    (public.is_in_role(auth.uid(), 'Intern') or public.is_in_role(auth.uid(), 'Originator'))
+    and exists (
+      select 1 from public.loan_applications la
+      where la.id = loan_documents.application_id
+        and la.assigned_to_user_id = auth.uid()
+    )
+  )
+);
+
+create policy "documents update by staff"
+on public.loan_documents
+for update
 to authenticated
 using (
   public.is_in_role(auth.uid(), 'Admin')
@@ -205,6 +250,20 @@ with check (
   or public.is_in_role(auth.uid(), 'LoanOfficer')
   or public.is_in_role(auth.uid(), 'Intern')
   or public.is_in_role(auth.uid(), 'Originator')
+);
+
+create policy "status history write by client"
+on public.application_status_history
+for insert
+to authenticated
+with check (
+  exists (
+    select 1
+    from public.loan_applications la
+    join public.clients c on c.id = la.client_id
+    where la.id = application_status_history.application_id
+      and c.user_id = auth.uid()
+  )
 );
 
 create policy "tasks read related"

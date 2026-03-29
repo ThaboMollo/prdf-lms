@@ -11,8 +11,10 @@
 4. Run backend:
    - `dotnet restore backend/PRDF.Lms.sln --configfile backend/NuGet.Config`
    - `dotnet run --project backend/src/PRDF.Lms.Api/PRDF.Lms.Api.csproj`
-5. Run frontend:
-   - `cd frontend && npm ci && npm run dev`
+5. Run client UI:
+   - `cd client-ui && npm ci && npm run dev`
+6. Run admin UI:
+   - `cd admin-ui && npm ci && npm run dev`
 
 ## Verification Checklist
 
@@ -24,7 +26,8 @@
 
 ## Deploy
 
-- Frontend: Vercel/Netlify using `frontend/`.
+- Client UI: Vercel/Netlify using `client-ui/`.
+- Admin UI: Vercel/Netlify using `admin-ui/`.
 - API: Azure Container Apps from `backend/src/PRDF.Lms.Api/Dockerfile`.
 - Configure secrets in host secret manager (never commit prod keys).
 

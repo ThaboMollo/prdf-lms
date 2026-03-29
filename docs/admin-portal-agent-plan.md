@@ -1,221 +1,370 @@
-# PRDF LMS Admin Portal Implementation Plan
+# PRDF LMS Implementation Plan
 
-## 1. Current State Review (Frontend + Backend)
+This plan supersedes the earlier admin-portal-only plan. It aligns implementation with the requirements baseline in [system-specification.md](./system-specification.md) and is intended to drive the next delivery cycles.
 
-### Frontend findings
-- Current app routes include `/dashboard`, `/applications`, `/loans`, `/portfolio`, but no dedicated admin portal route (`prdf-lms/frontend/src/App.tsx:81`, `prdf-lms/frontend/src/App.tsx:82`, `prdf-lms/frontend/src/App.tsx:84`, `prdf-lms/frontend/src/App.tsx:87`).
-- Sidebar/navigation has no admin section or admin-specific IA (`prdf-lms/frontend/src/app/layout/navigation.ts:10`).
-- Data provider behavior is inconsistent for domain repositories:
-  - `applications` is hard-wired to Supabase even when provider is `api` (`prdf-lms/frontend/src/lib/data/repositories/applications.repo.ts:26`, `prdf-lms/frontend/src/lib/data/repositories/applications.repo.ts:29`).
-  - `reports` is currently Supabase-only (`prdf-lms/frontend/src/lib/data/repositories/reports.repo.ts:10`).
-  - `tasks` already supports provider switching (`prdf-lms/frontend/src/lib/data/repositories/tasks.repo.ts:15`).
+## 1. Planning Objective
 
-### Backend findings
-- Existing API already exposes admin-adjacent capabilities: audit and operational reporting, document requirements, document verification, onboarding/invite, portfolio and arrears.
-- There is no explicit admin controller or user/role management API surface yet (no `/api/admin/*` routes in current controllers).
-- Authorization strategy is primarily `[Authorize]` + service-level role checks. This is workable, but admin portal operations should adopt explicit policy checks for clarity and defense-in-depth.
+Move the current repository from partial LMS capability coverage to a coherent MVP that supports:
 
-### Database/RLS findings
-- RBAC entities exist: `profiles`, `roles`, `user_roles` (`prdf-lms/infra/supabase/schema.sql:5`, `prdf-lms/infra/supabase/schema.sql:12`, `prdf-lms/infra/supabase/schema.sql:17`).
-- RLS currently allows self-read for profiles/roles and admin-read for audit log (`prdf-lms/infra/supabase/rls.sql:38`, `prdf-lms/infra/supabase/rls.sql:51`, `prdf-lms/infra/supabase/rls.sql:321`).
-- Admin-friendly operational tables already exist: `notification_templates`, `user_preferences`, `audit_log`, `document_requirements`.
+- Client-facing onboarding, application submission, document handling, status tracking, and repayment visibility
+- Internal review, approval, disbursement, repayment administration, reporting, and auditability
+- Clear separation between client and internal staff experiences over one shared backend domain
 
-## 2. Target Admin Portal Scope
+## 2. Current State Snapshot
 
-Build an `Admin`-only portal covering:
-1. User directory and role assignment.
-2. Internal staff onboarding/invite and deactivation.
-3. System configuration for document requirements and notification templates.
-4. Audit/compliance views and operational reporting.
-5. Admin dashboard with KPIs and workload/health indicators.
+### 2.1 Already implemented or partially implemented
 
-Out of scope for first release:
-1. Fine-grained permission editor per endpoint.
-2. Multi-tenant organization management.
-3. Full workflow engine redesign.
+- Authentication and route protection exist in the client UI/admin UI and API.
+- Core application endpoints exist for drafts, submission, status changes, notes, and history.
+- Document upload and verification flows exist.
+- Assisted client onboarding endpoints exist.
+- Loan disbursement and repayment recording endpoints exist.
+- Notification and reporting endpoints already exist.
+- Audit logging and RBAC foundations already exist in the database and backend.
 
-## 3. Delivery Strategy
+### 2.2 Major gaps against the new specification
 
-Use a vertical-slice rollout so each slice is deployable:
-1. Platform hardening + admin access control.
-2. User/role management.
-3. Config management (document requirements + templates).
-4. Audit/reporting workspace.
-5. UX polish, observability, and release hardening.
+- The UIs are still one mixed experience instead of clearly separated client and admin surfaces.
+- Client profile management is not yet a first-class product area in the UI and API contracts.
+- Internal approval workflow needs stronger decisioning structure, rationale capture, and role/policy clarity.
+- Admin user and role management is not implemented as a dedicated module.
+- Dashboard coverage is incomplete relative to the required management and operations metrics.
+- Document requirements, compliance controls, and notification management need a more complete admin workflow.
+- Reporting exports, audit exploration, and operational tooling are not yet fully productized.
+- The product specification needs to drive backlog and delivery sequencing across UI, backend, and database changes.
 
-## 4. Step-by-Step Plan
+## 3. Delivery Principles
 
-### Step 1: Define admin portal contract and IA
-1. Create an architecture decision record in `docs/`:
-   - Admin route map.
-   - Role/policy matrix for each admin action.
-   - API contracts (request/response/error model).
-2. Define frontend information architecture:
-   - `/admin` landing dashboard.
-   - `/admin/users`
-   - `/admin/config`
-   - `/admin/reports`
-   - `/admin/audit`
-3. Define non-functional targets:
-   - P95 API response under 500 ms for list endpoints.
-   - Pagination defaults and max limits.
-   - Auditability requirements for every admin mutation.
+1. Deliver vertical slices that are deployable and testable.
+2. Keep database changes additive through incremental SQL patch files.
+3. Route all sensitive internal mutations through backend APIs, not direct browser writes.
+4. Enforce RBAC in both API policies and Supabase RLS.
+5. Update docs, tests, and runbooks with each feature slice rather than at the end.
 
-Acceptance criteria:
-1. Admin module scope and API contracts are documented and approved.
-2. No ambiguity on which role can perform each action.
+## 4. Target MVP Scope
 
-### Step 2: Add backend authorization policies for admin operations
-1. In API startup, register named policies:
-   - `AdminOnly`
-   - `InternalStaff` (Admin + LoanOfficer for selected screens where needed)
-2. Apply `[Authorize(Policy = "AdminOnly")]` to all admin mutation endpoints.
-3. Keep service-level checks in place as secondary controls.
+### 4.1 Client MVP
 
-Acceptance criteria:
-1. Any non-admin token gets `403` on admin mutation endpoints.
-2. Integration tests cover allow/deny behavior by role.
+- Registration and login
+- Client profile capture and editing
+- Draft and submitted loan applications
+- Required document upload and status visibility
+- Application progress tracking
+- Notifications for major events
+- Repayment schedule and repayment history visibility
 
-### Step 3: Build backend admin module (`/api/admin/*`)
-1. Create `AdminController` with versioned endpoints for:
-   - `GET /api/admin/users` (paged, filter by role/status/search)
-   - `GET /api/admin/users/{id}`
-   - `POST /api/admin/users/{id}/roles` (set roles atomically)
-   - `POST /api/admin/users/{id}/deactivate`
-   - `POST /api/admin/users/{id}/reactivate`
-2. Add supporting application contracts and validators.
-3. Add infrastructure service that uses DB + Supabase Admin APIs where required.
-4. Ensure every mutation writes to `audit_log` with actor + metadata payload.
+### 4.2 Internal MVP
 
-Acceptance criteria:
-1. Admin can list users and update role assignments safely.
-2. All admin mutations are audited.
-3. Validation and error responses are consistent with existing API style.
+- Staff authentication and RBAC
+- Application intake, review, notes, and status progression
+- Approval, rejection, and more-information decisions with rationale
+- Disbursement capture
+- Repayment administration
+- Dashboard metrics and basic reporting
+- Audit trail for major actions
 
-### Step 4: Extend database/RLS for admin management use cases
-1. Add SQL patch (new incremental script) for:
-   - Optional user status fields (`is_active`, timestamps) in `profiles` or dedicated table.
-   - Indexes for user search/list performance.
-2. Update RLS/policies for admin read/update on managed profile/role records.
-3. Keep least privilege:
-   - Client and non-admin internal users should not gain broad profile visibility.
+## 5. Workstreams
 
-Acceptance criteria:
-1. RLS still blocks non-admin broad reads.
-2. Admin list queries perform efficiently on realistic data sizes.
+### Workstream A: Platform and access control
 
-### Step 5: Unify frontend provider strategy before admin UI
-1. Remove partial provider divergence:
-   - Add API adapters and switching for repositories currently Supabase-only (`applications`, `reports`, and any new admin repository).
-2. Ensure admin-sensitive operations use backend endpoints, not direct browser writes.
-3. Add feature flag for admin portal enablement:
-   - `VITE_ENABLE_ADMIN_PORTAL=true|false`
+Scope:
 
-Acceptance criteria:
-1. Admin features behave consistently in selected provider mode.
-2. No admin mutation depends on insecure client-only Supabase logic.
+- Normalize roles, policies, and route guards
+- Separate client-facing and internal-facing navigation and layouts
+- Align repository provider behavior so privileged workflows consistently use backend APIs
 
-### Step 6: Add frontend admin routes and guards
-1. Add `Admin` route group to `App.tsx` and navigation:
-   - Wrap with `RequireRole allowed={['Admin']}`.
-2. Add dedicated admin layout shell (section tabs + breadcrumb + filter bar).
-3. Ensure non-admin users never see admin navigation items.
+Primary outputs:
 
-Acceptance criteria:
-1. Admin users see portal links and pages.
-2. Non-admin users are redirected/forbidden for all admin routes.
+- Policy matrix
+- Auth and authorization cleanup
+- Provider alignment for admin-sensitive operations
 
-### Step 7: Implement Admin Users page
-1. Build `AdminUsersPage`:
-   - User table with server-driven pagination, search, and role filters.
-   - User detail drawer/panel.
-   - Role assignment editor with optimistic UI + rollback on failure.
-2. Add bulk-safe UX:
-   - Confirmation dialog for deactivation/reactivation.
-   - Dirty-state warnings.
-3. Add proper loading/empty/error states using existing shared components.
+### Workstream B: Client onboarding and profile management
 
-Acceptance criteria:
-1. Admin can find users quickly and modify roles with clear feedback.
-2. UI handles API failures without stale local state.
+Scope:
 
-### Step 8: Implement Admin Config page
-1. Build configuration sections:
-   - Document requirements management.
-   - Notification template management.
-2. Use server validation for template fields and requirement uniqueness.
-3. Add change history links to audit records where possible.
+- First-class client profile model and screens
+- Self-service and staff-assisted onboarding flow alignment
+- Profile completeness tracking and client-level document association
 
-Acceptance criteria:
-1. Config changes are persisted and visible immediately.
-2. Invalid configuration is blocked with actionable errors.
+Primary outputs:
 
-### Step 9: Implement Admin Reports + Audit pages
-1. Reports page:
-   - Reuse existing reporting endpoints (turnaround, conversion, productivity, portfolio, arrears).
-   - Add date ranges and CSV export for each table.
-2. Audit page:
-   - Query by date range, actor, entity, action.
-   - Add pagination and metadata inspection panel.
-3. Add API-side query limit controls and sane defaults.
+- Client profile UI and API surface
+- Assisted onboarding refinements
+- Profile completeness indicators
 
-Acceptance criteria:
-1. Admin can self-serve compliance evidence and operational metrics.
-2. Query performance and result limits are predictable.
+### Workstream C: Application workflow and decisioning
 
-### Step 10: Tests and quality gates
-1. Backend tests:
-   - Admin authorization integration tests.
-   - Validator tests.
-   - Audit logging tests for all admin mutations.
-2. Frontend tests:
-   - Route guard tests.
-   - Admin user flows (list, assign role, deactivate/reactivate).
-   - Config/report rendering and error-state tests.
-3. End-to-end tests:
-   - Admin happy path.
-   - Non-admin blocked path.
+Scope:
+
+- Draft, submit, review, await-documents, assessed, approved, rejected, disbursed, repayment, and closed transitions
+- Structured internal notes and assessment outcomes
+- Approval decision capture with actor, date, and rationale
+
+Primary outputs:
+
+- Refined status model
+- Assessment and approval contracts
+- End-to-end workflow UI for staff
+
+### Workstream D: Documents and compliance
+
+Scope:
+
+- Mandatory document requirements by application type or workflow stage
+- Document review, verification, and missing-document handling
+- Compliance-ready history and audit trace
+
+Primary outputs:
+
+- Document requirements management
+- Missing-document workflow
+- Compliance and verification views
+
+### Workstream E: Loans, disbursements, and repayments
+
+Scope:
+
+- Formal disbursement capture and history
+- Repayment schedules, transactions, balances, and arrears
+- Client and staff loan detail views
+
+Primary outputs:
+
+- Loan servicing UI and API refinements
+- Arrears and overdue indicators
+- Repayment visibility for both sides of the platform
+
+### Workstream F: Dashboards, reports, and notifications
+
+Scope:
+
+- Operational dashboard KPIs
+- Reporting exports and audit exploration
+- Status-change notifications and reminder workflows
+
+Primary outputs:
+
+- Client dashboard and internal dashboard separation
+- Management reporting workspace
+- Notification event matrix and delivery handling
+
+## 6. Phased Implementation Plan
+
+### Phase 1: Foundation realignment
+
+Goal:
+
+Create the structural base needed to implement the wider specification safely.
+
+Tasks:
+
+1. Convert the planning baseline from admin-only to product-wide scope.
+2. Define a role and policy matrix for all major actions.
+3. Separate the UI information architecture into client and internal/admin sections.
+4. Align repository/provider behavior so internal privileged mutations go through backend APIs.
+5. Add missing API policy guards and validation consistency where needed.
 
 Acceptance criteria:
-1. CI passes with new admin test suite.
-2. Critical admin workflows are covered end-to-end.
 
-### Step 11: Security, observability, and rollout
-1. Add structured logs for admin actions (actor, endpoint, outcome, latency).
-2. Add rate limits for sensitive admin mutation endpoints.
-3. Run pre-prod checklist:
-   - RLS verification scripts.
-   - Role-escalation abuse tests.
-   - Token/claim edge case tests.
-4. Release with feature flag and staged rollout:
-   - Internal QA -> limited admins -> full admin cohort.
+1. Route and permission ownership is documented and enforced.
+2. Frontend navigation clearly distinguishes client and internal workflows.
+3. No privileged mutation depends on direct browser-only writes.
+
+### Phase 2: Client onboarding and profile slice
+
+Goal:
+
+Make client identity and onboarding a complete product area instead of an implicit side effect of authentication.
+
+Tasks:
+
+1. Introduce explicit client profile contracts, endpoints, and persistence adjustments.
+2. Build client profile create/edit screens.
+3. Add profile completeness tracking.
+4. Refine assisted onboarding to work against the same client profile model.
+5. Link documents and applications cleanly to a client profile.
 
 Acceptance criteria:
-1. Admin portal is observable, auditable, and reversible.
-2. Rollout can be paused/disabled via feature flag.
 
-## 5. Suggested Implementation Order (2-Week Sprint Model)
+1. A client can create and maintain a usable profile.
+2. Staff-assisted onboarding produces the same data shape as self-service onboarding.
+3. Profile completeness is visible to staff and clients where appropriate.
 
-1. Sprint 1:
-   - Steps 1 to 4 (contracts, auth policies, admin backend, DB/RLS patch).
-2. Sprint 2:
-   - Steps 5 to 7 (provider alignment, routes/guards, user management UI).
-3. Sprint 3:
-   - Steps 8 to 11 (config, reports/audit, hardening, rollout).
+### Phase 3: Application workflow and decisioning slice
 
-## 6. AI Agent Execution Checklist
+Goal:
 
-1. Do not bypass backend authorization for admin mutations.
-2. Keep all DB changes additive and delivered as incremental SQL patch files.
-3. Add tests with every feature slice; do not batch testing at the end.
-4. Preserve existing role model (`Admin`, `LoanOfficer`, `Originator`, `Intern`, `Client`) unless explicitly approved to change.
-5. Update `docs/api-spec.md`, `docs/rbac.md`, and `docs/runbook.md` with each admin feature addition.
+Complete the application journey from draft to formal decision.
 
-## 7. Definition of Done
+Tasks:
 
-1. Admin portal routes exist and are Admin-only.
-2. Admin can manage users and roles end-to-end.
-3. Admin can manage document requirements and notification templates.
-4. Admin can access reports and audit logs with filters and exports.
-5. All admin mutations are audited and covered by tests.
-6. Feature is deployed behind a toggle with a documented rollback path.
+1. Review and finalize the application status model against the specification.
+2. Add structured assessment and approval decision entities and endpoints if missing.
+3. Capture rationale, timestamps, and responsible users for decisions.
+4. Improve staff review screens for notes, findings, and requests for more information.
+5. Ensure clients can track status changes clearly.
+
+Acceptance criteria:
+
+1. Applications move through all required stages with audit history.
+2. Approval, rejection, and return-for-information actions are fully traceable.
+3. Client and staff status views are consistent.
+
+### Phase 4: Document compliance slice
+
+Goal:
+
+Make document handling rule-driven and operationally manageable.
+
+Tasks:
+
+1. Add document requirements management by workflow or product type.
+2. Add missing-document flagging and request flows.
+3. Expand verification and review tooling for staff.
+4. Confirm storage, metadata, and audit behavior meet compliance requirements.
+
+Acceptance criteria:
+
+1. Staff can tell what is missing, uploaded, pending review, or verified.
+2. Clients receive clear prompts when documents are outstanding.
+3. Document events are auditable.
+
+### Phase 5: Loan servicing slice
+
+Goal:
+
+Complete approved-loan administration and borrower repayment visibility.
+
+Tasks:
+
+1. Refine disbursement capture and history presentation.
+2. Add repayment schedule generation or persistence completion where needed.
+3. Improve repayment transaction visibility, balances, and overdue indicators.
+4. Ensure client-facing loan views expose only their own repayment data.
+
+Acceptance criteria:
+
+1. Approved loans can be disbursed and serviced end to end.
+2. Outstanding balance and arrears are visible to staff.
+3. Borrowers can view repayment information relevant to them.
+
+### Phase 6: Internal operations and admin controls
+
+Goal:
+
+Provide internal teams with the management and administration capabilities required by the specification.
+
+Tasks:
+
+1. Implement admin user directory and role assignment workflows.
+2. Add document requirement and notification configuration management.
+3. Expand internal dashboards for application pipeline, approvals, disbursements, and arrears.
+4. Productize reports and audit exploration with filters and exports.
+
+Acceptance criteria:
+
+1. Admins can manage users and internal configuration safely.
+2. Management users can access the required KPI and reporting surfaces.
+3. Audit and reporting tools are usable without direct database access.
+
+### Phase 7: Hardening and release readiness
+
+Goal:
+
+Make the MVP operationally safe to release.
+
+Tasks:
+
+1. Add integration, UI, and end-to-end tests for critical workflows.
+2. Run RLS and authorization verification for client, staff, and admin roles.
+3. Update runbooks, support docs, and API documentation.
+4. Add rollout controls, observability, and incident response guidance.
+
+Acceptance criteria:
+
+1. Critical client and staff flows are test-covered.
+2. Role escalation and cross-client data access paths are blocked.
+3. Operations documentation is current.
+
+## 7. Recommended Next Sprint
+
+Start with Phase 1 and Phase 2 in this order:
+
+1. Finalize the role and route matrix.
+2. Split UI navigation and layouts into client and internal sections.
+3. Align provider/repository behavior for privileged operations.
+4. Define the client profile contracts and persistence changes.
+5. Implement client profile UI and assisted onboarding alignment.
+
+Reasoning:
+
+- The current repository already has application, document, and loan primitives.
+- The biggest risk is building more features on top of mixed UX boundaries and inconsistent authorization paths.
+- Client profile and IA cleanup unlock the rest of the specification cleanly.
+
+## 8. Backlog Seeds for Immediate Implementation
+
+### Backend
+
+- Add explicit client profile service, contracts, validators, and controller
+- Add policy-based authorization for internal-only and admin-only actions
+- Add approval decision and assessment contracts where current endpoints are too generic
+- Add incremental SQL patches for profile completeness, indexes, and any new workflow entities
+
+### Frontend
+
+- Create separate client and internal navigation models
+- Add client profile page and onboarding flow states
+- Add clearer application status and decision UX
+- Add internal review and approval workspace refinements
+
+### Docs and operations
+
+- Update `docs/api-spec.md` as endpoints are added or changed
+- Update `docs/rbac.md` with the policy matrix
+- Update `docs/runbook.md` with rollout and support expectations for each release slice
+
+## 9. Definition of Done for MVP
+
+1. Clients can register, manage profiles, apply, upload documents, track status, and view repayment information.
+2. Internal staff can review, assess, decide, disburse, and track repayments using role-appropriate tools.
+3. Admin and management users can access user management, configuration, dashboards, and reports.
+4. Major actions are audited and protected by backend authorization and RLS.
+5. MVP workflows are covered by tests and documented for deployment and support.
+
+## 10. Feature Implementation Checklist
+
+Use this checklist to track implementation against the specification. Each item should be implemented end-to-end (DB, API, UI, tests) before moving on.
+
+### Client-facing features
+
+- Registration and login
+- Client profile create/edit
+- Loan application draft and submission
+- Document upload and status visibility
+- Application status tracking
+- Notifications for status changes and missing documents
+- Repayment schedule and repayment history visibility
+
+### Internal workflow features
+
+- Application review and internal notes
+- Assessment outcomes and decision rationale
+- Approve, reject, or request more information
+- Disbursement capture and history
+- Repayment tracking and arrears indicators
+
+### Admin and management features
+
+- User directory and role assignment
+- Document requirements management
+- Notification template management
+- Dashboards for pipeline, approvals, disbursements, arrears
+- Reporting exports and audit exploration
+
+### Compliance and audit
+
+- Audit logging for all major actions
+- Role-based access enforced at API and RLS
+- Document verification and compliance trace

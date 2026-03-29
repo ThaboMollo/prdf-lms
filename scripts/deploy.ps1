@@ -21,7 +21,11 @@ Write-Host "Step 2: Deploy API container (Azure Container Apps example)"
 Write-Host "  az containerapp update --name prdf-lms-api-$Environment --image <registry>/prdflms-api:$ApiImageTag"
 
 Write-Host ""
-Write-Host "Step 3: Deploy frontend (Vercel/Netlify)"
+Write-Host "Step 3: Deploy client UI (Vercel/Netlify)"
+Write-Host "  vercel --prod --yes"
+
+Write-Host ""
+Write-Host "Step 3b: Deploy admin UI (Vercel/Netlify)"
 Write-Host "  vercel --prod --yes"
 
 Write-Host ""

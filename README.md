@@ -1,6 +1,6 @@
 # PRDF LMS Monorepo
 
-React + TypeScript frontend, ASP.NET Core API, and Supabase-backed data/auth/storage.
+Client UI + Admin UI (React + TypeScript), ASP.NET Core API, and Supabase-backed data/auth/storage.
 
 ## Prerequisites
 - Node.js 22+
@@ -19,18 +19,26 @@ React + TypeScript frontend, ASP.NET Core API, and Supabase-backed data/auth/sto
 3. Run backend:
    - `dotnet restore backend/PRDF.Lms.sln --configfile backend/NuGet.Config`
    - `dotnet run --project backend/src/PRDF.Lms.Api/PRDF.Lms.Api.csproj`
-4. Run frontend:
-   - `cd frontend && npm ci && npm run dev`
+4. Run client UI:
+   - `cd client-ui && npm ci && npm run dev`
+5. Run admin UI:
+   - `cd admin-ui && npm ci && npm run dev`
 5. Verify:
    - `GET /health`
    - login page works
    - `/me` returns authenticated profile
 
 ## Structure
-- `frontend/`: React + TypeScript + Vite
+- `client-ui/`: React + TypeScript + Vite (client-facing)
+- `admin-ui/`: React + TypeScript + Vite (internal/admin)
 - `backend/`: Clean Architecture solution
 - `infra/supabase/`: schema, RLS, seed, storage setup
 - `docs/`: handover-oriented docs
+
+## Product Documentation
+- `docs/system-specification.md`: full product requirements and phased scope
+- `docs/brd-summary.md`: executive summary of the business requirements
+- `docs/architecture.md`: implementation architecture overview
 
 ## Environment Variables
 Copy `.env.example` to `.env` and set:
@@ -56,13 +64,21 @@ dotnet run
 ```
 API defaults to `http://localhost:5080` when `ASPNETCORE_URLS` is set.
 
-## Run Frontend
+## Run Client UI
 ```bash
-cd frontend
+cd client-ui
 npm install
 npm run dev
 ```
-Frontend defaults to `http://localhost:5173`.
+Client UI defaults to `http://localhost:5173`.
+
+## Run Admin UI
+```bash
+cd admin-ui
+npm install
+npm run dev
+```
+Admin UI defaults to `http://localhost:5174`.
 
 ## Apply Supabase SQL
 Run in this order in Supabase SQL editor (dev first):
@@ -79,7 +95,7 @@ Run in this order in Supabase SQL editor (dev first):
 - `GET /api/reports/*`
 
 ## Data Provider Switch
-- Frontend data provider is controlled by `VITE_DATA_PROVIDER`.
+- UI data provider is controlled by `VITE_DATA_PROVIDER`.
 - `supabase`: use Supabase adapters as primary data layer.
 - `api`: use .NET API adapters.
 - The .NET API remains retained and buildable for fallback and future migration phases.

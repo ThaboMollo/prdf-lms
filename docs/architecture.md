@@ -3,7 +3,11 @@
 ## Module Boundaries
 
 ```text
-frontend (React + TS)
+client-ui (React + TS)
+  -> Supabase Auth (session)
+  -> .NET API (business rules)
+
+admin-ui (React + TS)
   -> Supabase Auth (session)
   -> .NET API (business rules)
 
@@ -27,7 +31,7 @@ Supabase
 
 ## Runtime Flow
 
-1. User authenticates via Supabase Auth (frontend client).
+1. User authenticates via Supabase Auth (client or admin UI).
 2. Frontend sends Supabase JWT to API.
 3. API validates issuer/audience/signature against Supabase.
 4. API enforces role rules (server-side), then executes use-case via infrastructure services.
@@ -36,7 +40,7 @@ Supabase
 
 ## Security Model
 
-- Trust boundary: frontend is untrusted for authorization.
+- Trust boundary: UI clients are untrusted for authorization.
 - RBAC enforced at API and reinforced by Supabase RLS.
 - Signed upload URLs are generated server-side using service role key.
 - Immutable fields on `loan_documents` are DB-trigger-protected.
