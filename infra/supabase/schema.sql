@@ -26,6 +26,7 @@ create table if not exists public.clients (
   business_name text not null,
   registration_no text,
   address text,
+  employment_status text,
   created_at timestamptz not null default now()
 );
 

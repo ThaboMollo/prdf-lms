@@ -6,6 +6,7 @@ import { createSupabaseDocumentsAdapter } from '../adapters/supabase/documents.s
 export type DocumentsRepository = {
   getDocuments: (applicationId: string) => Promise<ApplicationDocument[]>
   uploadDocument: (applicationId: string, docType: string, file: File, status?: string) => Promise<ApplicationDocument>
+  getDocumentUrl: (storagePath: string, expiresInSeconds?: number) => Promise<string>
   presignUpload: (
     applicationId: string,
     docType: string,

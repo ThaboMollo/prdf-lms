@@ -1,5 +1,5 @@
 ﻿
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
@@ -16,6 +16,7 @@ import { createApplicationsUseCases } from '../logic/usecases/applications'
 import { createDocumentsUseCases } from '../logic/usecases/documents'
 import { createNotesUseCases } from '../logic/usecases/notes'
 import { createTasksUseCases } from '../logic/usecases/tasks'
+import { createSupabaseDataClient } from '../lib/supabase/client'
 import { createApplicationSchema, statusChangeSchema, uploadSchema, type CreateApplicationFormData } from '../features/applications/validation'
 import { EmptyState } from '../components/shared/EmptyState'
 import { PageHeader } from '../components/shared/PageHeader'
@@ -28,6 +29,12 @@ import { hasAnyRole, toAppRoles } from '../lib/rbac'
 type ApplicationsPageProps = {
   session: Session
   me: MeResponse
+}
+
+type AssignableUser = {
+  userId: string
+  name: string
+  roles: string[]
 }
 
 const statuses: LoanApplicationStatus[] = [
@@ -60,6 +67,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
   const [docFile, setDocFile] = useState<File | null>(null)
   const [infoRequestNote, setInfoRequestNote] = useState('')
   const [wizardStep, setWizardStep] = useState(1)
+  const detailRef = useRef<HTMLDivElement | null>(null)
   const [wizardValues, setWizardValues] = useState<CreateApplicationFormData>({
     businessName: '',
     registrationNo: '',
@@ -88,6 +96,67 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
     queryFn: () => applicationsUseCases.listApplications()
   })
 
+  const assignableUsersQuery = useQuery({
+    queryKey: ['assignable-users'],
+    queryFn: async (): Promise<AssignableUser[]> => {
+      const client = createSupabaseDataClient(accessToken)
+      const { data: roleRows, error: rolesError } = await client
+        .from('user_roles')
+        .select('user_id, roles(name)')
+
+      if (rolesError) {
+        throw new Error(`Supabase list roles failed: ${rolesError.message}`)
+      }
+
+      const allowedRoleNames = new Set(['Admin', 'LoanOfficer', 'Originator', 'Intern'])
+      const rolesByUser = new Map<string, string[]>()
+
+      for (const row of roleRows ?? []) {
+        const roleName = Array.isArray((row as { roles?: { name?: string } | { name?: string }[] }).roles)
+          ? ((row as { roles?: { name?: string }[] }).roles ?? []).map((role) => role.name).filter(Boolean)
+          : [(row as { roles?: { name?: string } }).roles?.name].filter(Boolean)
+
+        const cleaned = roleName.filter((name): name is string => Boolean(name))
+        if (!cleaned.length) continue
+
+        const userRoles = rolesByUser.get((row as { user_id: string }).user_id) ?? []
+        rolesByUser.set((row as { user_id: string }).user_id, [...new Set([...userRoles, ...cleaned])])
+      }
+
+      const assignableUserIds = [...rolesByUser.entries()]
+        .filter(([, userRoles]) => userRoles.some((role) => allowedRoleNames.has(role)))
+        .map(([userId]) => userId)
+
+      if (!assignableUserIds.length) return []
+
+      const { data: profiles, error: profileError } = await client
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', assignableUserIds)
+
+      if (profileError) {
+        throw new Error(`Supabase list profiles failed: ${profileError.message}`)
+      }
+
+      const nameByUser = new Map<string, string>()
+      for (const profile of profiles ?? []) {
+        const name = (profile as { full_name?: string }).full_name?.trim()
+        if (name) {
+          nameByUser.set((profile as { user_id: string }).user_id, name)
+        }
+      }
+
+      return assignableUserIds
+        .map((userId) => ({
+          userId,
+          name: nameByUser.get(userId) ?? `User ${userId.slice(0, 8)}`,
+          roles: rolesByUser.get(userId) ?? []
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    },
+    enabled: isInternal
+  })
+
   const filteredApplications = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase()
 
@@ -110,6 +179,12 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
       setParams(next, { replace: true })
     }
   }, [filteredApplications, params, selectedApplicationId, setParams])
+
+  useEffect(() => {
+    if (selectedApplicationId && detailRef.current) {
+      detailRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [selectedApplicationId])
 
   const detailsQuery = useQuery({
     queryKey: ['application-details', selectedApplicationId],
@@ -273,6 +348,10 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
 
   const detail = detailsQuery.data
 
+  useEffect(() => {
+    setAssignUserId(detail?.assignedToUserId ?? '')
+  }, [detail?.assignedToUserId])
+
   return (
     <section className="stack">
       <PageHeader title="Applications" subtitle="Search and manage cases with a responsive list + tabbed detail workspace." />
@@ -333,7 +412,14 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
                       <td>{app.assignedToUserId ?? 'Unassigned'}</td>
                       <td>{formatDateTime(app.submittedAt ?? app.createdAt)}</td>
                       <td>
-                        <button className="link-btn" type="button" onClick={() => chooseApplication(params, setParams, app.id)}>
+                        <button
+                          className="link-btn"
+                          type="button"
+                          onClick={() => {
+                            chooseApplication(params, setParams, app.id)
+                            setTab('Details')
+                          }}
+                        >
                           {resolvePrimaryAction(app.status, isInternal)}
                         </button>
                       </td>
@@ -344,7 +430,15 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
             </div>
             <div className="mobile-cards mobile-only">
               {filteredApplications.map((app) => (
-                <button key={app.id} type="button" className="card card-button" onClick={() => chooseApplication(params, setParams, app.id)}>
+                <button
+                  key={app.id}
+                  type="button"
+                  className="card card-button"
+                  onClick={() => {
+                    chooseApplication(params, setParams, app.id)
+                    setTab('Details')
+                  }}
+                >
                   <div className="list-row">
                     <p className="list-title">{app.id.slice(0, 8)}</p>
                     <StatusBadge status={app.status} />
@@ -389,7 +483,11 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
         />
       ) : null}
 
+      <div ref={detailRef} />
       {detailsQuery.isLoading ? <DetailSkeleton /> : null}
+      {!detailsQuery.isLoading && !detail ? (
+        <EmptyState title="Select an application" message="Choose an application above to preview details and actions." />
+      ) : null}
       {detail ? (
         <ApplicationDetail
           application={detail}
@@ -400,6 +498,8 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
           tab={tab}
           setTab={setTab}
           isInternal={isInternal}
+          assignableUsers={assignableUsersQuery.data ?? []}
+          isLoadingAssignees={assignableUsersQuery.isLoading}
           docType={docType}
           setDocType={setDocType}
           setDocFile={setDocFile}
@@ -435,6 +535,15 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
           notePending={createNoteMutation.isPending}
           onSubmitApp={() => selectedApplicationId ? submitMutation.mutate(selectedApplicationId) : null}
           submitting={submitMutation.isPending}
+          onOpenDocument={async (storagePath) => {
+            try {
+              const url = await documentsUseCases.getDocumentUrl(storagePath, 600)
+              window.open(url, '_blank', 'noopener,noreferrer')
+            } catch (error) {
+              console.error(error)
+              toast.push(error instanceof Error ? error.message : 'Could not open document.', 'error')
+            }
+          }}
         />
       ) : null}
     </section>
@@ -553,6 +662,8 @@ type ApplicationDetailProps = {
   tab: DetailTab
   setTab: (tab: DetailTab) => void
   isInternal: boolean
+  assignableUsers: AssignableUser[]
+  isLoadingAssignees: boolean
   docType: string
   setDocType: (value: string) => void
   setDocFile: (file: File | null) => void
@@ -588,6 +699,7 @@ type ApplicationDetailProps = {
   notePending: boolean
   onSubmitApp: () => void
   submitting: boolean
+  onOpenDocument: (storagePath: string) => Promise<void>
 }
 
 function ApplicationDetail(props: ApplicationDetailProps) {
@@ -615,7 +727,22 @@ function ApplicationDetail(props: ApplicationDetailProps) {
             <h3>Internal Actions</h3>
             <label>
               Assign to user
-              <input value={props.assignUserId} onChange={(e) => props.setAssignUserId(e.target.value)} placeholder="Assignee UUID" />
+              <select
+                value={props.assignUserId}
+                onChange={(e) => props.setAssignUserId(e.target.value)}
+                disabled={props.isLoadingAssignees}
+              >
+                {props.isLoadingAssignees ? (
+                  <option value="">Loading users...</option>
+                ) : (
+                  <option value="">{props.assignableUsers.length ? 'Unassigned' : 'No assignable users found'}</option>
+                )}
+                {props.assignableUsers.map((user) => (
+                  <option key={user.userId} value={user.userId}>
+                    {user.name}{user.roles.length ? ` • ${user.roles.join(', ')}` : ''}
+                  </option>
+                ))}
+              </select>
             </label>
             <button className="btn" type="button" onClick={props.onAssign} disabled={props.assignPending}>
               {props.assignPending ? 'Saving...' : 'Save Assignment'}
@@ -666,12 +793,32 @@ function ApplicationDetail(props: ApplicationDetailProps) {
 }
 
 function DetailsTab({ application }: { application: ApplicationDetails }) {
+  const clientDetails = application.clientDetails
+  const contactName = clientDetails?.fullName ?? '—'
+  const contactPhone = clientDetails?.phone ?? '—'
+  const businessName = clientDetails?.businessName ?? '—'
+  const registrationNo = clientDetails?.registrationNo ?? '—'
+  const address = clientDetails?.address ?? '—'
+  const employmentStatus = clientDetails?.employmentStatus ?? '—'
+
   return (
     <dl className="detail-grid">
       <dt>Application ID</dt>
       <dd>{application.id}</dd>
       <dt>Client ID</dt>
       <dd>{application.clientId}</dd>
+      <dt>Client name</dt>
+      <dd>{contactName}</dd>
+      <dt>Contact phone</dt>
+      <dd>{contactPhone}</dd>
+      <dt>Business name</dt>
+      <dd>{businessName}</dd>
+      <dt>Registration no.</dt>
+      <dd>{registrationNo}</dd>
+      <dt>Address</dt>
+      <dd>{address}</dd>
+      <dt>Employment status</dt>
+      <dd>{employmentStatus}</dd>
       <dt>Status</dt>
       <dd>{application.status}</dd>
       <dt>Created</dt>
@@ -688,6 +835,7 @@ function DetailsTab({ application }: { application: ApplicationDetails }) {
 
 function DocumentsTab(props: ApplicationDetailProps) {
   const [dragging, setDragging] = useState(false)
+  const [openingDocId, setOpeningDocId] = useState<string | null>(null)
 
   return (
     <div className="stack-sm">
@@ -738,6 +886,25 @@ function DocumentsTab(props: ApplicationDetailProps) {
               </div>
               <small>Uploaded {formatDateTime(doc.uploadedAt)} by {doc.uploadedBy}</small>
               <small>{doc.storagePath}</small>
+              <div className="inline-actions">
+                <button
+                  className="btn btn-secondary"
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      setOpeningDocId(doc.id)
+                      await props.onOpenDocument(doc.storagePath)
+                    } catch (error) {
+                      console.error(error)
+                    } finally {
+                      setOpeningDocId(null)
+                    }
+                  }}
+                  disabled={openingDocId === doc.id}
+                >
+                  {openingDocId === doc.id ? 'Opening...' : 'View / Download'}
+                </button>
+              </div>
             </li>
           ))}
         </ul>

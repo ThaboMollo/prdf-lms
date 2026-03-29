@@ -30,7 +30,18 @@ export type ApplicationSummary = {
   assignedToUserId: string | null
 }
 
-export type ApplicationDetails = ApplicationSummary
+export type ClientDetails = {
+  businessName: string | null
+  registrationNo: string | null
+  address: string | null
+  fullName: string | null
+  phone: string | null
+  employmentStatus: string | null
+}
+
+export type ApplicationDetails = ApplicationSummary & {
+  clientDetails?: ClientDetails
+}
 
 export type StatusHistoryItem = {
   id: string

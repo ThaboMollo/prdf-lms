@@ -4,6 +4,9 @@ import type { DocumentsRepository } from '../../repositories/documents.repo'
 export function createApiDocumentsAdapter(accessToken: string): DocumentsRepository {
   return {
     getDocuments: (applicationId: string) => listDocuments(accessToken, applicationId),
+    getDocumentUrl: async () => {
+      throw new Error('Document download is not available for API provider yet.')
+    },
     async uploadDocument(applicationId: string, docType: string, file: File, status?: string): Promise<ApplicationDocument> {
       const presign = await presignUpload(accessToken, applicationId, docType, file.name, file.type)
       await uploadToSignedUrl(presign.uploadUrl, file)

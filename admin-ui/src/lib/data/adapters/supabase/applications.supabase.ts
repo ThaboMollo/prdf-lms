@@ -21,6 +21,20 @@ type ApplicationRow = {
   assigned_to_user_id: string | null
 }
 
+type ClientRow = {
+  id: string
+  user_id: string | null
+  business_name: string
+  registration_no: string | null
+  address: string | null
+  employment_status: string | null
+}
+
+type ProfileRow = {
+  full_name: string | null
+  phone: string | null
+}
+
 type HistoryRow = {
   id: string
   application_id: string
@@ -128,7 +142,40 @@ export function createSupabaseApplicationsAdapter(accessToken: string): Applicat
       throw new Error(`Supabase get application failed: ${error.message}`)
     }
 
-    return mapApplicationRow(data as ApplicationRow)
+    const application = mapApplicationRow(data as ApplicationRow)
+
+    const { data: clientRow, error: clientError } = await client
+      .from('clients')
+      .select('id, user_id, business_name, registration_no, address, employment_status')
+      .eq('id', application.clientId)
+      .single()
+
+    if (clientError) {
+      return application
+    }
+
+    let profile: ProfileRow | null = null
+    if ((clientRow as ClientRow).user_id) {
+      const { data: profileRow } = await client
+        .from('profiles')
+        .select('full_name, phone')
+        .eq('user_id', (clientRow as ClientRow).user_id)
+        .maybeSingle()
+
+      profile = (profileRow as ProfileRow) ?? null
+    }
+
+    return {
+      ...application,
+      clientDetails: {
+        businessName: (clientRow as ClientRow).business_name ?? null,
+        registrationNo: (clientRow as ClientRow).registration_no ?? null,
+        address: (clientRow as ClientRow).address ?? null,
+        fullName: profile?.full_name ?? null,
+        phone: profile?.phone ?? null,
+        employmentStatus: (clientRow as ClientRow).employment_status ?? null
+      }
+    }
   }
 
   const updateDraftInternal = async (id: string, input: UpdateApplicationInput): Promise<ApplicationDetails> => {
