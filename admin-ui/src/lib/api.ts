@@ -7,6 +7,27 @@ export type MeResponse = {
   roles: string[]
 }
 
+export type AdminAccessFilter = 'all' | 'admins' | 'non-admins'
+
+export type AdminAccessListItem = {
+  userId: string
+  fullName: string | null
+  email: string | null
+  roles: string[]
+  isAdmin: boolean
+  isInternal: boolean
+  canGrantAdmin: boolean
+  canRevokeAdmin: boolean
+  grantDisabledReason: string | null
+  revokeDisabledReason: string | null
+}
+
+export type AdminAccessMutationResult = {
+  userId: string
+  roles: string[]
+  isAdmin: boolean
+}
+
 export type LoanApplicationStatus =
   | 'Draft'
   | 'Submitted'
@@ -215,6 +236,38 @@ export async function fetchMe(accessToken: string): Promise<MeResponse> {
     headers: authHeaders(accessToken)
   })
   return parseResponse<MeResponse>(response)
+}
+
+export async function listAdminUserAccess(
+  accessToken: string,
+  input: { search?: string; filter?: AdminAccessFilter; role?: string } = {}
+): Promise<AdminAccessListItem[]> {
+  const query = new URLSearchParams()
+  if (input.search?.trim()) query.set('search', input.search.trim())
+  if (input.filter) query.set('filter', input.filter)
+  if (input.role?.trim()) query.set('role', input.role.trim())
+  const queryString = query.toString()
+
+  const response = await fetch(`${apiBaseUrl}/api/admin/users/access${queryString ? `?${queryString}` : ''}`, {
+    headers: authHeaders(accessToken)
+  })
+  return parseResponse<AdminAccessListItem[]>(response)
+}
+
+export async function grantAdminAccess(accessToken: string, userId: string): Promise<AdminAccessMutationResult> {
+  const response = await fetch(`${apiBaseUrl}/api/admin/users/${userId}/roles/admin`, {
+    method: 'POST',
+    headers: authHeaders(accessToken)
+  })
+  return parseResponse<AdminAccessMutationResult>(response)
+}
+
+export async function revokeAdminAccess(accessToken: string, userId: string): Promise<AdminAccessMutationResult> {
+  const response = await fetch(`${apiBaseUrl}/api/admin/users/${userId}/roles/admin`, {
+    method: 'DELETE',
+    headers: authHeaders(accessToken)
+  })
+  return parseResponse<AdminAccessMutationResult>(response)
 }
 
 export async function createApplication(accessToken: string, input: CreateApplicationInput): Promise<ApplicationDetails> {

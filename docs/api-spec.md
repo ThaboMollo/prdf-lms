@@ -49,6 +49,12 @@
 - `GET /api/notifications?unreadOnly=true|false`
 - `POST /api/notifications/{id}/read`
 
+## Admin Access
+
+- `GET /api/admin/users/access?search=&filter=all|admins|non-admins&role=`
+- `POST /api/admin/users/{userId}/roles/admin`
+- `DELETE /api/admin/users/{userId}/roles/admin`
+
 ## Compliance/Reporting
 
 - `GET /api/document-requirements`

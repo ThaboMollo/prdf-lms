@@ -533,6 +533,49 @@ textarea:disabled {
   min-width: 240px;
 }
 
+.helper-text {
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  white-space: normal;
+}
+
+.inline-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.access-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.table-meta {
+  color: var(--muted);
+  font-size: 0.8rem;
+  white-space: normal;
+}
+
+.role-chip-row {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.role-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border-light);
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.78rem;
+  background: var(--brand-soft);
+  color: var(--text);
+}
+
 /* ----------------------------------------------------------------
    Grids
    ---------------------------------------------------------------- */

@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using FluentValidation;
+using System.Net;
 using System.Text.Json.Serialization;
 using Quartz;
 using Serilog;
 using PRDF.Lms.Application.Abstractions.Auth;
+using PRDF.Lms.Application.AdminAccess;
 using PRDF.Lms.Application.Applications;
 using PRDF.Lms.Application.Applications.Validators;
 using PRDF.Lms.Application.Clients;
@@ -15,6 +17,7 @@ using PRDF.Lms.Application.Reports;
 using PRDF.Lms.Application.Tasks;
 using PRDF.Lms.Api.Jobs;
 using PRDF.Lms.Infrastructure.Applications;
+using PRDF.Lms.Infrastructure.AdminAccess;
 using PRDF.Lms.Infrastructure.Authentication;
 using PRDF.Lms.Infrastructure.Clients;
 using PRDF.Lms.Infrastructure.Configuration;
@@ -74,6 +77,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContextAccessor, CurrentUserContextAccessor>();
 builder.Services.AddScoped<IConnectionFactory, ConnectionFactory>();
+builder.Services.AddScoped<IAdminAccessService, AdminAccessService>();
 builder.Services.AddScoped<ILoanApplicationService, LoanApplicationService>();
 builder.Services.AddScoped<ILoanService, LoanService>();
 builder.Services.AddScoped<IClientOnboardingService, ClientOnboardingService>();
@@ -97,7 +101,7 @@ builder.Services.AddCors(options =>
 {
     var allowedOrigins = builder.Configuration
         .GetSection("Cors:AllowedOrigins")
-        .Get<string[]>() ?? ["http://localhost:5173"];
+        .Get<string[]>() ?? ["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174"];
 
     options.AddPolicy("FrontendPolicy", policy =>
     {
@@ -116,8 +120,12 @@ static bool IsLocalDevOrigin(string origin)
         return false;
     }
 
-    return string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(uri.Host, "127.0.0.1", StringComparison.OrdinalIgnoreCase);
+    if (string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase))
+    {
+        return true;
+    }
+
+    return IPAddress.TryParse(uri.Host, out var address) && IPAddress.IsLoopback(address);
 }
 
 builder.Services

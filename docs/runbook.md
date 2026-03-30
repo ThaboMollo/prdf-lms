@@ -16,6 +16,12 @@
 6. Run admin UI:
    - `cd admin-ui && npm ci && npm run dev`
 
+## Admin Access Management
+
+- Bootstrap admin access with SQL only for initial recovery or first-admin setup.
+- After the product feature is deployed, day-to-day Admin grants and revokes should be done in the admin UI under `User Access`.
+- Admin access changes should flow through backend APIs and create audit log rows.
+
 ## Verification Checklist
 
 - `GET /health` returns 200.

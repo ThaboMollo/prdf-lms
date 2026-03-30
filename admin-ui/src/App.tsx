@@ -12,6 +12,7 @@ import { LoginPage } from './pages/LoginPage'
 import { LoanDetailsPage } from './pages/LoanDetailsPage'
 import { PortfolioPage } from './pages/PortfolioPage'
 import { RegisterPage } from './pages/RegisterPage'
+import { UserAccessPage } from './pages/UserAccessPage'
 import { fetchMe, type MeResponse } from './lib/api'
 import { getDataProvider } from './lib/config/dataProvider'
 import { supabase } from './lib/supabase'
@@ -86,6 +87,9 @@ export function App() {
               </Route>
               <Route element={<RequireRole me={meQuery.data!} allowed={['LoanOfficer', 'Admin']} />}>
                 <Route path="/portfolio" element={<PortfolioPage session={session as Session} />} />
+              </Route>
+              <Route element={<RequireRole me={meQuery.data!} allowed={['Admin']} />}>
+                <Route path="/user-access" element={<UserAccessPage session={session as Session} />} />
               </Route>
             </Route>
           </Route>
