@@ -1,4 +1,5 @@
 import { env } from './config/env'
+import { createSupabaseDataClient } from './supabase/client'
 
 export type MeResponse = {
   userId: string
@@ -200,6 +201,25 @@ export type ArrearsItem = {
 
 const apiBaseUrl = env.VITE_API_BASE_URL
 
+type AdminAccessRpcRow = {
+  user_id: string
+  full_name: string | null
+  email: string | null
+  roles: string[] | null
+  is_admin: boolean
+  is_internal: boolean
+  can_grant_admin: boolean
+  can_revoke_admin: boolean
+  grant_disabled_reason: string | null
+  revoke_disabled_reason: string | null
+}
+
+type AdminAccessMutationRpcRow = {
+  user_id: string
+  roles: string[] | null
+  is_admin: boolean
+}
+
 function assertApiProviderEnabled(endpoint: string): void {
   if (env.VITE_ENABLE_API_PROVIDER !== 'true') {
     throw new Error(`API provider is disabled. Attempted API call: ${endpoint}`)
@@ -242,32 +262,73 @@ export async function listAdminUserAccess(
   accessToken: string,
   input: { search?: string; filter?: AdminAccessFilter; role?: string } = {}
 ): Promise<AdminAccessListItem[]> {
-  const query = new URLSearchParams()
-  if (input.search?.trim()) query.set('search', input.search.trim())
-  if (input.filter) query.set('filter', input.filter)
-  if (input.role?.trim()) query.set('role', input.role.trim())
-  const queryString = query.toString()
-
-  const response = await fetch(`${apiBaseUrl}/api/admin/users/access${queryString ? `?${queryString}` : ''}`, {
-    headers: authHeaders(accessToken)
+  const client = createSupabaseDataClient(accessToken)
+  const { data, error } = await client.rpc('admin_access_list', {
+    p_search: input.search?.trim() || null,
+    p_filter: input.filter ?? 'all',
+    p_role: input.role?.trim() || null
   })
-  return parseResponse<AdminAccessListItem[]>(response)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return (data ?? []).map((row: AdminAccessRpcRow) => ({
+    userId: row.user_id,
+    fullName: row.full_name,
+    email: row.email,
+    roles: row.roles ?? [],
+    isAdmin: row.is_admin,
+    isInternal: row.is_internal,
+    canGrantAdmin: row.can_grant_admin,
+    canRevokeAdmin: row.can_revoke_admin,
+    grantDisabledReason: row.grant_disabled_reason,
+    revokeDisabledReason: row.revoke_disabled_reason
+  }))
 }
 
 export async function grantAdminAccess(accessToken: string, userId: string): Promise<AdminAccessMutationResult> {
-  const response = await fetch(`${apiBaseUrl}/api/admin/users/${userId}/roles/admin`, {
-    method: 'POST',
-    headers: authHeaders(accessToken)
+  const client = createSupabaseDataClient(accessToken)
+  const { data, error } = await client.rpc('admin_access_grant', {
+    p_target_user_id: userId
   })
-  return parseResponse<AdminAccessMutationResult>(response)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  const row = (data as AdminAccessMutationRpcRow[] | null)?.[0]
+  if (!row) {
+    throw new Error('Unable to grant Admin access.')
+  }
+
+  return {
+    userId: row.user_id,
+    roles: row.roles ?? [],
+    isAdmin: row.is_admin
+  }
 }
 
 export async function revokeAdminAccess(accessToken: string, userId: string): Promise<AdminAccessMutationResult> {
-  const response = await fetch(`${apiBaseUrl}/api/admin/users/${userId}/roles/admin`, {
-    method: 'DELETE',
-    headers: authHeaders(accessToken)
+  const client = createSupabaseDataClient(accessToken)
+  const { data, error } = await client.rpc('admin_access_revoke', {
+    p_target_user_id: userId
   })
-  return parseResponse<AdminAccessMutationResult>(response)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  const row = (data as AdminAccessMutationRpcRow[] | null)?.[0]
+  if (!row) {
+    throw new Error('Unable to revoke Admin access.')
+  }
+
+  return {
+    userId: row.user_id,
+    roles: row.roles ?? [],
+    isAdmin: row.is_admin
+  }
 }
 
 export async function createApplication(accessToken: string, input: CreateApplicationInput): Promise<ApplicationDetails> {

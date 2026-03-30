@@ -75,7 +75,7 @@ export function UserAccessPage({ session }: UserAccessPageProps) {
     <section className="stack">
       <PageHeader
         title="User Access"
-        subtitle="Grant or revoke Admin access for existing internal users. Every change is routed through the backend and recorded in the audit trail."
+        subtitle="Grant or revoke Admin access for existing internal users. Every change is routed through Supabase and recorded in the audit trail."
       />
 
       <div className="grid-three">
