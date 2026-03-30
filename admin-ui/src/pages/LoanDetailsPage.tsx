@@ -1,17 +1,24 @@
-﻿import { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Session } from '@supabase/supabase-js'
-import { createLoansUseCases } from '../logic/usecases/loans'
+import { useSearchParams } from 'react-router-dom'
 import { EmptyState } from '../components/shared/EmptyState'
 import { PageHeader } from '../components/shared/PageHeader'
+import { PaginationControls } from '../components/shared/PaginationControls'
 import { formatCurrency, formatDateTime } from '../lib/format'
+import { paginateItems, parsePageParam } from '../lib/pagination'
+import { createLoansUseCases } from '../logic/usecases/loans'
 
 type LoanDetailsPageProps = {
   session: Session
 }
 
+const SCHEDULE_PAGE_SIZE = 12
+const REPAYMENTS_PAGE_SIZE = 12
+
 export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
   const queryClient = useQueryClient()
+  const [params, setParams] = useSearchParams()
   const accessToken = session.access_token
   const loansUseCases = useMemo(() => createLoansUseCases(accessToken), [accessToken])
   const [loanId, setLoanId] = useState('')
@@ -21,6 +28,9 @@ export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
   const [repaymentAmount, setRepaymentAmount] = useState(0)
   const [repaymentReference, setRepaymentReference] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
+
+  const schedulePage = parsePageParam(params.get('schedulePage'))
+  const repaymentsPage = parsePageParam(params.get('repaymentsPage'))
 
   const loanQuery = useQuery({
     queryKey: ['loan-details', submittedLoanId],
@@ -51,6 +61,16 @@ export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
   })
 
   const totalDue = useMemo(() => loanQuery.data?.schedule.reduce((sum, item) => sum + item.dueTotal, 0) ?? 0, [loanQuery.data])
+
+  const pagedSchedule = useMemo(
+    () => paginateItems(loanQuery.data?.schedule ?? [], schedulePage, SCHEDULE_PAGE_SIZE),
+    [loanQuery.data?.schedule, schedulePage]
+  )
+
+  const pagedRepayments = useMemo(
+    () => paginateItems(loanQuery.data?.repayments ?? [], repaymentsPage, REPAYMENTS_PAGE_SIZE),
+    [loanQuery.data?.repayments, repaymentsPage]
+  )
 
   return (
     <section className="stack">
@@ -120,40 +140,62 @@ export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
           <div className="card table-wrap">
             <h2>Repayment Schedule</h2>
             {loanQuery.data.schedule.length ? (
-              <table>
-                <thead><tr><th>#</th><th>Due Date</th><th>Due</th><th>Paid</th><th>Status</th></tr></thead>
-                <tbody>
-                  {loanQuery.data.schedule.map((item) => (
-                    <tr key={item.id}>
-                      <td>{item.installmentNo}</td>
-                      <td>{item.dueDate}</td>
-                      <td>{formatCurrency(item.dueTotal)}</td>
-                      <td>{formatCurrency(item.paidAmount)}</td>
-                      <td>{item.status}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <>
+                <table>
+                  <thead><tr><th>#</th><th>Due Date</th><th>Due</th><th>Paid</th><th>Status</th></tr></thead>
+                  <tbody>
+                    {pagedSchedule.items.map((item) => (
+                      <tr key={item.id}>
+                        <td>{item.installmentNo}</td>
+                        <td>{item.dueDate}</td>
+                        <td>{formatCurrency(item.dueTotal)}</td>
+                        <td>{formatCurrency(item.paidAmount)}</td>
+                        <td>{item.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <PaginationControls
+                  page={pagedSchedule.page}
+                  totalPages={pagedSchedule.totalPages}
+                  onPageChange={(nextPage) => {
+                    const next = new URLSearchParams(params)
+                    next.set('schedulePage', String(nextPage))
+                    setParams(next)
+                  }}
+                />
+              </>
             ) : <EmptyState title="No schedule" message="No repayment schedule generated yet." />}
           </div>
 
           <div className="card table-wrap">
             <h2>Repayments</h2>
             {loanQuery.data.repayments.length ? (
-              <table>
-                <thead><tr><th>Date</th><th>Amount</th><th>Principal</th><th>Interest</th><th>Reference</th></tr></thead>
-                <tbody>
-                  {loanQuery.data.repayments.map((item) => (
-                    <tr key={item.id}>
-                      <td>{formatDateTime(item.paidAt)}</td>
-                      <td>{formatCurrency(item.amount)}</td>
-                      <td>{formatCurrency(item.principalComponent)}</td>
-                      <td>{formatCurrency(item.interestComponent)}</td>
-                      <td>{item.paymentReference ?? '-'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <>
+                <table>
+                  <thead><tr><th>Date</th><th>Amount</th><th>Principal</th><th>Interest</th><th>Reference</th></tr></thead>
+                  <tbody>
+                    {pagedRepayments.items.map((item) => (
+                      <tr key={item.id}>
+                        <td>{formatDateTime(item.paidAt)}</td>
+                        <td>{formatCurrency(item.amount)}</td>
+                        <td>{formatCurrency(item.principalComponent)}</td>
+                        <td>{formatCurrency(item.interestComponent)}</td>
+                        <td>{item.paymentReference ?? '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <PaginationControls
+                  page={pagedRepayments.page}
+                  totalPages={pagedRepayments.totalPages}
+                  onPageChange={(nextPage) => {
+                    const next = new URLSearchParams(params)
+                    next.set('repaymentsPage', String(nextPage))
+                    setParams(next)
+                  }}
+                />
+              </>
             ) : <EmptyState title="No repayments" message="No repayments have been posted yet." />}
           </div>
         </>

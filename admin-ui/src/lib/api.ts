@@ -8,7 +8,7 @@ export type MeResponse = {
   roles: string[]
 }
 
-export type AdminAccessFilter = 'all' | 'admins' | 'non-admins'
+export type AdminAccessFilter = 'all' | 'internal' | 'clients' | 'admins' | 'non-admins'
 
 export type AdminAccessListItem = {
   userId: string
@@ -28,6 +28,8 @@ export type AdminAccessMutationResult = {
   roles: string[]
   isAdmin: boolean
 }
+
+export type AssignableRole = 'Client' | 'Intern' | 'Originator' | 'LoanOfficer'
 
 export type LoanApplicationStatus =
   | 'Draft'
@@ -322,6 +324,33 @@ export async function revokeAdminAccess(accessToken: string, userId: string): Pr
   const row = (data as AdminAccessMutationRpcRow[] | null)?.[0]
   if (!row) {
     throw new Error('Unable to revoke Admin access.')
+  }
+
+  return {
+    userId: row.user_id,
+    roles: row.roles ?? [],
+    isAdmin: row.is_admin
+  }
+}
+
+export async function assignUserRole(
+  accessToken: string,
+  userId: string,
+  role: AssignableRole
+): Promise<AdminAccessMutationResult> {
+  const client = createSupabaseDataClient(accessToken)
+  const { data, error } = await client.rpc('admin_access_assign_role', {
+    p_target_user_id: userId,
+    p_role_name: role
+  })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  const row = (data as AdminAccessMutationRpcRow[] | null)?.[0]
+  if (!row) {
+    throw new Error('Unable to assign role.')
   }
 
   return {

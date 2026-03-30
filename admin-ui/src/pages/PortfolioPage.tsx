@@ -1,15 +1,20 @@
-﻿import { useMemo } from 'react'
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { Session } from '@supabase/supabase-js'
+import { useSearchParams } from 'react-router-dom'
 import type { ArrearsItem } from '../lib/api'
-import { createReportsUseCases } from '../logic/usecases/reports'
 import { EmptyState } from '../components/shared/EmptyState'
 import { PageHeader } from '../components/shared/PageHeader'
+import { PaginationControls } from '../components/shared/PaginationControls'
 import { formatCurrency } from '../lib/format'
+import { paginateItems, parsePageParam } from '../lib/pagination'
+import { createReportsUseCases } from '../logic/usecases/reports'
 
 type PortfolioPageProps = {
   session: Session
 }
+
+const ARREARS_PAGE_SIZE = 12
 
 function toArrearsCsv(items: ArrearsItem[]): string {
   const headers = ['loanId', 'applicationId', 'installmentNo', 'dueDate', 'dueTotal', 'paidAmount', 'outstandingAmount', 'daysOverdue']
@@ -29,8 +34,10 @@ function toArrearsCsv(items: ArrearsItem[]): string {
 }
 
 export function PortfolioPage({ session }: PortfolioPageProps) {
+  const [params, setParams] = useSearchParams()
   const accessToken = session.access_token
   const reportsUseCases = useMemo(() => createReportsUseCases(accessToken), [accessToken])
+  const arrearsPage = parsePageParam(params.get('arrearsPage'))
 
   const summaryQuery = useQuery({
     queryKey: ['portfolio-summary', session.user.id],
@@ -47,6 +54,11 @@ export function PortfolioPage({ session }: PortfolioPageProps) {
     const csv = toArrearsCsv(arrearsQuery.data)
     return `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`
   }, [arrearsQuery.data])
+
+  const pagedArrears = useMemo(
+    () => paginateItems(arrearsQuery.data ?? [], arrearsPage, ARREARS_PAGE_SIZE),
+    [arrearsPage, arrearsQuery.data]
+  )
 
   return (
     <section className="stack">
@@ -67,25 +79,36 @@ export function PortfolioPage({ session }: PortfolioPageProps) {
       <div className="card table-wrap">
         <h2>Arrears</h2>
         {arrearsQuery.data?.length ? (
-          <table>
-            <thead>
-              <tr><th>Loan ID</th><th>Application ID</th><th>Installment</th><th>Due Date</th><th>Due</th><th>Paid</th><th>Outstanding</th><th>Days</th></tr>
-            </thead>
-            <tbody>
-              {arrearsQuery.data.map((row) => (
-                <tr key={`${row.loanId}-${row.installmentNo}`}>
-                  <td>{row.loanId}</td>
-                  <td>{row.applicationId}</td>
-                  <td>{row.installmentNo}</td>
-                  <td>{row.dueDate}</td>
-                  <td>{formatCurrency(row.dueTotal)}</td>
-                  <td>{formatCurrency(row.paidAmount)}</td>
-                  <td>{formatCurrency(row.outstandingAmount)}</td>
-                  <td>{row.daysOverdue}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            <table>
+              <thead>
+                <tr><th>Loan ID</th><th>Application ID</th><th>Installment</th><th>Due Date</th><th>Due</th><th>Paid</th><th>Outstanding</th><th>Days</th></tr>
+              </thead>
+              <tbody>
+                {pagedArrears.items.map((row) => (
+                  <tr key={`${row.loanId}-${row.installmentNo}`}>
+                    <td>{row.loanId}</td>
+                    <td>{row.applicationId}</td>
+                    <td>{row.installmentNo}</td>
+                    <td>{row.dueDate}</td>
+                    <td>{formatCurrency(row.dueTotal)}</td>
+                    <td>{formatCurrency(row.paidAmount)}</td>
+                    <td>{formatCurrency(row.outstandingAmount)}</td>
+                    <td>{row.daysOverdue}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <PaginationControls
+              page={pagedArrears.page}
+              totalPages={pagedArrears.totalPages}
+              onPageChange={(nextPage) => {
+                const next = new URLSearchParams(params)
+                next.set('arrearsPage', String(nextPage))
+                setParams(next)
+              }}
+            />
+          </>
         ) : (
           <EmptyState title="No overdue installments" message="All tracked installments are current." />
         )}

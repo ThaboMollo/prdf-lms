@@ -19,12 +19,14 @@ import { createTasksUseCases } from '../logic/usecases/tasks'
 import { createSupabaseDataClient } from '../lib/supabase/client'
 import { createApplicationSchema, statusChangeSchema, uploadSchema, type CreateApplicationFormData } from '../features/applications/validation'
 import { EmptyState } from '../components/shared/EmptyState'
+import { PaginationControls } from '../components/shared/PaginationControls'
 import { PageHeader } from '../components/shared/PageHeader'
 import { DetailSkeleton, ListSkeleton } from '../components/shared/Skeletons'
 import { StatusBadge } from '../components/shared/StatusBadge'
 import { useToast } from '../components/shared/ToastProvider'
 import { formatCurrency, formatDate, formatDateTime } from '../lib/format'
 import { hasAnyRole, toAppRoles } from '../lib/rbac'
+import { paginateItems, parsePageParam } from '../lib/pagination'
 
 type ApplicationsPageProps = {
   session: Session
@@ -50,6 +52,7 @@ const statuses: LoanApplicationStatus[] = [
 ]
 
 const requiredDocumentTypes = ['IDDocument', 'BankStatement', 'BusinessRegistration']
+const APPLICATIONS_PAGE_SIZE = 10
 
 type DetailTab = 'Details' | 'Documents' | 'History' | 'Tasks' | 'Notes'
 
@@ -90,6 +93,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
   const statusFilter = params.get('status') ?? 'all'
   const search = params.get('q') ?? ''
   const selectedApplicationId = params.get('app')
+  const appsPage = parsePageParam(params.get('appsPage'))
 
   const applicationsQuery = useQuery({
     queryKey: ['applications', session.user.id],
@@ -171,6 +175,19 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
       )
     })
   }, [applicationsQuery.data, search, statusFilter])
+
+  const pagedApplications = useMemo(
+    () => paginateItems(filteredApplications, appsPage, APPLICATIONS_PAGE_SIZE),
+    [appsPage, filteredApplications]
+  )
+
+  useEffect(() => {
+    if (pagedApplications.page !== appsPage) {
+      const next = new URLSearchParams(params)
+      next.set('appsPage', String(pagedApplications.page))
+      setParams(next, { replace: true })
+    }
+  }, [appsPage, pagedApplications.page, params, setParams])
 
   useEffect(() => {
     if (!selectedApplicationId && filteredApplications.length) {
@@ -365,6 +382,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
             onChange={(event) => {
               const next = new URLSearchParams(params)
               next.set('q', event.target.value)
+              next.set('appsPage', '1')
               setParams(next)
             }}
           />
@@ -374,6 +392,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
             onChange={(event) => {
               const next = new URLSearchParams(params)
               next.set('status', event.target.value)
+              next.set('appsPage', '1')
               setParams(next)
             }}
           >
@@ -404,7 +423,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredApplications.map((app) => (
+                  {pagedApplications.items.map((app) => (
                     <tr key={app.id}>
                       <td>{app.id.slice(0, 8)}</td>
                       <td>{formatCurrency(app.requestedAmount)}</td>
@@ -429,7 +448,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
               </table>
             </div>
             <div className="mobile-cards mobile-only">
-              {filteredApplications.map((app) => (
+              {pagedApplications.items.map((app) => (
                 <button
                   key={app.id}
                   type="button"
@@ -449,6 +468,15 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
                 </button>
               ))}
             </div>
+            <PaginationControls
+              page={pagedApplications.page}
+              totalPages={pagedApplications.totalPages}
+              onPageChange={(nextPage) => {
+                const next = new URLSearchParams(params)
+                next.set('appsPage', String(nextPage))
+                setParams(next)
+              }}
+            />
           </>
         ) : null}
       </div>
