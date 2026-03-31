@@ -7,6 +7,9 @@ import { ErrorBoundary } from './components/shared/ErrorBoundary'
 import { ToastProvider } from './components/shared/ToastProvider'
 import './styles/global.css'
 
+document.documentElement.setAttribute('data-theme', 'light')
+window.localStorage.setItem('theme', 'light')
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

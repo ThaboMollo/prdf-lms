@@ -24,7 +24,7 @@ import { PageHeader } from '../components/shared/PageHeader'
 import { DetailSkeleton, ListSkeleton } from '../components/shared/Skeletons'
 import { StatusBadge } from '../components/shared/StatusBadge'
 import { useToast } from '../components/shared/ToastProvider'
-import { formatCurrency, formatDate, formatDateTime } from '../lib/format'
+import { formatCurrency, formatDate, formatDateTime, formatLongDate } from '../lib/format'
 import { hasAnyRole, toAppRoles } from '../lib/rbac'
 import { paginateItems, parsePageParam } from '../lib/pagination'
 
@@ -233,6 +233,63 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
     enabled: Boolean(selectedApplicationId)
   })
 
+  const visibleUserIds = useMemo(() => {
+    const ids = new Set<string>()
+
+    if (detailsQuery.data?.assignedToUserId) ids.add(detailsQuery.data.assignedToUserId)
+    for (const doc of docsQuery.data ?? []) ids.add(doc.uploadedBy)
+    for (const item of historyQuery.data ?? []) ids.add(item.changedBy)
+    for (const task of tasksQuery.data ?? []) {
+      if (task.assignedTo) ids.add(task.assignedTo)
+    }
+    for (const note of notesQuery.data ?? []) ids.add(note.createdBy)
+
+    return [...ids].sort()
+  }, [detailsQuery.data?.assignedToUserId, docsQuery.data, historyQuery.data, notesQuery.data, tasksQuery.data])
+
+  const profileNamesQuery = useQuery({
+    queryKey: ['application-user-names', selectedApplicationId, visibleUserIds.join(',')],
+    queryFn: async () => {
+      if (!visibleUserIds.length) return new Map<string, string>()
+
+      const client = createSupabaseDataClient(accessToken)
+      const { data, error } = await client
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', visibleUserIds)
+
+      if (error) {
+        throw new Error(`Supabase list profiles failed: ${error.message}`)
+      }
+
+      const names = new Map<string, string>()
+      for (const row of data ?? []) {
+        const userId = (row as { user_id: string }).user_id
+        const fullName = (row as { full_name?: string | null }).full_name?.trim()
+        if (fullName) {
+          names.set(userId, fullName)
+        }
+      }
+
+      return names
+    },
+    enabled: Boolean(selectedApplicationId && visibleUserIds.length)
+  })
+
+  const userNameById = useMemo(() => {
+    const names = new Map<string, string>()
+
+    for (const user of assignableUsersQuery.data ?? []) {
+      names.set(user.userId, user.name)
+    }
+
+    for (const [userId, fullName] of profileNamesQuery.data ?? new Map<string, string>()) {
+      names.set(userId, fullName)
+    }
+
+    return names
+  }, [assignableUsersQuery.data, profileNamesQuery.data])
+
   const createDraftMutation = useMutation({
     mutationFn: (payload: CreateApplicationFormData) => applicationsUseCases.createDraft(payload),
     onSuccess: async (created) => {
@@ -414,7 +471,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
               <table>
                 <thead>
                   <tr>
-                    <th>Application</th>
+                    <th>Purpose</th>
                     <th>Amount</th>
                     <th>Status</th>
                     <th>Assigned</th>
@@ -425,10 +482,10 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
                 <tbody>
                   {pagedApplications.items.map((app) => (
                     <tr key={app.id}>
-                      <td>{app.id.slice(0, 8)}</td>
+                      <td>{app.purpose}</td>
                       <td>{formatCurrency(app.requestedAmount)}</td>
                       <td><StatusBadge status={app.status} /></td>
-                      <td>{app.assignedToUserId ?? 'Unassigned'}</td>
+                      <td>{resolveUserName(app.assignedToUserId, userNameById, 'Unassigned')}</td>
                       <td>{formatDateTime(app.submittedAt ?? app.createdAt)}</td>
                       <td>
                         <button
@@ -459,11 +516,11 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
                   }}
                 >
                   <div className="list-row">
-                    <p className="list-title">{app.id.slice(0, 8)}</p>
+                    <p className="list-title">{app.purpose}</p>
                     <StatusBadge status={app.status} />
                   </div>
                   <p>{formatCurrency(app.requestedAmount)}</p>
-                  <small>{formatDateTime(app.submittedAt ?? app.createdAt)}</small>
+                  <small>{resolveUserName(app.assignedToUserId, userNameById, 'Unassigned')} • {formatDateTime(app.submittedAt ?? app.createdAt)}</small>
                   <span className="link-quiet">{resolvePrimaryAction(app.status, isInternal)}</span>
                 </button>
               ))}
@@ -565,13 +622,14 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
           submitting={submitMutation.isPending}
           onOpenDocument={async (storagePath) => {
             try {
-              const url = await documentsUseCases.getDocumentUrl(storagePath, 600)
+              const url = await documentsUseCases.getDocumentUrl(selectedApplicationId as string, storagePath, 600)
               window.open(url, '_blank', 'noopener,noreferrer')
             } catch (error) {
               console.error(error)
               toast.push(error instanceof Error ? error.message : 'Could not open document.', 'error')
             }
           }}
+          userNameById={userNameById}
         />
       ) : null}
     </section>
@@ -728,6 +786,7 @@ type ApplicationDetailProps = {
   onSubmitApp: () => void
   submitting: boolean
   onOpenDocument: (storagePath: string) => Promise<void>
+  userNameById: Map<string, string>
 }
 
 function ApplicationDetail(props: ApplicationDetailProps) {
@@ -737,7 +796,7 @@ function ApplicationDetail(props: ApplicationDetailProps) {
     <section className="grid-two">
       <article className="card">
         <PageHeader
-          title={`Application ${props.application.id.slice(0, 8)}`}
+          title={props.application.purpose}
           subtitle={`Amount ${formatCurrency(props.application.requestedAmount)}`}
           actions={<StatusBadge status={props.application.status} />}
         />
@@ -810,9 +869,9 @@ function ApplicationDetail(props: ApplicationDetailProps) {
           ))}
         </div>
 
-        {props.tab === 'Details' ? <DetailsTab application={props.application} /> : null}
+        {props.tab === 'Details' ? <DetailsTab application={props.application} userNameById={props.userNameById} /> : null}
         {props.tab === 'Documents' ? <DocumentsTab {...props} /> : null}
-        {props.tab === 'History' ? <HistoryTab history={props.history} /> : null}
+        {props.tab === 'History' ? <HistoryTab history={props.history} userNameById={props.userNameById} /> : null}
         {props.tab === 'Tasks' ? <TasksTab {...props} /> : null}
         {props.tab === 'Notes' ? <NotesTab {...props} /> : null}
       </article>
@@ -820,7 +879,7 @@ function ApplicationDetail(props: ApplicationDetailProps) {
   )
 }
 
-function DetailsTab({ application }: { application: ApplicationDetails }) {
+function DetailsTab({ application, userNameById }: { application: ApplicationDetails; userNameById: Map<string, string> }) {
   const clientDetails = application.clientDetails
   const contactName = clientDetails?.fullName ?? '—'
   const contactPhone = clientDetails?.phone ?? '—'
@@ -831,10 +890,6 @@ function DetailsTab({ application }: { application: ApplicationDetails }) {
 
   return (
     <dl className="detail-grid">
-      <dt>Application ID</dt>
-      <dd>{application.id}</dd>
-      <dt>Client ID</dt>
-      <dd>{application.clientId}</dd>
       <dt>Client name</dt>
       <dd>{contactName}</dd>
       <dt>Contact phone</dt>
@@ -856,7 +911,7 @@ function DetailsTab({ application }: { application: ApplicationDetails }) {
       <dt>Purpose</dt>
       <dd>{application.purpose}</dd>
       <dt>Assigned to</dt>
-      <dd>{application.assignedToUserId ?? 'Unassigned'}</dd>
+      <dd>{resolveUserName(application.assignedToUserId, userNameById, 'Unassigned')}</dd>
     </dl>
   )
 }
@@ -909,11 +964,11 @@ function DocumentsTab(props: ApplicationDetailProps) {
           {props.docs.map((doc) => (
             <li key={doc.id} className="card list-card">
               <div className="list-row">
-                <p className="list-title">{doc.docType}</p>
+                <p className="list-title">{extractDocumentFileName(doc.storagePath)}</p>
                 <StatusBadge status={doc.status} />
               </div>
-              <small>Uploaded {formatDateTime(doc.uploadedAt)} by {doc.uploadedBy}</small>
-              <small>{doc.storagePath}</small>
+              <small>Uploaded {formatLongDate(doc.uploadedAt)} by {resolveUserName(doc.uploadedBy, props.userNameById, 'Unknown uploader')}</small>
+              <small>{doc.docType}</small>
               <div className="inline-actions">
                 <button
                   className="btn btn-secondary"
@@ -943,7 +998,7 @@ function DocumentsTab(props: ApplicationDetailProps) {
   )
 }
 
-function HistoryTab({ history }: { history: StatusHistoryItem[] }) {
+function HistoryTab({ history, userNameById }: { history: StatusHistoryItem[]; userNameById: Map<string, string> }) {
   if (!history.length) return <EmptyState title="No status history" message="Status changes will appear here." />
 
   return (
@@ -951,7 +1006,7 @@ function HistoryTab({ history }: { history: StatusHistoryItem[] }) {
       {history.map((item) => (
         <li key={item.id}>
           <p><strong>{item.fromStatus ?? 'None'}</strong> to <strong>{item.toStatus}</strong></p>
-          <small>{formatDateTime(item.changedAt)} by {item.changedBy}</small>
+          <small>{formatDateTime(item.changedAt)} by {resolveUserName(item.changedBy, userNameById, 'Unknown user')}</small>
           {item.note ? <p>{item.note}</p> : null}
         </li>
       ))}
@@ -969,7 +1024,14 @@ function TasksTab(props: ApplicationDetailProps) {
         </label>
         <label>
           Assign to
-          <input value={props.taskAssignTo} onChange={(e) => props.setTaskAssignTo(e.target.value)} placeholder="Optional UUID" />
+          <select value={props.taskAssignTo} onChange={(e) => props.setTaskAssignTo(e.target.value)}>
+            <option value="">Unassigned</option>
+            {props.assignableUsers.map((user) => (
+              <option key={user.userId} value={user.userId}>
+                {user.name}
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           Due date
@@ -986,7 +1048,7 @@ function TasksTab(props: ApplicationDetailProps) {
             <li key={task.id} className="list-row">
               <div>
                 <p className="list-title">{task.title}</p>
-                <small>{task.dueDate ? `Due ${formatDate(task.dueDate)}` : 'No due date'} | {task.assignedTo ?? 'Unassigned'}</small>
+                <small>{task.dueDate ? `Due ${formatDate(task.dueDate)}` : 'No due date'} | {resolveUserName(task.assignedTo, props.userNameById, 'Unassigned')}</small>
               </div>
               {task.status !== 'Completed' ? (
                 <button className="btn btn-secondary" type="button" onClick={() => props.onCompleteTask(task)} disabled={props.completePending}>
@@ -1020,7 +1082,7 @@ function NotesTab(props: ApplicationDetailProps) {
         <ul className="list-clean">
           {props.notes.map((note) => (
             <li key={note.id} className="card list-card">
-              <small>{formatDateTime(note.createdAt)} by {note.createdBy}</small>
+              <small>{formatDateTime(note.createdAt)} by {resolveUserName(note.createdBy, props.userNameById, 'Unknown author')}</small>
               <p>{note.body}</p>
             </li>
           ))}
@@ -1075,5 +1137,19 @@ function NextStepPanel({
         ) : null}
       </div>
     </section>
+  )
+}
+
+function resolveUserName(userId: string | null | undefined, userNameById: Map<string, string>, emptyLabel = 'Unknown user'): string {
+  if (!userId) return emptyLabel
+  return userNameById.get(userId) ?? emptyLabel
+}
+
+function extractDocumentFileName(storagePath: string): string {
+  const rawFileName = storagePath.split('/').pop() ?? storagePath
+
+  return rawFileName.replace(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}-/i,
+    ''
   )
 }
