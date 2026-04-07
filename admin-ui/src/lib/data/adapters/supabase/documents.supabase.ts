@@ -55,7 +55,7 @@ export function createSupabaseDocumentsAdapter(accessToken: string): DocumentsRe
 
       return (data as LoanDocumentRow[]).map(mapLoanDocumentRow)
     },
-    async getDocumentUrl(storagePath: string, expiresInSeconds = 300): Promise<string> {
+    async getDocumentUrl(_applicationId: string, storagePath: string, expiresInSeconds = 300): Promise<string> {
       const { data, error } = await client.storage.from(bucket).createSignedUrl(storagePath, expiresInSeconds)
       if (error || !data?.signedUrl) {
         throw new Error(`Supabase signed URL failed: ${error?.message ?? 'no url returned'}`)
