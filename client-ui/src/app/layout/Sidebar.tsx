@@ -1,4 +1,4 @@
-﻿import { NavLink } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import type { NavItem } from './navigation'
 
 type SidebarProps = {
@@ -9,7 +9,11 @@ type SidebarProps = {
 export function Sidebar({ items, title }: SidebarProps) {
   return (
     <aside className="sidebar" aria-label="Primary">
-      <div className="sidebar-brand">{title}</div>
+      <div className="sidebar-brand">
+        <span style={{ color: '#ffffff', fontWeight: 800, fontSize: '1.2rem', letterSpacing: '-0.02em' }}>
+          {title}
+        </span>
+      </div>
       <nav>
         {items.map((item) => (
           <NavLink

@@ -5,101 +5,184 @@ import { useQuery } from '@tanstack/react-query'
 import { EmptyState } from '../components/shared/EmptyState'
 import { ListSkeleton } from '../components/shared/Skeletons'
 import { StatusBadge } from '../components/shared/StatusBadge'
+import { KPIStatCard } from '../components/shared/KPIStatCard'
 import type { ApplicationSummary, MeResponse } from '../lib/api'
 import { formatDateTime } from '../lib/format'
 import { createApplicationsUseCases } from '../logic/usecases/applications'
-import { createNotificationsUseCases } from '../logic/usecases/notifications'
 
 type HomePageProps = {
   session: Session
   me: MeResponse
 }
 
+function getGreeting(): string {
+  const hour = new Date().getHours()
+  if (hour < 12) return 'Good morning'
+  if (hour < 17) return 'Good afternoon'
+  return 'Good evening'
+}
+
+function getNextAction(app: ApplicationSummary): { label: string; to: string } | null {
+  switch (app.status) {
+    case 'Draft':
+      return { label: 'Complete your application', to: '/apply' }
+    case 'InfoRequested':
+      return { label: 'Upload requested documents', to: '/apply' }
+    case 'Approved':
+      return { label: 'View approval details', to: '/status' }
+    default:
+      return null
+  }
+}
+
 export function HomePage({ session, me }: HomePageProps) {
   const navigate = useNavigate()
   const accessToken = session.access_token
   const applicationsUseCases = useMemo(() => createApplicationsUseCases(accessToken), [accessToken])
-  const notificationsUseCases = useMemo(() => createNotificationsUseCases(accessToken), [accessToken])
 
   const appsQuery = useQuery({
     queryKey: ['home-applications', session.user.id],
     queryFn: () => applicationsUseCases.listApplications()
   })
 
-  const notificationsQuery = useQuery({
-    queryKey: ['home-notifications', session.user.id],
-    queryFn: () => notificationsUseCases.listNotifications(true),
-    enabled: false
-  })
-
   const applications = appsQuery.data ?? []
-  const notifications = notificationsQuery.data ?? []
   const displayName = me.fullName?.trim() || 'there'
-  const draftOrInfoApps = applications.filter((item) => item.status === 'Draft' || item.status === 'InfoRequested')
+
+  const activeApp = applications.find(
+    (a) => !['Closed', 'Rejected', 'Withdrawn'].includes(a.status)
+  )
+
+  const submitted = applications.filter((a) => a.status !== 'Draft').length
+  const activeLoans = applications.filter((a) => ['Disbursed', 'InRepayment'].includes(a.status)).length
+  const outstanding = applications
+    .filter((a) => a.status === 'InRepayment')
+    .reduce((sum, a) => sum + (a.requestedAmount ?? 0), 0)
 
   return (
     <section className="client-page">
-      <div className="client-hero">
-        <div className="hero-copy">
-          <p className="eyebrow">Client Portal</p>
-          <h1>Welcome back, {displayName}</h1>
-          <p className="hero-sub">Start a new application, upload documents, and track your progress in one place.</p>
-          <div className="hero-actions">
-            <button className="btn" type="button" onClick={() => navigate('/apply')}>Start an application</button>
-            <button className="btn btn-secondary" type="button" onClick={() => navigate('/status')}>Track my status</button>
-          </div>
-        </div>
-        <div className="hero-card">
-          <h3>Your progress</h3>
-          <div className="progress-steps">
-            <div className={`step ${applications.length ? 'step-active' : ''}`}>1. Apply</div>
-            <div className={`step ${applications.some((item) => item.status === 'Submitted' || item.status === 'UnderReview') ? 'step-active' : ''}`}>2. Review</div>
-            <div className={`step ${applications.some((item) => item.status === 'Approved' || item.status === 'Disbursed') ? 'step-active' : ''}`}>3. Disburse</div>
-          </div>
-          <div className="mini-stats">
-            <div>
-              <p className="mini-label">Applications</p>
-              <p className="mini-value">{applications.length}</p>
-            </div>
-            <div>
-              <p className="mini-label">Missing info</p>
-              <p className="mini-value">{draftOrInfoApps.length}</p>
-            </div>
-            <div>
-              <p className="mini-label">Alerts</p>
-              <p className="mini-value">{notifications.length}</p>
-            </div>
-          </div>
-        </div>
+      {/* Greeting */}
+      <div>
+        <p className="dashboard-greeting">
+          {getGreeting()},{' '}
+          <span>{displayName}</span>
+        </p>
+        <p className="dashboard-sub">Here's an overview of your business funding journey.</p>
       </div>
 
+      {/* Active Application Card */}
       {appsQuery.isLoading ? (
-        <div className="grid-three">
-          <ListSkeleton rows={4} />
-          <ListSkeleton rows={4} />
-          <ListSkeleton rows={4} />
+        <ListSkeleton rows={3} />
+      ) : activeApp ? (
+        <ActiveApplicationCard app={activeApp} onNavigate={navigate} />
+      ) : (
+        <div className="active-loan-card" style={{ borderLeftColor: 'var(--muted)' }}>
+          <div className="active-loan-card-header">
+            <div>
+              <h2>No active applications</h2>
+              <p>Ready to grow your business? Start a new loan application today.</p>
+            </div>
+          </div>
+          <div className="active-loan-cta">
+            <button className="btn btn-primary" type="button" onClick={() => navigate('/apply')}>
+              Apply for Funding
+            </button>
+          </div>
         </div>
-      ) : null}
+      )}
 
-      {!appsQuery.isLoading ? <StatusUpdatesPanel applications={applications.slice(0, 5)} /> : null}
+      {/* KPI Row */}
+      <div className="dashboard-kpi-row">
+        <KPIStatCard label="Applications submitted" value={submitted} />
+        <KPIStatCard label="Active loans" value={activeLoans} />
+        <KPIStatCard
+          label="Amount outstanding"
+          value={outstanding > 0 ? `R ${outstanding.toLocaleString('en-ZA')}` : '—'}
+        />
+      </div>
+
+      {/* Recent Activity */}
+      {!appsQuery.isLoading && applications.length > 0 && (
+        <RecentActivity applications={applications.slice(0, 5)} />
+      )}
+
+      {!appsQuery.isLoading && applications.length === 0 && (
+        <EmptyState
+          title="No applications yet"
+          message="Start your first application to see updates here."
+          ctaLabel="Apply for Funding"
+          ctaHref="/apply"
+        />
+      )}
     </section>
   )
 }
 
-function StatusUpdatesPanel({ applications }: { applications: ApplicationSummary[] }) {
-  if (!applications.length) {
-    return <EmptyState title="No applications yet" message="Start your first application to see updates here." />
+function ActiveApplicationCard({
+  app,
+  onNavigate,
+}: {
+  app: ApplicationSummary
+  onNavigate: (to: string) => void
+}) {
+  const nextAction = getNextAction(app)
+
+  const statusMessages: Partial<Record<string, string>> = {
+    Draft: 'Your application is saved as a draft. Complete it to submit for review.',
+    Submitted: 'Your application has been submitted and is waiting to be assigned.',
+    UnderReview: "Our team is currently reviewing your application. We'll be in touch soon.",
+    InfoRequested: 'We need additional information from you. Please upload the requested documents.',
+    Approved: 'Congratulations! Your loan application has been approved.',
+    Disbursed: 'Your loan has been disbursed to your business account.',
+    InRepayment: 'Your loan is active and in repayment.',
+    Closed: 'This loan has been closed.',
   }
 
   return (
-    <section className="card soft-card">
-      <h2>Latest updates</h2>
+    <div className="active-loan-card">
+      <div className="active-loan-card-header">
+        <div>
+          <p style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
+            Active Application
+          </p>
+          <h2>{app.purpose || 'Loan Application'}</h2>
+          <p>{statusMessages[app.status] ?? 'Application in progress.'}</p>
+        </div>
+        <StatusBadge status={app.status} />
+      </div>
+      {nextAction && (
+        <div className="active-loan-cta">
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => onNavigate(nextAction.to)}
+          >
+            {nextAction.label}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => onNavigate('/status')}
+          >
+            View all applications
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RecentActivity({ applications }: { applications: ApplicationSummary[] }) {
+  return (
+    <section className="card">
+      <h2 style={{ marginBottom: '0.85rem' }}>Recent activity</h2>
       <ul className="list-clean">
         {applications.map((app) => (
           <li key={app.id} className="list-row">
             <div>
-              <p className="list-title">Application {app.id.slice(0, 8)}</p>
-              <small>Updated {formatDateTime(app.submittedAt ?? app.createdAt)}</small>
+              <p className="list-title">{app.purpose || `Application ${app.id.slice(0, 8)}`}</p>
+              <small style={{ color: 'var(--muted)' }}>
+                Updated {formatDateTime(app.submittedAt ?? app.createdAt)}
+              </small>
             </div>
             <StatusBadge status={app.status} />
           </li>

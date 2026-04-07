@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.wonga.co.za)",
+      "WebSearch",
+      "WebFetch(domain:brandfetch.com)",
+      "WebFetch(domain:stitch.money)",
+      "WebFetch(domain:edisonda.com)",
+      "WebFetch(domain:qpd.co.za)",
+      "WebFetch(domain:www.credizen.net)",
+      "WebFetch(domain:zaupdates.co.za)",
+      "WebFetch(domain:www.kasihustle.com)",
+      "WebFetch(domain:finanso.com)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)"
+    ]
+  }
+}

@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
 import { useQuery } from '@tanstack/react-query'
@@ -7,6 +7,8 @@ import { RequireAuth } from './components/RequireAuth'
 import { RequireRole } from './components/RequireRole'
 import { RequireClientProgress } from './components/RequireClientProgress'
 import { CardSkeleton } from './components/shared/Skeletons'
+import { CalculatorProvider } from './contexts/CalculatorContext'
+import { LandingPage } from './pages/LandingPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { HomePage } from './pages/HomePage'
@@ -72,37 +74,44 @@ export function App() {
   const protectedReady = Boolean(session && meQuery.data)
 
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
-      <Route element={<RequireAuth session={session} />}>
-        {protectedReady ? (
-          <Route element={<RequireRole me={meQuery.data!} allowed={['Client']} />}>
-            <Route element={<AppShell session={session as Session} me={meQuery.data!} />}>
-              <Route element={<RequireClientProgress session={session as Session} />}>
-                <Route path="/home" element={<HomePage session={session as Session} me={meQuery.data!} />} />
-                <Route path="/status" element={<StatusPage session={session as Session} me={meQuery.data!} />} />
+    <CalculatorProvider>
+      <Routes>
+        {/* Public routes */}
+        <Route path="/" element={<LandingPage session={session} />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+
+        {/* Protected routes */}
+        <Route element={<RequireAuth session={session} />}>
+          {protectedReady ? (
+            <Route element={<RequireRole me={meQuery.data!} allowed={['Client']} />}>
+              <Route element={<AppShell session={session as Session} me={meQuery.data!} />}>
+                <Route element={<RequireClientProgress session={session as Session} />}>
+                  <Route path="/home" element={<HomePage session={session as Session} me={meQuery.data!} />} />
+                  <Route path="/status" element={<StatusPage session={session as Session} me={meQuery.data!} />} />
+                </Route>
+                <Route path="/apply" element={<ApplyPage session={session as Session} me={meQuery.data!} />} />
+                <Route path="/dashboard" element={<Navigate to="/home" replace />} />
+                <Route path="/applications" element={<Navigate to="/apply" replace />} />
               </Route>
-              <Route path="/apply" element={<ApplyPage session={session as Session} me={meQuery.data!} />} />
-              <Route path="/dashboard" element={<Navigate to="/home" replace />} />
-              <Route path="/applications" element={<Navigate to="/apply" replace />} />
             </Route>
-          </Route>
-        ) : (
-          <Route
-            path="*"
-            element={
-              <main className="auth-wrap">
-                <div className="auth-card">
-                  {meQuery.isError ? <p>Could not load your profile. Refresh to retry.</p> : <CardSkeleton />}
-                </div>
-              </main>
-            }
-          />
-        )}
-      </Route>
-      <Route path="*" element={<Navigate to={session ? '/apply' : '/login'} replace />} />
-    </Routes>
+          ) : (
+            <Route
+              path="*"
+              element={
+                <main className="auth-wrap">
+                  <div className="auth-card">
+                    {meQuery.isError ? <p>Could not load your profile. Refresh to retry.</p> : <CardSkeleton />}
+                  </div>
+                </main>
+              }
+            />
+          )}
+        </Route>
+
+        <Route path="*" element={<Navigate to={session ? '/home' : '/'} replace />} />
+      </Routes>
+    </CalculatorProvider>
   )
 }
 
