@@ -9,7 +9,7 @@ export function PublicNav({ session }: PublicNavProps) {
   const navigate = useNavigate()
 
   return (
-    <nav className="public-nav" aria-label="Main navigation">
+    <nav className="public-nav public-nav--glass" aria-label="Main navigation">
       <div className="public-nav-inner">
         <Link to="/" className="public-nav-brand">
           PRDF

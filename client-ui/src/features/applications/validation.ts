@@ -8,8 +8,11 @@ export const step1Schema = z.object({
   businessName: z.string().trim().min(2, 'Business name is required'),
   registrationNo: z.string().trim().min(4, 'Registration number is required'),
   industry: z.string().min(1, 'Please select an industry'),
-  address: z.string().trim().min(5, 'Address is required'),
+  addressLine1: z.string().trim().min(1, 'Address line 1 is required'),
+  addressLine2: z.string().default(''),
+  city: z.string().trim().min(1, 'City is required'),
   province: z.string().min(1, 'Please select a province'),
+  country: z.string().trim().min(1, 'Country is required').default('South Africa'),
 })
 
 export const step2Schema = z.object({

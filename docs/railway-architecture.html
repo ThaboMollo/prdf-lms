@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PRDF LMS — Railway Architecture</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f1f5f9;
+    min-height: 100vh;
+    padding: 2.5rem;
+    color: #1e293b;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 0.35rem;
+    letter-spacing: -0.02em;
+  }
+
+  .subtitle {
+    text-align: center;
+    font-size: 0.8125rem;
+    color: #64748b;
+    margin-bottom: 2.5rem;
+  }
+
+  /* ── Layout ── */
+  .diagram {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 0;
+    max-width: 900px;
+    margin: 0 auto;
+    align-items: start;
+  }
+
+  /* ── Zone labels ── */
+  .zone-label {
+    font-size: 0.625rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    padding: 0.25rem 0.625rem;
+    border-radius: 4px;
+    display: inline-block;
+    margin-bottom: 0.75rem;
+  }
+
+  .zone-label.railway { background: #7c3aed; color: #fff; }
+  .zone-label.external { background: #0369a1; color: #fff; }
+  .zone-label.users { background: #059669; color: #fff; }
+
+  /* ── Railway project box ── */
+  .railway-project {
+    grid-column: 1 / 4;
+    background: #fff;
+    border: 2px solid #7c3aed;
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+
+  .railway-project-header {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .railway-logo {
+    width: 28px;
+    height: 28px;
+    background: #7c3aed;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 900;
+    font-size: 0.75rem;
+  }
+
+  .railway-project-name {
+    font-weight: 800;
+    font-size: 0.9375rem;
+    color: #4c1d95;
+  }
+
+  .railway-project-sub {
+    font-size: 0.75rem;
+    color: #7c3aed;
+  }
+
+  /* ── Services row ── */
+  .services-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+  }
+
+  /* ── Service card ── */
+  .service {
+    background: #faf5ff;
+    border: 1.5px solid #ddd6fe;
+    border-radius: 12px;
+    padding: 1rem 1.125rem;
+  }
+
+  .service-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    margin-bottom: 0.625rem;
+  }
+
+  .service-icon.dotnet { background: #512bd4; color: #fff; }
+  .service-icon.react  { background: #0ea5e9; color: #fff; }
+  .service-icon.react2 { background: #f97316; color: #fff; }
+
+  .service-name {
+    font-weight: 800;
+    font-size: 0.875rem;
+    color: #1e293b;
+    margin-bottom: 0.2rem;
+  }
+
+  .service-tech {
+    font-size: 0.6875rem;
+    color: #7c3aed;
+    font-weight: 600;
+    margin-bottom: 0.625rem;
+  }
+
+  .service-url {
+    font-size: 0.6875rem;
+    background: #ede9fe;
+    color: #5b21b6;
+    border-radius: 5px;
+    padding: 0.2rem 0.5rem;
+    font-family: monospace;
+    display: block;
+    margin-bottom: 0.625rem;
+    word-break: break-all;
+  }
+
+  .service-port {
+    font-size: 0.6875rem;
+    color: #64748b;
+    margin-bottom: 0.5rem;
+  }
+
+  .env-vars {
+    margin-top: 0.5rem;
+    border-top: 1px solid #ddd6fe;
+    padding-top: 0.5rem;
+  }
+
+  .env-label {
+    font-size: 0.5875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #94a3b8;
+    margin-bottom: 0.35rem;
+  }
+
+  .env-var {
+    font-size: 0.625rem;
+    font-family: monospace;
+    background: #f1f5f9;
+    color: #475569;
+    border-radius: 3px;
+    padding: 0.15rem 0.35rem;
+    display: block;
+    margin-bottom: 0.2rem;
+  }
+
+  /* ── Arrow connector ── */
+  .connector-row {
+    grid-column: 1 / 4;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+    margin: 0.5rem 0;
+  }
+
+  .arrow-down {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .arrow-line {
+    width: 2px;
+    height: 28px;
+    background: #94a3b8;
+  }
+
+  .arrow-head {
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 8px solid #94a3b8;
+  }
+
+  .arrow-label {
+    font-size: 0.5875rem;
+    color: #64748b;
+    font-weight: 600;
+    text-align: center;
+    letter-spacing: 0.05em;
+    margin-top: 0.2rem;
+  }
+
+  /* ── Bottom row ── */
+  .bottom-row {
+    grid-column: 1 / 4;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+
+  /* ── External box ── */
+  .external-box {
+    background: #fff;
+    border: 2px solid #0284c7;
+    border-radius: 16px;
+    padding: 1.25rem 1.5rem;
+  }
+
+  .external-box-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .ext-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #0284c7;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    font-weight: 900;
+  }
+
+  .ext-name {
+    font-weight: 800;
+    font-size: 0.9375rem;
+    color: #0c4a6e;
+  }
+
+  .ext-sub {
+    font-size: 0.6875rem;
+    color: #0284c7;
+  }
+
+  .supabase-services {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.625rem;
+  }
+
+  .supa-service {
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #075985;
+  }
+
+  .supa-service span {
+    display: block;
+    font-size: 0.625rem;
+    font-weight: 400;
+    color: #0284c7;
+    margin-top: 0.15rem;
+  }
+
+  /* ── Users box ── */
+  .users-box {
+    background: #fff;
+    border: 2px solid #059669;
+    border-radius: 16px;
+    padding: 1.25rem 1.5rem;
+  }
+
+  .users-box-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .user-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #059669;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+  }
+
+  .user-type {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.625rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .user-type-name {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: #064e3b;
+  }
+
+  .user-type-url {
+    font-size: 0.6375rem;
+    font-family: monospace;
+    color: #059669;
+    background: #dcfce7;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+  }
+
+  /* ── Flow arrows (horizontal) ── */
+  .h-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    margin: 1rem 0;
+  }
+
+  .h-line {
+    height: 2px;
+    background: #94a3b8;
+    flex: 1;
+  }
+
+  /* ── Steps ── */
+  .deploy-steps {
+    max-width: 900px;
+    margin: 2rem auto 0;
+  }
+
+  .steps-title {
+    font-size: 0.875rem;
+    font-weight: 800;
+    color: #1e293b;
+    margin-bottom: 1rem;
+    text-align: center;
+  }
+
+  .steps-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+  }
+
+  .step-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 0.875rem 1rem;
+    position: relative;
+  }
+
+  .step-num {
+    width: 22px;
+    height: 22px;
+    background: #7c3aed;
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+  }
+
+  .step-title {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 0.35rem;
+  }
+
+  .step-desc {
+    font-size: 0.6875rem;
+    color: #64748b;
+    line-height: 1.5;
+  }
+
+  code {
+    font-family: monospace;
+    background: #f1f5f9;
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    font-size: 0.6375rem;
+  }
+
+  .note {
+    max-width: 900px;
+    margin: 1.25rem auto 0;
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    border-radius: 10px;
+    padding: 0.875rem 1.125rem;
+    font-size: 0.75rem;
+    color: #78350f;
+    line-height: 1.6;
+  }
+
+  .note strong { color: #92400e; }
+</style>
+</head>
+<body>
+
+<h1>PRDF LMS — Railway Hosting Architecture</h1>
+<p class="subtitle">3 services · Supabase external · static SPA builds</p>
+
+<div class="diagram">
+
+  <!-- Railway Project -->
+  <div class="railway-project">
+    <div class="railway-project-header">
+      <div class="railway-logo">R</div>
+      <div>
+        <div class="railway-project-name">Railway Project: prdf-lms</div>
+        <div class="railway-project-sub">3 services deployed from one GitHub repo</div>
+      </div>
+    </div>
+
+    <div class="services-row">
+
+      <!-- API -->
+      <div class="service">
+        <div class="service-icon dotnet">⚙</div>
+        <div class="service-name">API</div>
+        <div class="service-tech">.NET 8 · ASP.NET Core</div>
+        <span class="service-url">api-prdf.up.railway.app</span>
+        <div class="service-port">Internal port 8080</div>
+        <div class="env-vars">
+          <div class="env-label">Environment variables</div>
+          <span class="env-var">SUPABASE_URL</span>
+          <span class="env-var">SUPABASE_ANON_KEY</span>
+          <span class="env-var">SUPABASE_SERVICE_ROLE_KEY</span>
+          <span class="env-var">SUPABASE_JWT_AUDIENCE</span>
+          <span class="env-var">ASPNETCORE_ENVIRONMENT=Production</span>
+        </div>
+      </div>
+
+      <!-- Client UI -->
+      <div class="service">
+        <div class="service-icon react">⚛</div>
+        <div class="service-name">Client Portal</div>
+        <div class="service-tech">React + Vite · Static build</div>
+        <span class="service-url">client-prdf.up.railway.app</span>
+        <div class="service-port">Build: <code>npm run build</code> → /dist</div>
+        <div class="env-vars">
+          <div class="env-label">Environment variables</div>
+          <span class="env-var">VITE_SUPABASE_URL</span>
+          <span class="env-var">VITE_SUPABASE_ANON_KEY</span>
+          <span class="env-var">VITE_API_BASE_URL=https://api-prdf.up.railway.app</span>
+        </div>
+      </div>
+
+      <!-- Admin UI -->
+      <div class="service">
+        <div class="service-icon react2">⚛</div>
+        <div class="service-name">Admin Portal</div>
+        <div class="service-tech">React + Vite · Static build</div>
+        <span class="service-url">admin-prdf.up.railway.app</span>
+        <div class="service-port">Build: <code>npm run build</code> → /dist</div>
+        <div class="env-vars">
+          <div class="env-label">Environment variables</div>
+          <span class="env-var">VITE_SUPABASE_URL</span>
+          <span class="env-var">VITE_SUPABASE_ANON_KEY</span>
+          <span class="env-var">VITE_API_BASE_URL=https://api-prdf.up.railway.app</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Arrows down -->
+  <div class="connector-row">
+    <div class="arrow-down">
+      <div class="arrow-line"></div>
+      <div class="arrow-head"></div>
+      <div class="arrow-label">REST API calls<br>JWT auth headers</div>
+    </div>
+    <div class="arrow-down">
+      <div class="arrow-line"></div>
+      <div class="arrow-head"></div>
+      <div class="arrow-label">Supabase JS SDK<br>direct connection</div>
+    </div>
+    <div class="arrow-down">
+      <div class="arrow-line"></div>
+      <div class="arrow-head"></div>
+      <div class="arrow-label">Supabase JS SDK<br>direct connection</div>
+    </div>
+  </div>
+
+  <!-- Bottom row -->
+  <div class="bottom-row">
+
+    <!-- Supabase -->
+    <div class="external-box">
+      <div class="external-box-header">
+        <div class="ext-icon">S</div>
+        <div>
+          <div class="ext-name">Supabase</div>
+          <div class="ext-sub">Managed · External to Railway</div>
+        </div>
+      </div>
+      <div class="supabase-services">
+        <div class="supa-service">
+          PostgreSQL
+          <span>Primary database</span>
+        </div>
+        <div class="supa-service">
+          Auth
+          <span>JWT · RLS policies</span>
+        </div>
+        <div class="supa-service">
+          Storage
+          <span>Documents & files</span>
+        </div>
+        <div class="supa-service">
+          RPC / Edge Fn
+          <span>Business logic</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Users -->
+    <div class="users-box">
+      <div class="users-box-header">
+        <div class="user-icon">👤</div>
+        <div>
+          <div style="font-weight:800;font-size:0.9375rem;color:#064e3b;">End Users</div>
+          <div style="font-size:0.6875rem;color:#059669;">Two distinct audiences</div>
+        </div>
+      </div>
+      <div class="user-type">
+        <div class="user-type-name">Business Borrowers</div>
+        <div class="user-type-url">client-prdf.up.railway.app</div>
+      </div>
+      <div class="user-type">
+        <div class="user-type-name">PRDF Administrators</div>
+        <div class="user-type-url">admin-prdf.up.railway.app</div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Deploy steps -->
+<div class="deploy-steps">
+  <div class="steps-title">Deployment steps on Railway</div>
+  <div class="steps-grid">
+
+    <div class="step-card">
+      <div class="step-num">1</div>
+      <div class="step-title">Connect GitHub repo</div>
+      <div class="step-desc">Create a new Railway project and link your GitHub repo. Railway auto-detects pushes to <code>master</code>.</div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-num">2</div>
+      <div class="step-title">Add 3 services</div>
+      <div class="step-desc">Add <strong>API</strong> (root: <code>backend/src/PRDF.Lms.Api</code>), <strong>client-ui</strong>, and <strong>admin-ui</strong> as separate Railway services from the same repo.</div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-num">3</div>
+      <div class="step-title">Set env variables</div>
+      <div class="step-desc">Paste Supabase keys into each service's Variables tab. Set <code>VITE_API_BASE_URL</code> on both UIs to the API's Railway URL.</div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-num">4</div>
+      <div class="step-title">Configure static sites</div>
+      <div class="step-desc">For client-ui and admin-ui set build command <code>npm run build</code> and publish directory <code>dist</code>. Railway serves static files automatically.</div>
+    </div>
+
+  </div>
+</div>
+
+<div class="note">
+  <strong>Important:</strong> The two Vite frontends are <em>static sites</em> — Railway builds them once (<code>npm run build</code>) and serves the <code>/dist</code> folder via CDN. They are <strong>not</strong> Node servers. The only live server is the .NET API. Supabase is fully managed outside Railway — you just point both UIs and the API at your existing Supabase project URL.
+</div>
+
+</body>
+</html>

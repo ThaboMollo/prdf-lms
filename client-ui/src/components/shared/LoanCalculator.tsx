@@ -98,9 +98,9 @@ export function LoanCalculator({
       </div>
 
       <div className="calc-display">
-        <div className="calc-metric">
-          <span className="calc-metric-label">Monthly</span>
-          <span className="calc-metric-value highlight">{formatRand(monthly)}</span>
+        <div className="calc-metric calc-metric--highlight">
+          <span className="calc-metric-label">Monthly repayment</span>
+          <span className="calc-metric-value">{formatRand(monthly)}</span>
         </div>
         <div className="calc-metric">
           <span className="calc-metric-label">Total repayment</span>

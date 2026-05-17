@@ -1261,22 +1261,10 @@ tbody tr:nth-child(even):hover {
 }
 
 /* ----------------------------------------------------------------
-   Dark-mode toggle button
+   Dark-mode toggle button (removed)
    ---------------------------------------------------------------- */
 .theme-toggle {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  border-radius: 10px;
-  padding: 0.4rem 0.6rem;
-  cursor: pointer;
-  font-size: 1.1rem;
-  line-height: 1;
-  color: var(--text);
-}
-
-.theme-toggle:hover {
-  background: var(--bg);
-  border-color: var(--brand);
+  display: none;
 }
 
 /* ================================================================
@@ -1392,180 +1380,6 @@ tbody tr:nth-child(even):hover {
   }
 }
 
-/* ================================================================
-   Dark Mode (Black + White + Royal Blue)
-   ================================================================ */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-
-    --bg: #0b0b0b;
-    --bg-gradient: none;
-    --surface: #111111;
-    --text: #f5f5f5;
-    --muted: #c2c2c2;
-    --border: #4169e1;
-    --border-light: rgba(65, 105, 225, 0.5);
-
-    --brand: #4169e1;
-    --brand-soft: rgba(65, 105, 225, 0.12);
-    --brand-mid: #4169e1;
-    --brand-tint: rgba(65, 105, 225, 0.14);
-
-    --link: #4169e1;
-    --link-focus-ring: rgba(65, 105, 225, 0.3);
-
-    --secondary: #111111;
-    --secondary-text: #f5f5f5;
-
-    --sidebar-bg: #0b0b0b;
-    --sidebar-text: #f5f5f5;
-    --sidebar-link: #f5f5f5;
-    --sidebar-hover: rgba(65, 105, 225, 0.14);
-    --sidebar-active: rgba(65, 105, 225, 0.2);
-
-    --topbar-bg: #0b0b0b;
-
-    --table-header-bg: #111111;
-
-    --status-neutral-bg: #111111;
-    --status-neutral-text: #f5f5f5;
-
-    --toast-success-border: #4169e1;
-    --toast-error-border: #4169e1;
-    --toast-info-border: #4169e1;
-
-    --timeline-bg: #111111;
-    --timeline-border: #4169e1;
-
-    --next-step-bg: #111111;
-    --next-step-border: rgba(65, 105, 225, 0.7);
-
-    --dropzone-border: rgba(65, 105, 225, 0.7);
-    --dropzone-bg: #111111;
-    --dropzone-active-border: var(--brand);
-    --dropzone-active-bg: rgba(65, 105, 225, 0.12);
-
-    --kpi-gradient: linear-gradient(160deg, #0f0f0f 0%, #111111 65%);
-    --kpi-trend: #4169e1;
-
-    --notif-border: rgba(65, 105, 225, 0.6);
-
-    --skeleton-from: #1a1a1a;
-    --skeleton-mid: #222222;
-
-    --shadow: 0 12px 24px rgba(0, 0, 0, 0.45);
-    --shadow-soft: 0 8px 18px rgba(0, 0, 0, 0.35);
-  }
-}
-
-:root[data-theme="dark"] {
-  color-scheme: dark;
-
-  --bg: #0b0b0b;
-  --bg-gradient: none;
-  --surface: #111111;
-  --text: #f5f5f5;
-  --muted: #c2c2c2;
-  --border: #4169e1;
-  --border-light: rgba(65, 105, 225, 0.5);
-
-  --brand: #4169e1;
-  --brand-soft: rgba(65, 105, 225, 0.12);
-  --brand-mid: #4169e1;
-  --brand-tint: rgba(65, 105, 225, 0.14);
-
-  --link: #4169e1;
-  --link-focus-ring: rgba(65, 105, 225, 0.3);
-
-  --secondary: #111111;
-  --secondary-text: #f5f5f5;
-
-  --sidebar-bg: #0b0b0b;
-  --sidebar-text: #f5f5f5;
-  --sidebar-link: #f5f5f5;
-  --sidebar-hover: rgba(65, 105, 225, 0.14);
-  --sidebar-active: rgba(65, 105, 225, 0.2);
-
-  --topbar-bg: #0b0b0b;
-
-  --table-header-bg: #111111;
-
-  --status-neutral-bg: #111111;
-  --status-neutral-text: #f5f5f5;
-
-  --toast-success-border: #4169e1;
-  --toast-error-border: #4169e1;
-  --toast-info-border: #4169e1;
-
-  --timeline-bg: #111111;
-  --timeline-border: #4169e1;
-
-  --next-step-bg: #111111;
-  --next-step-border: rgba(65, 105, 225, 0.7);
-
-  --dropzone-border: rgba(65, 105, 225, 0.7);
-  --dropzone-bg: #111111;
-  --dropzone-active-border: var(--brand);
-  --dropzone-active-bg: rgba(65, 105, 225, 0.12);
-
-  --kpi-gradient: linear-gradient(160deg, #0f0f0f 0%, #111111 65%);
-  --kpi-trend: #4169e1;
-
-  --notif-border: rgba(65, 105, 225, 0.6);
-
-  --skeleton-from: #1a1a1a;
-  --skeleton-mid: #222222;
-
-  --shadow: 0 12px 24px rgba(0, 0, 0, 0.45);
-  --shadow-soft: 0 8px 18px rgba(0, 0, 0, 0.35);
-}
-
-:root[data-theme="dark"] body {
-  background: var(--bg);
-  color: var(--text);
-}
-
-:root[data-theme="dark"] .btn {
-  background: var(--brand);
-  color: #ffffff;
-}
-
-:root[data-theme="dark"] .btn-secondary {
-  background: #0b0b0b;
-  color: #f5f5f5;
-  border: 1px solid var(--border);
-}
-
-:root[data-theme="dark"] .app-shell,
-:root[data-theme="dark"] .sidebar,
-:root[data-theme="dark"] .topbar,
-:root[data-theme="dark"] .card,
-:root[data-theme="dark"] .card-button,
-:root[data-theme="dark"] .hero-copy,
-:root[data-theme="dark"] .hero-card,
-:root[data-theme="dark"] .stat-card,
-:root[data-theme="dark"] .soft-card,
-:root[data-theme="dark"] .empty-state,
-:root[data-theme="dark"] .step,
-:root[data-theme="dark"] .step-active,
-:root[data-theme="dark"] .status-pill,
-:root[data-theme="dark"] .tab,
-:root[data-theme="dark"] .tab-active,
-:root[data-theme="dark"] .status-badge {
-  background: #111111;
-  color: var(--text);
-}
-
-:root[data-theme="dark"] .nav-link-active {
-  background: #111111;
-  color: var(--brand);
-  border: 1px solid var(--border);
-}
-
-/* ================================================================
-   Phase 6: Dark Mode
-   ================================================================ */
 
 /* ================================================================
    Wonga-Style Design System — New Classes
@@ -1999,103 +1813,105 @@ input[type="range"]::-moz-range-thumb {
   margin: -0.75rem 0 0;
 }
 
-/* ----------------------------------------------------------------
-   Wizard Shell
-   ---------------------------------------------------------------- */
+/* ── Wizard Shell (two-column) ── */
 .wizard-shell {
-  max-width: 780px;
+  background: var(--surface);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.07);
+  border: 1px solid var(--border-light);
+  max-width: 900px;
   margin: 0 auto;
-  padding: 2rem 1rem 3rem;
-  display: grid;
-  gap: 2rem;
 }
 
 .wizard-header {
-  text-align: center;
+  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+  padding: 1.5rem 1.75rem 0;
 }
 
 .wizard-header h1 {
-  font-size: 1.5rem;
+  color: #fff;
+  font-size: 1.125rem;
   font-weight: 800;
-  margin: 0 0 0.35rem;
+  margin-bottom: 0.2rem;
 }
 
-.wizard-header p {
-  color: var(--muted);
-  margin: 0;
+.wizard-header > p {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.8125rem;
+  margin-bottom: 1.25rem;
 }
 
-/* Wizard Progress Bar */
-.wizard-progress {
+.wizard-content {
   display: flex;
-  align-items: center;
-  gap: 0;
+  align-items: stretch;
+  min-height: 420px;
 }
 
-.wizard-step-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.35rem;
+.wizard-form-col {
   flex: 1;
+  min-width: 0;
+}
+
+/* ── Wizard Step Bar ── */
+.wizard-progress {
+  padding-bottom: 0;
+}
+
+.wizard-step-connector {
+  flex: 1;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 1px;
+}
+
+.wizard-step-connector--active {
+  background: rgba(255, 255, 255, 0.7);
 }
 
 .wizard-step-dot {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  border: 2.5px solid var(--border-light);
-  background: var(--surface);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  color: var(--muted);
-  position: relative;
-  z-index: 1;
-  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
-}
-
-.wizard-step-dot--active {
-  background: var(--brand);
-  border-color: var(--brand);
-  color: #ffffff;
-  box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.2);
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.6);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
 }
 
 .wizard-step-dot--done {
-  background: var(--success);
-  border-color: var(--success);
-  color: #ffffff;
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.wizard-step-dot--active {
+  background: #fff;
+  color: #1e40af;
+  border-color: #fff;
 }
 
 .wizard-step-label {
-  font-size: 0.72rem;
+  font-size: 0.6875rem;
   font-weight: 600;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.5);
   text-align: center;
   white-space: nowrap;
-}
-
-.wizard-step-label--active {
-  color: var(--brand);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .wizard-step-label--done {
-  color: var(--success);
+  color: rgba(255, 255, 255, 0.75);
 }
 
-.wizard-connector {
-  flex: 1;
-  height: 2px;
-  background: var(--border-light);
-  margin-bottom: 1.5rem;
-  transition: background var(--transition-fast);
-}
-
-.wizard-connector--done {
-  background: var(--success);
+.wizard-step-label--active {
+  color: rgba(255, 255, 255, 0.95);
 }
 
 /* Wizard Body */
@@ -2536,4 +2352,245 @@ input[type="range"]::-moz-range-thumb {
     padding: 1.5rem 1rem;
     min-height: 100vh;
   }
+}
+
+/* ── Chip Select ── */
+.chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.chip {
+  padding: 0.375rem 0.875rem;
+  border-radius: 20px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border: 1.5px solid var(--border-light);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+
+.chip:hover {
+  border-color: var(--brand-accent);
+  color: var(--brand);
+}
+
+.chip--selected {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.chip-check {
+  font-size: 0.65rem;
+}
+
+/* ── Address Fields ── */
+.label-optional {
+  font-weight: 400;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: 0.25rem;
+}
+
+.address-fields {
+  display: grid;
+  gap: 1rem;
+}
+
+.address-fields__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.address-fields__country {
+  max-width: 50%;
+}
+
+/* ── Wizard Cost Card ── */
+.wizard-cost-card {
+  width: 220px;
+  flex-shrink: 0;
+  background: #0f172a;
+  padding: 1.5rem 1.125rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.wizard-cost-card__header {
+  margin-bottom: 1.25rem;
+}
+
+.wizard-cost-card__title {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.wizard-cost-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  flex: 1;
+}
+
+.wizard-cost-card__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.wizard-cost-card__label {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.6875rem;
+}
+
+.wizard-cost-card__value {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.wizard-cost-card__row--monthly .wizard-cost-card__label {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.wizard-cost-card__monthly {
+  color: #93c5fd;
+  font-size: 0.875rem;
+  font-weight: 900;
+}
+
+.wizard-cost-card__divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.wizard-cost-card__edit {
+  margin-top: auto;
+  padding-top: 1.25rem;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  text-align: center;
+}
+
+.wizard-cost-card__edit:hover {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+/* ── Landing Page — Gradient Hero ── */
+.landing-gradient-hero {
+  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 55%, #3b82f6 100%);
+  border-radius: 0 0 20px 20px;
+  overflow: hidden;
+  margin-bottom: 2rem;
+}
+
+.public-nav--glass {
+  background: rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+.public-nav--glass .public-nav-brand {
+  color: #fff;
+}
+
+.public-nav--glass .btn-ghost {
+  color: rgba(255, 255, 255, 0.85);
+  border-color: rgba(255, 255, 255, 0.3);
+  background: transparent;
+}
+
+.public-nav--glass .btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.public-nav--glass .btn-primary {
+  background: #fff;
+  color: #1e40af;
+}
+
+.landing-gradient-hero .eyebrow {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.landing-gradient-hero .hero-headline {
+  color: #fff;
+}
+
+.landing-gradient-hero .hero-headline span {
+  color: #93c5fd;
+}
+
+.landing-gradient-hero .hero-desc {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.landing-gradient-hero .trust-pill {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Calculator card elevation */
+.calculator-card {
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25), 0 4px 16px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+}
+
+/* Monthly highlight row in calculator */
+.calc-metric--highlight {
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+  border-radius: 10px;
+  padding: 0.625rem 0.875rem;
+  margin-bottom: 0.25rem;
+}
+
+.calc-metric--highlight .calc-metric-label {
+  color: #3b82f6;
+}
+
+.calc-metric--highlight .calc-metric-value {
+  color: #1e40af;
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+/* Trust cards — icon badge */
+.trust-card-icon {
+  width: 36px;
+  height: 36px;
+  background: #eff6ff;
+  border-radius: 8px;
+  color: #1e40af;
+  font-size: 0.9375rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+}
+
+.trust-card {
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }

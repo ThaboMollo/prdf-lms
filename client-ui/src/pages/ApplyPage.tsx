@@ -8,6 +8,8 @@ import { WizardProgress } from '../components/shared/WizardProgress'
 import { FileDropzone } from '../components/shared/FileDropzone'
 import { FieldError } from '../components/shared/FieldError'
 import { LoanCalculator } from '../components/shared/LoanCalculator'
+import { AddressFields, type AddressValue } from '../components/shared/AddressFields'
+import { WizardCostCard } from '../components/shared/WizardCostCard'
 import { formatRand, calculateMonthlyInstalment, calculateTotalFees, calculateTotalRepayment } from '../lib/loanCalc'
 import {
   step1Schema,
@@ -42,10 +44,6 @@ const LOAN_PURPOSES = [
   'Staff Hiring', 'Marketing', 'Renovations', 'Other',
 ]
 
-const PROVINCES = [
-  'Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape',
-  'Limpopo', 'Mpumalanga', 'North West', 'Free State', 'Northern Cape',
-]
 
 // ----------------------------------------------------------------
 // Wizard state / reducer
@@ -62,6 +60,7 @@ type WizardAction =
   | { type: 'SET_STEP2'; payload: Step2Data }
   | { type: 'SET_STEP3'; payload: Step3Data }
   | { type: 'SET_STEP4'; payload: Step4Data }
+  | { type: 'GOTO_STEP'; step: number }
 
 function wizardReducer(state: WizardState, action: WizardAction): WizardState {
   switch (action.type) {
@@ -77,6 +76,8 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
       return { ...state, data: { ...state.data, step3: action.payload } }
     case 'SET_STEP4':
       return { ...state, data: { ...state.data, step4: action.payload } }
+    case 'GOTO_STEP':
+      return { ...state, currentStep: Math.max(1, Math.min(action.step, 5)) }
     default:
       return state
   }
@@ -93,7 +94,7 @@ type ApplyPageProps = {
 export function ApplyPage({ session }: ApplyPageProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { amount: ctxAmount, term: ctxTerm } = useCalculator()
+  const { amount, term } = useCalculator()
 
   const applicationsUseCases = useMemo(
     () => createApplicationsUseCases(session.access_token),
@@ -109,11 +110,15 @@ export function ApplyPage({ session }: ApplyPageProps) {
     data: {
       step1: null,
       step2: null,
-      step3: { requestedAmount: ctxAmount, termMonths: ctxTerm, purpose: '', loanPurposeCategory: '' },
+      step3: { requestedAmount: amount, termMonths: term, purpose: '', loanPurposeCategory: '' },
       step4: null,
       step5: { termsAccepted: false },
     },
   })
+
+  const monthly = calculateMonthlyInstalment(amount, term)
+  const total = calculateTotalRepayment(amount, term)
+  const fees = calculateTotalFees(amount, term)
 
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -148,7 +153,9 @@ export function ApplyPage({ session }: ApplyPageProps) {
         purpose: `${step3.loanPurposeCategory}: ${step3.purpose}`,
         businessName: step1.businessName,
         registrationNo: step1.registrationNo,
-        address: `${step1.address}, ${step1.province}`,
+        address: [step1.addressLine1, step1.addressLine2, step1.city, step1.province, step1.country]
+          .filter(Boolean)
+          .join(', '),
       })
 
       const appId = draft.id
@@ -182,58 +189,70 @@ export function ApplyPage({ session }: ApplyPageProps) {
       <div className="wizard-header">
         <h1>Business Loan Application</h1>
         <p>Complete all steps to submit your application for review.</p>
+        <WizardProgress steps={STEPS} currentStep={state.currentStep} />
       </div>
 
-      <WizardProgress steps={STEPS} currentStep={state.currentStep} />
+      <div className="wizard-content">
+        <div className="wizard-form-col">
+          {state.currentStep === 1 && (
+            <Step1
+              initial={state.data.step1}
+              onNext={(data) => {
+                dispatch({ type: 'SET_STEP1', payload: data })
+                dispatch({ type: 'NEXT' })
+              }}
+            />
+          )}
+          {state.currentStep === 2 && (
+            <Step2
+              initial={state.data.step2}
+              onNext={(data) => {
+                dispatch({ type: 'SET_STEP2', payload: data })
+                dispatch({ type: 'NEXT' })
+              }}
+              onBack={() => dispatch({ type: 'PREV' })}
+            />
+          )}
+          {state.currentStep === 3 && (
+            <Step3
+              initial={state.data.step3}
+              onNext={(data) => {
+                dispatch({ type: 'SET_STEP3', payload: data })
+                dispatch({ type: 'NEXT' })
+              }}
+              onBack={() => dispatch({ type: 'PREV' })}
+            />
+          )}
+          {state.currentStep === 4 && (
+            <Step4
+              initial={state.data.step4}
+              onNext={(data) => {
+                dispatch({ type: 'SET_STEP4', payload: data })
+                dispatch({ type: 'NEXT' })
+              }}
+              onBack={() => dispatch({ type: 'PREV' })}
+            />
+          )}
+          {state.currentStep === 5 && (
+            <Step5
+              data={state.data}
+              submitting={submitting}
+              submitError={submitError}
+              onBack={() => dispatch({ type: 'PREV' })}
+              onSubmit={handleFinalSubmit}
+            />
+          )}
+        </div>
 
-      {state.currentStep === 1 && (
-        <Step1
-          initial={state.data.step1}
-          onNext={(data) => {
-            dispatch({ type: 'SET_STEP1', payload: data })
-            dispatch({ type: 'NEXT' })
-          }}
+        <WizardCostCard
+          amount={amount}
+          term={term}
+          monthly={monthly}
+          total={total}
+          fees={fees}
+          onEdit={() => dispatch({ type: 'GOTO_STEP', step: 3 })}
         />
-      )}
-      {state.currentStep === 2 && (
-        <Step2
-          initial={state.data.step2}
-          onNext={(data) => {
-            dispatch({ type: 'SET_STEP2', payload: data })
-            dispatch({ type: 'NEXT' })
-          }}
-          onBack={() => dispatch({ type: 'PREV' })}
-        />
-      )}
-      {state.currentStep === 3 && (
-        <Step3
-          initial={state.data.step3}
-          onNext={(data) => {
-            dispatch({ type: 'SET_STEP3', payload: data })
-            dispatch({ type: 'NEXT' })
-          }}
-          onBack={() => dispatch({ type: 'PREV' })}
-        />
-      )}
-      {state.currentStep === 4 && (
-        <Step4
-          initial={state.data.step4}
-          onNext={(data) => {
-            dispatch({ type: 'SET_STEP4', payload: data })
-            dispatch({ type: 'NEXT' })
-          }}
-          onBack={() => dispatch({ type: 'PREV' })}
-        />
-      )}
-      {state.currentStep === 5 && (
-        <Step5
-          data={state.data}
-          submitting={submitting}
-          submitError={submitError}
-          onBack={() => dispatch({ type: 'PREV' })}
-          onSubmit={handleFinalSubmit}
-        />
-      )}
+      </div>
     </div>
   )
 }
@@ -246,13 +265,28 @@ function Step1({ initial, onNext }: { initial: Step1Data | null; onNext: (d: Ste
     businessName: initial?.businessName ?? '',
     registrationNo: initial?.registrationNo ?? '',
     industry: initial?.industry ?? '',
-    address: initial?.address ?? '',
-    province: initial?.province ?? '',
+    address: {
+      addressLine1: initial?.addressLine1 ?? '',
+      addressLine2: initial?.addressLine2 ?? '',
+      city: initial?.city ?? '',
+      province: initial?.province ?? '',
+      country: initial?.country ?? 'South Africa',
+    } satisfies AddressValue,
   })
   const [errors, setErrors] = useState<Partial<Record<keyof Step1Data, string>>>({})
 
   function handleNext() {
-    const result = step1Schema.safeParse(form)
+    const flat = {
+      businessName: form.businessName,
+      registrationNo: form.registrationNo,
+      industry: form.industry,
+      addressLine1: form.address.addressLine1,
+      addressLine2: form.address.addressLine2,
+      city: form.address.city,
+      province: form.address.province,
+      country: form.address.country,
+    }
+    const result = step1Schema.safeParse(flat)
     if (!result.success) {
       const fieldErrors: Partial<Record<keyof Step1Data, string>> = {}
       for (const issue of result.error.issues) {
@@ -266,11 +300,6 @@ function Step1({ initial, onNext }: { initial: Step1Data | null; onNext: (d: Ste
     onNext(result.data)
   }
 
-  function set(key: keyof typeof form) {
-    return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-      setForm((prev) => ({ ...prev, [key]: e.target.value }))
-  }
-
   return (
     <div className="wizard-body">
       <h2>Business Profile</h2>
@@ -280,39 +309,45 @@ function Step1({ initial, onNext }: { initial: Step1Data | null; onNext: (d: Ste
         <div className="form-two-col">
           <div className="form-field">
             <label htmlFor="businessName">Business name</label>
-            <input id="businessName" value={form.businessName} onChange={set('businessName')} placeholder="Acme Enterprises (Pty) Ltd" />
+            <input
+              id="businessName"
+              value={form.businessName}
+              onChange={(e) => setForm((p) => ({ ...p, businessName: e.target.value }))}
+              placeholder="Acme Enterprises (Pty) Ltd"
+            />
             <FieldError message={errors.businessName} />
           </div>
           <div className="form-field">
             <label htmlFor="registrationNo">CIPC registration number</label>
-            <input id="registrationNo" value={form.registrationNo} onChange={set('registrationNo')} placeholder="2021/123456/07" />
+            <input
+              id="registrationNo"
+              value={form.registrationNo}
+              onChange={(e) => setForm((p) => ({ ...p, registrationNo: e.target.value }))}
+              placeholder="2021/123456/07"
+            />
             <FieldError message={errors.registrationNo} />
           </div>
         </div>
 
         <div className="form-field">
           <label htmlFor="industry">Industry</label>
-          <select id="industry" value={form.industry} onChange={set('industry')}>
+          <select id="industry" value={form.industry} onChange={(e) => setForm((p) => ({ ...p, industry: e.target.value }))}>
             <option value="">Select your industry…</option>
             {INDUSTRIES.map((i) => <option key={i} value={i}>{i}</option>)}
           </select>
           <FieldError message={errors.industry} />
         </div>
 
-        <div className="form-field">
-          <label htmlFor="address">Business address</label>
-          <input id="address" value={form.address} onChange={set('address')} placeholder="123 Main Street, Sandton" />
-          <FieldError message={errors.address} />
-        </div>
-
-        <div className="form-field">
-          <label htmlFor="province">Province</label>
-          <select id="province" value={form.province} onChange={set('province')}>
-            <option value="">Select a province…</option>
-            {PROVINCES.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
-          <FieldError message={errors.province} />
-        </div>
+        <AddressFields
+          value={form.address}
+          onChange={(addr) => setForm((p) => ({ ...p, address: addr }))}
+          errors={{
+            addressLine1: errors.addressLine1,
+            city: errors.city,
+            province: errors.province,
+            country: errors.country,
+          }}
+        />
       </div>
 
       <div className="wizard-nav">
@@ -390,14 +425,15 @@ function Step2({
             <input id="numberOfEmployees" type="number" min={1} value={form.numberOfEmployees} onChange={set('numberOfEmployees')} placeholder="12" />
             <FieldError message={errors.numberOfEmployees} />
           </div>
-          <div className="form-field">
-            <label htmlFor="bankName">Business bank</label>
-            <select id="bankName" value={form.bankName} onChange={set('bankName')}>
-              <option value="">Select your bank…</option>
-              {SA_BANKS.map((b) => <option key={b} value={b}>{b}</option>)}
-            </select>
-            <FieldError message={errors.bankName} />
-          </div>
+        </div>
+
+        <div className="form-field">
+          <label htmlFor="bankName">Business bank</label>
+          <select id="bankName" value={form.bankName} onChange={set('bankName')}>
+            <option value="">Select your bank…</option>
+            {SA_BANKS.map((b) => <option key={b} value={b}>{b}</option>)}
+          </select>
+          <FieldError message={errors.bankName} />
         </div>
       </div>
 
