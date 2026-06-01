@@ -10,9 +10,7 @@ export function Sidebar({ items, title }: SidebarProps) {
   return (
     <aside className="sidebar" aria-label="Primary">
       <div className="sidebar-brand">
-        <span style={{ color: '#ffffff', fontWeight: 800, fontSize: '1.2rem', letterSpacing: '-0.02em' }}>
-          {title}
-        </span>
+        <span>{title}</span>
       </div>
       <nav>
         {items.map((item) => (
@@ -21,7 +19,8 @@ export function Sidebar({ items, title }: SidebarProps) {
             to={item.to}
             className={({ isActive }) => (isActive ? 'nav-link nav-link-active' : 'nav-link')}
           >
-            {item.label}
+            <i className={`fa-solid ${item.icon}`} aria-hidden="true" />
+            <span>{item.label}</span>
           </NavLink>
         ))}
       </nav>

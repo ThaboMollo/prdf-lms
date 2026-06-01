@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { LOAN_AMOUNT_MAX, LOAN_AMOUNT_MIN, LOAN_TERM_MAX, LOAN_TERM_MIN } from '../../lib/loanLimits'
 
 // ----------------------------------------------------------------
 // Wizard step schemas (5-step application flow)
@@ -23,18 +24,29 @@ export const step2Schema = z.object({
 })
 
 export const step3Schema = z.object({
-  requestedAmount: z.coerce.number().min(10000, 'Minimum loan amount is R10,000').max(500000, 'Maximum loan amount is R500,000'),
-  termMonths: z.coerce.number().int().min(1, 'Minimum 1 month').max(24, 'Maximum 24 months'),
+  requestedAmount: z.coerce
+    .number()
+    .min(LOAN_AMOUNT_MIN, 'Minimum loan amount is R10,000')
+    .max(LOAN_AMOUNT_MAX, 'Maximum loan amount is R10 million'),
+  termMonths: z.coerce
+    .number()
+    .int()
+    .min(LOAN_TERM_MIN, 'Minimum 1 month')
+    .max(LOAN_TERM_MAX, 'Maximum 60 months'),
   purpose: z.string().trim().min(5, 'Please describe the loan purpose (at least 5 characters)'),
   loanPurposeCategory: z.string().min(1, 'Please select a purpose category'),
 })
 
+const requiredFileSchema = (message: string) =>
+  z.any().refine((v): v is File => v instanceof File, { message })
+
 export const step4Schema = z.object({
-  cipcCert: z.any().refine((v): v is File => v instanceof File, {
-    message: 'CIPC certificate is required',
-  }),
+  idDocument: requiredFileSchema('ID document is required'),
+  proofOfAddress: requiredFileSchema('Proof of address is required'),
+  cipcCert: requiredFileSchema('CIPC certificate is required'),
+  taxClearance: requiredFileSchema('Tax clearance document is required'),
   bankStatements: z.array(z.any()).min(1, 'At least one bank statement is required'),
-  financials: z.any().optional(),
+  financials: requiredFileSchema('Financial statements are required'),
 })
 
 export const step5Schema = z.object({
@@ -46,7 +58,14 @@ export const step5Schema = z.object({
 export type Step1Data = z.infer<typeof step1Schema>
 export type Step2Data = z.infer<typeof step2Schema>
 export type Step3Data = z.infer<typeof step3Schema>
-export type Step4Data = { cipcCert: File | null; bankStatements: File[]; financials: File | null }
+export type Step4Data = {
+  idDocument: File | null
+  proofOfAddress: File | null
+  cipcCert: File | null
+  taxClearance: File | null
+  bankStatements: File[]
+  financials: File | null
+}
 export type Step5Data = { termsAccepted: boolean }
 
 export type WizardFormState = {

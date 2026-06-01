@@ -9,11 +9,15 @@ import { RequireClientProgress } from './components/RequireClientProgress'
 import { CardSkeleton } from './components/shared/Skeletons'
 import { CalculatorProvider } from './contexts/CalculatorContext'
 import { LandingPage } from './pages/LandingPage'
+import { EligibilityCheckPage } from './pages/EligibilityCheckPage'
+import { EligibilityResultPage } from './pages/EligibilityResultPage'
+import { NotEligiblePage } from './pages/NotEligiblePage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { HomePage } from './pages/HomePage'
 import { ApplyPage } from './pages/ApplyPage'
 import { StatusPage } from './pages/StatusPage'
+import { DocumentsPage } from './pages/DocumentsPage'
 import { fetchMe, type MeResponse } from './lib/api'
 import { getDataProvider } from './lib/config/dataProvider'
 import { supabase } from './lib/supabase'
@@ -78,6 +82,9 @@ export function App() {
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<LandingPage session={session} />} />
+        <Route path="/eligibility" element={<EligibilityCheckPage />} />
+        <Route path="/eligibility/result" element={<EligibilityResultPage />} />
+        <Route path="/eligibility/not-eligible" element={<NotEligiblePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
 
@@ -91,6 +98,7 @@ export function App() {
                   <Route path="/status" element={<StatusPage session={session as Session} me={meQuery.data!} />} />
                 </Route>
                 <Route path="/apply" element={<ApplyPage session={session as Session} me={meQuery.data!} />} />
+                <Route path="/documents" element={<DocumentsPage session={session as Session} me={meQuery.data!} />} />
                 <Route path="/dashboard" element={<Navigate to="/home" replace />} />
                 <Route path="/applications" element={<Navigate to="/apply" replace />} />
               </Route>

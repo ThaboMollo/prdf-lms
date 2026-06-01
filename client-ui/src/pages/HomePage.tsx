@@ -27,7 +27,7 @@ function getNextAction(app: ApplicationSummary): { label: string; to: string } |
     case 'Draft':
       return { label: 'Complete your application', to: '/apply' }
     case 'InfoRequested':
-      return { label: 'Upload requested documents', to: '/apply' }
+      return { label: 'Upload requested documents', to: '/documents' }
     case 'Approved':
       return { label: 'View approval details', to: '/status' }
     default:
@@ -60,21 +60,30 @@ export function HomePage({ session, me }: HomePageProps) {
 
   return (
     <section className="client-page">
-      {/* Greeting */}
       <div>
         <p className="dashboard-greeting">
           {getGreeting()},{' '}
           <span>{displayName}</span>
         </p>
-        <p className="dashboard-sub">Here's an overview of your business funding journey.</p>
+        <p className="dashboard-sub">Here is an overview of your business funding journey.</p>
       </div>
 
-      {/* Active Application Card */}
-      {appsQuery.isLoading ? (
-        <ListSkeleton rows={3} />
-      ) : activeApp ? (
+      {appsQuery.isError ? (
+        <EmptyState
+          title="Could not load dashboard"
+          message="Your application summary could not be loaded. Retry when your connection is stable."
+          ctaLabel="Retry"
+          onCtaClick={() => appsQuery.refetch()}
+        />
+      ) : null}
+
+      {!appsQuery.isError && appsQuery.isLoading ? <ListSkeleton rows={3} /> : null}
+
+      {!appsQuery.isError && !appsQuery.isLoading && activeApp ? (
         <ActiveApplicationCard app={activeApp} onNavigate={navigate} />
-      ) : (
+      ) : null}
+
+      {!appsQuery.isError && !appsQuery.isLoading && !activeApp ? (
         <div className="active-loan-card" style={{ borderLeftColor: 'var(--muted)' }}>
           <div className="active-loan-card-header">
             <div>
@@ -88,31 +97,29 @@ export function HomePage({ session, me }: HomePageProps) {
             </button>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* KPI Row */}
       <div className="dashboard-kpi-row">
         <KPIStatCard label="Applications submitted" value={submitted} />
         <KPIStatCard label="Active loans" value={activeLoans} />
         <KPIStatCard
           label="Amount outstanding"
-          value={outstanding > 0 ? `R ${outstanding.toLocaleString('en-ZA')}` : '—'}
+          value={outstanding > 0 ? `R ${outstanding.toLocaleString('en-ZA')}` : '-'}
         />
       </div>
 
-      {/* Recent Activity */}
-      {!appsQuery.isLoading && applications.length > 0 && (
+      {!appsQuery.isError && !appsQuery.isLoading && applications.length > 0 ? (
         <RecentActivity applications={applications.slice(0, 5)} />
-      )}
+      ) : null}
 
-      {!appsQuery.isLoading && applications.length === 0 && (
+      {!appsQuery.isError && !appsQuery.isLoading && applications.length === 0 ? (
         <EmptyState
           title="No applications yet"
           message="Start your first application to see updates here."
           ctaLabel="Apply for Funding"
           ctaHref="/apply"
         />
-      )}
+      ) : null}
     </section>
   )
 }
@@ -129,9 +136,9 @@ function ActiveApplicationCard({
   const statusMessages: Partial<Record<string, string>> = {
     Draft: 'Your application is saved as a draft. Complete it to submit for review.',
     Submitted: 'Your application has been submitted and is waiting to be assigned.',
-    UnderReview: "Our team is currently reviewing your application. We'll be in touch soon.",
+    UnderReview: "Our team is currently reviewing your application. We will be in touch soon.",
     InfoRequested: 'We need additional information from you. Please upload the requested documents.',
-    Approved: 'Congratulations! Your loan application has been approved.',
+    Approved: 'Your loan application has been approved.',
     Disbursed: 'Your loan has been disbursed to your business account.',
     InRepayment: 'Your loan is active and in repayment.',
     Closed: 'This loan has been closed.',
@@ -141,15 +148,13 @@ function ActiveApplicationCard({
     <div className="active-loan-card">
       <div className="active-loan-card-header">
         <div>
-          <p style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
-            Active Application
-          </p>
+          <p className="section-eyebrow">Active Application</p>
           <h2>{app.purpose || 'Loan Application'}</h2>
           <p>{statusMessages[app.status] ?? 'Application in progress.'}</p>
         </div>
         <StatusBadge status={app.status} />
       </div>
-      {nextAction && (
+      {nextAction ? (
         <div className="active-loan-cta">
           <button
             type="button"
@@ -166,28 +171,37 @@ function ActiveApplicationCard({
             View all applications
           </button>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }
 
 function RecentActivity({ applications }: { applications: ApplicationSummary[] }) {
   return (
-    <section className="card">
-      <h2 style={{ marginBottom: '0.85rem' }}>Recent activity</h2>
-      <ul className="list-clean">
-        {applications.map((app) => (
-          <li key={app.id} className="list-row">
-            <div>
-              <p className="list-title">{app.purpose || `Application ${app.id.slice(0, 8)}`}</p>
-              <small style={{ color: 'var(--muted)' }}>
-                Updated {formatDateTime(app.submittedAt ?? app.createdAt)}
-              </small>
-            </div>
-            <StatusBadge status={app.status} />
-          </li>
-        ))}
-      </ul>
+    <section className="card recent-activity-card">
+      <h2>Recent Activity</h2>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Application</th>
+              <th>Updated</th>
+              <th>Amount</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {applications.map((app) => (
+              <tr key={app.id}>
+                <td>{app.purpose || `Application ${app.id.slice(0, 8)}`}</td>
+                <td>{formatDateTime(app.submittedAt ?? app.createdAt)}</td>
+                <td>{app.requestedAmount ? `R ${app.requestedAmount.toLocaleString('en-ZA')}` : '-'}</td>
+                <td><StatusBadge status={app.status} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   )
 }

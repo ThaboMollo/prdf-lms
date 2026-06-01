@@ -134,12 +134,9 @@ export function ApplyPage({ session }: ApplyPageProps) {
       return
     }
 
-    if (!step4.cipcCert) {
-      setSubmitError('CIPC certificate is required.')
-      return
-    }
-    if (!step4.bankStatements.length) {
-      setSubmitError('At least one bank statement is required.')
+    const step4Result = step4Schema.safeParse(step4)
+    if (!step4Result.success) {
+      setSubmitError('Please upload all required documents before submitting.')
       return
     }
 
@@ -161,15 +158,16 @@ export function ApplyPage({ session }: ApplyPageProps) {
       const appId = draft.id
 
       // Upload documents
-      await documentsUseCases.uploadDocumentFlow(appId, 'CIPCCertificate', step4.cipcCert)
+      await documentsUseCases.uploadDocumentFlow(appId, 'IDDocument', step4Result.data.idDocument)
+      await documentsUseCases.uploadDocumentFlow(appId, 'ProofOfAddress', step4Result.data.proofOfAddress)
+      await documentsUseCases.uploadDocumentFlow(appId, 'BusinessRegistration', step4Result.data.cipcCert)
+      await documentsUseCases.uploadDocumentFlow(appId, 'TaxClearance', step4Result.data.taxClearance)
 
-      for (const file of step4.bankStatements) {
+      for (const file of step4Result.data.bankStatements) {
         await documentsUseCases.uploadDocumentFlow(appId, 'BankStatement', file)
       }
 
-      if (step4.financials) {
-        await documentsUseCases.uploadDocumentFlow(appId, 'Financials', step4.financials)
-      }
+      await documentsUseCases.uploadDocumentFlow(appId, 'Financials', step4Result.data.financials)
 
       await applicationsUseCases.submitApplication(appId)
 
@@ -187,8 +185,8 @@ export function ApplyPage({ session }: ApplyPageProps) {
   return (
     <div className="wizard-shell">
       <div className="wizard-header">
-        <h1>Business Loan Application</h1>
-        <p>Complete all steps to submit your application for review.</p>
+        <h1>Apply for Funding</h1>
+        <p>Step {state.currentStep} of {STEPS.length} - {STEPS[state.currentStep - 1]}</p>
         <WizardProgress steps={STEPS} currentStep={state.currentStep} />
       </div>
 
@@ -539,39 +537,76 @@ function Step4({
   onNext: (d: Step4Data) => void
   onBack: () => void
 }) {
+  const [idDocument, setIdDocument] = useState<File | null>(initial?.idDocument ?? null)
+  const [proofOfAddress, setProofOfAddress] = useState<File | null>(initial?.proofOfAddress ?? null)
   const [cipcCert, setCipcCert] = useState<File | null>(initial?.cipcCert ?? null)
+  const [taxClearance, setTaxClearance] = useState<File | null>(initial?.taxClearance ?? null)
   const [bankStatements, setBankStatements] = useState<File[]>(initial?.bankStatements ?? [])
   const [financials, setFinancials] = useState<File | null>(initial?.financials ?? null)
-  const [errors, setErrors] = useState<{ cipcCert?: string; bankStatements?: string }>({})
+  const [errors, setErrors] = useState<Partial<Record<keyof Step4Data, string>>>({})
 
   function handleNext() {
-    const result = step4Schema.safeParse({ cipcCert, bankStatements, financials })
+    const result = step4Schema.safeParse({
+      idDocument,
+      proofOfAddress,
+      cipcCert,
+      taxClearance,
+      bankStatements,
+      financials,
+    })
     if (!result.success) {
-      const fieldErrors: { cipcCert?: string; bankStatements?: string } = {}
+      const fieldErrors: Partial<Record<keyof Step4Data, string>> = {}
       for (const issue of result.error.issues) {
-        const key = issue.path[0] as 'cipcCert' | 'bankStatements'
+        const key = issue.path[0] as keyof Step4Data
         fieldErrors[key] = issue.message
       }
       setErrors(fieldErrors)
       return
     }
     setErrors({})
-    onNext({ cipcCert, bankStatements, financials })
+    onNext(result.data)
   }
 
   return (
     <div className="wizard-body">
       <h2>Documents</h2>
-      <p>Upload the required documents. Accepted formats: PDF, JPG, PNG.</p>
+      <p>Upload all required documents. Accepted formats: PDF, JPG, PNG.</p>
 
-      <div className="stack">
+      <div className="document-upload-grid">
         <FileDropzone
-          label="CIPC Certificate *"
+          label="ID Document *"
+          accept=".pdf,.jpg,.jpeg,.png"
+          files={idDocument ? [idDocument] : []}
+          onFilesChange={(files) => setIdDocument(files[0] ?? null)}
+          error={errors.idDocument}
+          hint="Certified copy of the director or applicant identity document"
+        />
+
+        <FileDropzone
+          label="Proof of Address *"
+          accept=".pdf,.jpg,.jpeg,.png"
+          files={proofOfAddress ? [proofOfAddress] : []}
+          onFilesChange={(files) => setProofOfAddress(files[0] ?? null)}
+          error={errors.proofOfAddress}
+          hint="Recent proof of business or director address"
+        />
+
+        <FileDropzone
+          label="Company Registration (CIPC) *"
           accept=".pdf,.jpg,.jpeg,.png"
           files={cipcCert ? [cipcCert] : []}
           onFilesChange={(files) => setCipcCert(files[0] ?? null)}
           error={errors.cipcCert}
-          hint="Your company registration certificate from CIPC"
+          hint="CIPC company registration certificate"
+        />
+
+        <FileDropzone
+          label="Tax Clearance *"
+          accept=".pdf,.jpg,.jpeg,.png"
+          files={taxClearance ? [taxClearance] : []}
+          onFilesChange={(files) => setTaxClearance(files[0] ?? null)}
+          error={errors.taxClearance}
+          hint="SARS tax clearance or tax compliance status document"
         />
 
         <FileDropzone
@@ -585,11 +620,12 @@ function Step4({
         />
 
         <FileDropzone
-          label="Latest Financial Statements (optional)"
-          accept=".pdf,.xlsx,.xls"
+          label="Financial Statements *"
+          accept=".pdf,.jpg,.jpeg,.png"
           files={financials ? [financials] : []}
           onFilesChange={(files) => setFinancials(files[0] ?? null)}
-          hint="Annual financials or management accounts — strengthens your application"
+          error={errors.financials}
+          hint="Latest annual financials or management accounts"
         />
       </div>
 
@@ -681,9 +717,12 @@ function Step5({
           <div className="review-section">
             <h3>Documents</h3>
             <dl className="review-dl">
-              <div className="review-row"><dt>CIPC Cert</dt><dd>{step4.cipcCert?.name ?? '—'}</dd></div>
+              <div className="review-row"><dt>ID Document</dt><dd>{step4.idDocument?.name ?? '-'}</dd></div>
+              <div className="review-row"><dt>Proof of Address</dt><dd>{step4.proofOfAddress?.name ?? '-'}</dd></div>
+              <div className="review-row"><dt>Company Registration</dt><dd>{step4.cipcCert?.name ?? '-'}</dd></div>
+              <div className="review-row"><dt>Tax Clearance</dt><dd>{step4.taxClearance?.name ?? '-'}</dd></div>
               <div className="review-row"><dt>Bank stmts</dt><dd>{step4.bankStatements.length} file{step4.bankStatements.length !== 1 ? 's' : ''}</dd></div>
-              <div className="review-row"><dt>Financials</dt><dd>{step4.financials?.name ?? 'Not provided'}</dd></div>
+              <div className="review-row"><dt>Financials</dt><dd>{step4.financials?.name ?? '-'}</dd></div>
             </dl>
           </div>
         )}

@@ -6,11 +6,14 @@ import {
   calculateTotalRepayment,
   formatRand,
 } from '../../lib/loanCalc'
+import {
+  LOAN_AMOUNT_MAX,
+  LOAN_AMOUNT_MIN,
+  LOAN_AMOUNT_STEP,
+  LOAN_TERM_MAX,
+  LOAN_TERM_MIN,
+} from '../../lib/loanLimits'
 
-const AMOUNT_MIN = 10000
-const AMOUNT_MAX = 500000
-const TERM_MIN = 1
-const TERM_MAX = 24
 
 type LoanCalculatorProps = {
   compact?: boolean
@@ -62,17 +65,17 @@ export function LoanCalculator({
         </label>
         <input
           type="range"
-          min={AMOUNT_MIN}
-          max={AMOUNT_MAX}
-          step={5000}
+          min={LOAN_AMOUNT_MIN}
+          max={LOAN_AMOUNT_MAX}
+          step={LOAN_AMOUNT_STEP}
           value={amount}
           onChange={handleAmount}
-          style={{ '--pct': pct(amount, AMOUNT_MIN, AMOUNT_MAX) } as React.CSSProperties}
+          style={{ '--pct': pct(amount, LOAN_AMOUNT_MIN, LOAN_AMOUNT_MAX) } as React.CSSProperties}
           aria-label="Loan amount"
         />
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
-          <span>{formatRand(AMOUNT_MIN)}</span>
-          <span>{formatRand(AMOUNT_MAX)}</span>
+          <span>{formatRand(LOAN_AMOUNT_MIN)}</span>
+          <span>{formatRand(LOAN_AMOUNT_MAX)}</span>
         </div>
       </div>
 
@@ -83,17 +86,17 @@ export function LoanCalculator({
         </label>
         <input
           type="range"
-          min={TERM_MIN}
-          max={TERM_MAX}
+          min={LOAN_TERM_MIN}
+          max={LOAN_TERM_MAX}
           step={1}
           value={term}
           onChange={handleTerm}
-          style={{ '--pct': pct(term, TERM_MIN, TERM_MAX) } as React.CSSProperties}
+          style={{ '--pct': pct(term, LOAN_TERM_MIN, LOAN_TERM_MAX) } as React.CSSProperties}
           aria-label="Loan term in months"
         />
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
-          <span>{TERM_MIN} month</span>
-          <span>{TERM_MAX} months</span>
+          <span>{LOAN_TERM_MIN} month</span>
+          <span>{LOAN_TERM_MAX} months</span>
         </div>
       </div>
 

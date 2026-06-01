@@ -1,9 +1,10 @@
-﻿import { useMemo, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import type { Session } from '@supabase/supabase-js'
 import { createLoansUseCases } from '../logic/usecases/loans'
 import { EmptyState } from '../components/shared/EmptyState'
 import { PageHeader } from '../components/shared/PageHeader'
+import { StatusBadge } from '../components/shared/StatusBadge'
 import { formatCurrency, formatDateTime } from '../lib/format'
 
 type LoanDetailsPageProps = {
@@ -11,16 +12,10 @@ type LoanDetailsPageProps = {
 }
 
 export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
-  const queryClient = useQueryClient()
   const accessToken = session.access_token
   const loansUseCases = useMemo(() => createLoansUseCases(accessToken), [accessToken])
   const [loanId, setLoanId] = useState('')
   const [submittedLoanId, setSubmittedLoanId] = useState('')
-  const [disburseAmount, setDisburseAmount] = useState(0)
-  const [disburseReference, setDisburseReference] = useState('')
-  const [repaymentAmount, setRepaymentAmount] = useState(0)
-  const [repaymentReference, setRepaymentReference] = useState('')
-  const [formError, setFormError] = useState<string | null>(null)
 
   const loanQuery = useQuery({
     queryKey: ['loan-details', submittedLoanId],
@@ -28,92 +23,66 @@ export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
     enabled: Boolean(submittedLoanId)
   })
 
-  const disburseMutation = useMutation({
-    mutationFn: () => loansUseCases.disburseLoan(submittedLoanId, disburseAmount, disburseReference),
-    onSuccess: async () => {
-      setFormError(null)
-      await queryClient.invalidateQueries({ queryKey: ['loan-details', submittedLoanId] })
-    },
-    onError: (error) => {
-      setFormError(error instanceof Error ? error.message : 'Could not disburse loan.')
-    }
-  })
-
-  const repaymentMutation = useMutation({
-    mutationFn: () => loansUseCases.recordRepayment(submittedLoanId, repaymentAmount, repaymentReference),
-    onSuccess: async () => {
-      setFormError(null)
-      await queryClient.invalidateQueries({ queryKey: ['loan-details', submittedLoanId] })
-    },
-    onError: (error) => {
-      setFormError(error instanceof Error ? error.message : 'Could not record repayment.')
-    }
-  })
-
   const totalDue = useMemo(() => loanQuery.data?.schedule.reduce((sum, item) => sum + item.dueTotal, 0) ?? 0, [loanQuery.data])
+  const totalPaid = useMemo(() => loanQuery.data?.repayments.reduce((sum, item) => sum + item.amount, 0) ?? 0, [loanQuery.data])
 
   return (
     <section className="stack">
-      <PageHeader title="Loan Details" subtitle="Load a loan record to manage disbursements and repayments." />
+      <PageHeader title="Loan Account" subtitle="View loan status, repayment schedule, and repayment history." />
 
       <div className="card form-grid">
         <label>
           Loan ID
-          <input placeholder="Loan ID (UUID)" value={loanId} onChange={(e) => setLoanId(e.target.value)} />
+          <input placeholder="Loan ID" value={loanId} onChange={(e) => setLoanId(e.target.value)} />
         </label>
         <button
           type="button"
           className="btn"
-          onClick={() => {
-            setFormError(null)
-            setSubmittedLoanId(loanId.trim())
-          }}
+          onClick={() => setSubmittedLoanId(loanId.trim())}
           disabled={!loanId.trim()}
         >
           Load Loan
         </button>
       </div>
 
-      {loanQuery.isError ? <p className="text-error">Unable to load loan details.</p> : null}
-      {formError ? <p className="text-error">{formError}</p> : null}
+      {loanQuery.isError ? (
+        <EmptyState
+          title="Unable to load loan"
+          message="This loan account could not be loaded. Check the loan ID and retry."
+          ctaLabel="Retry"
+          onCtaClick={() => loanQuery.refetch()}
+        />
+      ) : null}
 
       {loanQuery.data ? (
         <>
           <div className="grid-three">
-            <article className="kpi-card"><p className="kpi-label">Status</p><p className="kpi-value">{loanQuery.data.status}</p></article>
-            <article className="kpi-card"><p className="kpi-label">Outstanding</p><p className="kpi-value">{formatCurrency(loanQuery.data.outstandingPrincipal)}</p></article>
-            <article className="kpi-card"><p className="kpi-label">Scheduled Due</p><p className="kpi-value">{formatCurrency(totalDue)}</p></article>
+            <article className="kpi-card">
+              <p className="kpi-label">Status</p>
+              <p className="kpi-value"><StatusBadge status={loanQuery.data.status} /></p>
+            </article>
+            <article className="kpi-card">
+              <p className="kpi-label">Outstanding</p>
+              <p className="kpi-value">{formatCurrency(loanQuery.data.outstandingPrincipal)}</p>
+            </article>
+            <article className="kpi-card">
+              <p className="kpi-label">Scheduled Due</p>
+              <p className="kpi-value">{formatCurrency(totalDue)}</p>
+            </article>
           </div>
 
-          <div className="grid-two">
-            <article className="card form-grid">
-              <h2>Disburse Loan</h2>
-              <label>
-                Amount
-                <input type="number" value={disburseAmount} onChange={(e) => setDisburseAmount(Number(e.target.value))} />
-              </label>
-              <label>
-                Reference
-                <input value={disburseReference} onChange={(e) => setDisburseReference(e.target.value)} />
-              </label>
-              <button className="btn" type="button" onClick={() => disburseMutation.mutate()} disabled={disburseMutation.isPending || disburseAmount <= 0}>
-                {disburseMutation.isPending ? 'Disbursing...' : 'Disburse'}
-              </button>
+          <div className="grid-three">
+            <article className="kpi-card">
+              <p className="kpi-label">Principal</p>
+              <p className="kpi-value">{formatCurrency(loanQuery.data.principalAmount)}</p>
             </article>
-
-            <article className="card form-grid">
-              <h2>Record Repayment</h2>
-              <label>
-                Amount
-                <input type="number" value={repaymentAmount} onChange={(e) => setRepaymentAmount(Number(e.target.value))} />
-              </label>
-              <label>
-                Payment reference
-                <input value={repaymentReference} onChange={(e) => setRepaymentReference(e.target.value)} />
-              </label>
-              <button className="btn" type="button" onClick={() => repaymentMutation.mutate()} disabled={repaymentMutation.isPending || repaymentAmount <= 0}>
-                {repaymentMutation.isPending ? 'Recording...' : 'Record'}
-              </button>
+            <article className="kpi-card">
+              <p className="kpi-label">Term</p>
+              <p className="kpi-value">{loanQuery.data.termMonths} months</p>
+            </article>
+            <article className="kpi-card">
+              <p className="kpi-label">Paid</p>
+              <p className="kpi-value">{formatCurrency(totalPaid)}</p>
             </article>
           </div>
 
@@ -134,7 +103,7 @@ export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
                   ))}
                 </tbody>
               </table>
-            ) : <EmptyState title="No schedule" message="No repayment schedule generated yet." />}
+            ) : <EmptyState title="No schedule" message="No repayment schedule has been generated yet." />}
           </div>
 
           <div className="card table-wrap">

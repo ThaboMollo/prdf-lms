@@ -1,4 +1,4 @@
-﻿import { NavLink } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import type { NavItem } from './navigation'
 
 type MobileNavDrawerProps = {
@@ -13,7 +13,7 @@ export function MobileNavDrawer({ open, onClose, items, title }: MobileNavDrawer
     <div className={open ? 'drawer drawer-open' : 'drawer'} aria-hidden={!open}>
       <button type="button" className="drawer-backdrop" onClick={onClose} aria-label="Close menu" />
       <aside className="drawer-panel" aria-label="Mobile navigation">
-        <div className="sidebar-brand">{title}</div>
+        <div className="sidebar-brand"><span>{title}</span></div>
         <nav>
           {items.map((item) => (
             <NavLink
@@ -22,7 +22,8 @@ export function MobileNavDrawer({ open, onClose, items, title }: MobileNavDrawer
               onClick={onClose}
               className={({ isActive }) => (isActive ? 'nav-link nav-link-active' : 'nav-link')}
             >
-              {item.label}
+              <i className={`fa-solid ${item.icon}`} aria-hidden="true" />
+              <span>{item.label}</span>
             </NavLink>
           ))}
         </nav>

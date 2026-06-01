@@ -66,7 +66,6 @@ const STATUS_ORDER = [
 ]
 
 function getMilestoneState(milestone: Milestone, appStatus: string): 'done' | 'active' | 'pending' {
-  // Special case: InfoRequested maps to UnderReview milestone
   const normalizedStatus = appStatus === 'InfoRequested' ? 'UnderReview' : appStatus
 
   if (milestone.statuses.includes(appStatus)) return 'active'
@@ -92,21 +91,28 @@ export function StatusPage({ session }: StatusPageProps) {
 
   return (
     <section className="client-page">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+      <div className="page-header">
         <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>Application Status</h1>
-          <p style={{ color: 'var(--muted)', margin: '0.35rem 0 0' }}>
-            Track the progress of your loan applications.
-          </p>
+          <h1>Application Status</h1>
+          <p>Track the progress of your loan applications.</p>
         </div>
         <button className="btn btn-primary" type="button" onClick={() => navigate('/apply')}>
-          + New Application
+          New Application
         </button>
       </div>
 
-      {appsQuery.isLoading ? <ListSkeleton rows={6} /> : null}
+      {appsQuery.isError ? (
+        <EmptyState
+          title="Could not load application status"
+          message="Your application status could not be loaded. Retry when your connection is stable."
+          ctaLabel="Retry"
+          onCtaClick={() => appsQuery.refetch()}
+        />
+      ) : null}
 
-      {!appsQuery.isLoading && !applications.length ? (
+      {!appsQuery.isError && appsQuery.isLoading ? <ListSkeleton rows={6} /> : null}
+
+      {!appsQuery.isError && !appsQuery.isLoading && !applications.length ? (
         <EmptyState
           title="No applications yet"
           message="Create your first application to track its progress here."
@@ -115,7 +121,7 @@ export function StatusPage({ session }: StatusPageProps) {
         />
       ) : null}
 
-      {applications.map((app) => (
+      {!appsQuery.isError && applications.map((app) => (
         <ApplicationTimeline key={app.id} app={app} />
       ))}
     </section>
@@ -123,23 +129,18 @@ export function StatusPage({ session }: StatusPageProps) {
 }
 
 function ApplicationTimeline({ app }: { app: ApplicationSummary }) {
-  // Don't show draft milestones — show a nudge instead
   if (app.status === 'Draft') {
     return (
       <div className="status-app-card">
         <div className="status-app-card-header">
           <div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
-              Draft
-            </p>
-            <h3 style={{ margin: '0.25rem 0 0' }}>{app.purpose || `Application ${app.id.slice(0, 8)}`}</h3>
-            <p style={{ color: 'var(--muted)', fontSize: '0.85rem', margin: '0.25rem 0 0' }}>
-              Created {formatDateTime(app.createdAt)}
-            </p>
+            <p className="section-eyebrow">Draft</p>
+            <h3>{app.purpose || `Application ${app.id.slice(0, 8)}`}</h3>
+            <p className="muted-text">Created {formatDateTime(app.createdAt)}</p>
           </div>
           <StatusBadge status={app.status} />
         </div>
-        <p style={{ color: 'var(--muted)', fontSize: '0.9rem', margin: 0 }}>
+        <p className="muted-text">
           This application is still in draft. Complete and submit it to begin the review process.
         </p>
       </div>
@@ -150,13 +151,9 @@ function ApplicationTimeline({ app }: { app: ApplicationSummary }) {
     <div className="status-app-card">
       <div className="status-app-card-header">
         <div>
-          <p style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
-            Application · {app.id.slice(0, 8)}
-          </p>
-          <h3 style={{ margin: '0.25rem 0 0' }}>{app.purpose || 'Loan Application'}</h3>
-          <p style={{ color: 'var(--muted)', fontSize: '0.85rem', margin: '0.25rem 0 0' }}>
-            Last updated {formatDateTime(app.submittedAt ?? app.createdAt)}
-          </p>
+          <p className="section-eyebrow">Application - {app.id.slice(0, 8)}</p>
+          <h3>{app.purpose || 'Loan Application'}</h3>
+          <p className="muted-text">Last updated {formatDateTime(app.submittedAt ?? app.createdAt)}</p>
         </div>
         <StatusBadge status={app.status} />
       </div>
@@ -180,34 +177,35 @@ function ApplicationTimeline({ app }: { app: ApplicationSummary }) {
                   aria-label={`${milestone.label}: ${state}`}
                 >
                   {state === 'done'
-                    ? <i className="fa-solid fa-check" aria-hidden="true" style={{ fontSize: '0.8rem' }} />
+                    ? <i className="fa-solid fa-check" aria-hidden="true" />
                     : state === 'active'
-                    ? <i className="fa-solid fa-circle" aria-hidden="true" style={{ fontSize: '0.55rem' }} />
+                    ? <i className="fa-solid fa-circle" aria-hidden="true" />
                     : null}
                 </div>
-                {!isLast && (
+                {!isLast ? (
                   <div className={`timeline-line${state === 'done' ? ' timeline-line--done' : ''}`} />
-                )}
+                ) : null}
               </div>
               <div className="timeline-content">
                 <h4 className={state === 'pending' ? 'muted' : ''}>{milestone.label}</h4>
-                {state !== 'pending' && (
+                {state !== 'pending' ? (
                   <p>{state === 'active' && app.status === 'InfoRequested' && milestone.key === 'UnderReview'
                     ? 'Additional information has been requested. Please upload the required documents.'
                     : milestone.description}
                   </p>
-                )}
+                ) : null}
               </div>
             </div>
           )
         })}
       </div>
 
-      {app.status === 'InfoRequested' && (
-        <p style={{ fontSize: '0.9rem', color: 'var(--alert)', fontWeight: 600, margin: 0, paddingTop: '0.5rem' }}>
-          Action required: Please check your notifications and upload the requested documents.
-        </p>
-      )}
+      {app.status === 'InfoRequested' ? (
+        <div className="next-step">
+          <h3>Action required</h3>
+          <p>Please check your notifications and upload the requested documents.</p>
+        </div>
+      ) : null}
     </div>
   )
 }

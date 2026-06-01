@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { Outlet } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -11,7 +11,6 @@ import { clientNavItems } from './navigation'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { createNotificationsUseCases } from '../../logic/usecases/notifications'
-import { createApplicationsUseCases } from '../../logic/usecases/applications'
 
 type AppShellProps = {
   session: Session
@@ -22,36 +21,24 @@ export function AppShell({ session, me }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const accessToken = session.access_token
   const notificationsUseCases = useMemo(() => createNotificationsUseCases(accessToken), [accessToken])
-  const applicationsUseCases = useMemo(() => createApplicationsUseCases(accessToken), [accessToken])
   const queryClient = useQueryClient()
   const toast = useToast()
 
-  const applicationsQuery = useQuery({
-    queryKey: ['nav-applications', session.user.id],
-    queryFn: () => applicationsUseCases.listApplications()
-  })
-
-  const { roleItems, layoutTitle, showNav } = useMemo(() => {
+  const { roleItems, showNav } = useMemo(() => {
     const roles = toAppRoles(me.roles)
     const items = clientNavItems.filter((item) => item.roles.some((role) => roles.includes(role)))
-    const apps = applicationsQuery.data ?? []
-    const hasSubmitted = apps.some((app) =>
-      ['Submitted', 'UnderReview', 'InfoRequested', 'Approved', 'Rejected', 'Disbursed', 'InRepayment', 'Closed'].includes(app.status)
-    )
-    const showNavItems = hasSubmitted ? items : []
 
     return {
-      roleItems: showNavItems,
-      layoutTitle: 'PRDF Client Portal',
-      showNav: hasSubmitted
+      roleItems: items,
+      showNav: items.length > 0
     }
-  }, [me.roles, applicationsQuery.data])
+  }, [me.roles])
 
   const notificationsQuery = useQuery({
     queryKey: ['notifications', session.user.id],
     queryFn: () => notificationsUseCases.listNotifications(true),
     refetchInterval: false,
-    enabled: false
+    enabled: Boolean(session.access_token)
   })
 
   const markReadMutation = useMutation({
@@ -67,7 +54,7 @@ export function AppShell({ session, me }: AppShellProps) {
   return (
     <>
       <div className={showNav ? 'app-shell' : 'app-shell app-shell-no-nav'}>
-        {showNav ? <Sidebar items={roleItems} title={layoutTitle} /> : null}
+        {showNav ? <Sidebar items={roleItems} title="PRDF" /> : null}
         <div className="app-main">
           <Topbar
             email={session.user.email ?? 'unknown'}
@@ -89,7 +76,7 @@ export function AppShell({ session, me }: AppShellProps) {
         </div>
       </div>
       {showNav ? (
-        <MobileNavDrawer open={mobileOpen} onClose={() => setMobileOpen(false)} items={roleItems} title={layoutTitle} />
+        <MobileNavDrawer open={mobileOpen} onClose={() => setMobileOpen(false)} items={roleItems} title="PRDF" />
       ) : null}
     </>
   )

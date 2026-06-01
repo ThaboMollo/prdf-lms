@@ -54,8 +54,8 @@ export function RegisterPage() {
         </div>
         <ul className="auth-brand-bullets">
           <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> 100% online — no branch visits</li>
-          <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> Loans from R10,000 to R500,000</li>
-          <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> Repayment terms up to 24 months</li>
+          <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> Loans from R10,000 to R10 million</li>
+          <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> Repayment terms up to 60 months</li>
           <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> NCR-registered and fully compliant</li>
         </ul>
         {hasCalcState && (
