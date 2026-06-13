@@ -3003,6 +3003,14 @@ input[type="range"]::-moz-range-thumb {
 }
 
 @media (max-width: 980px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    display: none;
+  }
+
   .content-wrap {
     padding: 1rem;
   }
