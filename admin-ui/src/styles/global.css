@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&family=Geist:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap');
 
 /* ================================================================
    PRDF LMS — Global Stylesheet
@@ -41,16 +41,18 @@ img {
   color-scheme: light;
 
   /* Core palette */
-  --bg: #ffffff;
-  --bg-gradient: none;
+  --bg: #f0f4ff;
+  --bg-gradient: linear-gradient(135deg, #f0f4ff 0%, #e8eeff 100%);
   --surface: #ffffff;
-  --text: #111111;
-  --muted: #444444;
+  --text: #0f172a;
+  --muted: #64748b;
   --border: #1e40af;
   --border-light: rgba(30, 64, 175, 0.35);
 
   /* Brand */
   --brand: #1e40af;
+  --brand-accent: #3b82f6;
+  --brand-dark: #1e3a8a;
   --brand-soft: #eff2ff;
   --brand-mid: #1e40af;
   --brand-tint: rgba(30, 64, 175, 0.12);
@@ -58,26 +60,28 @@ img {
   /* Semantic */
   --link: #1e40af;
   --link-focus-ring: rgba(30, 64, 175, 0.18);
-  --danger: #b42318;
+  --danger: #b91c1c;
   --danger-soft: #fce8e8;
   --ok: #166534;
   --ok-soft: #e9f7ef;
   --alert: #92400e;
   --alert-soft: #fff3e2;
+  --success: #16a34a;
+  --warning: #d97706;
 
   /* Secondary button */
   --secondary: #ffffff;
   --secondary-text: #111111;
 
   /* Sidebar */
-  --sidebar-bg: #ffffff;
-  --sidebar-text: #111111;
-  --sidebar-link: #111111;
-  --sidebar-hover: rgba(30, 64, 175, 0.08);
-  --sidebar-active: rgba(30, 64, 175, 0.15);
+  --sidebar-bg: #1e3a8a;
+  --sidebar-text: #e2e8f0;
+  --sidebar-link: #cbd5e1;
+  --sidebar-hover: rgba(255, 255, 255, 0.08);
+  --sidebar-active: rgba(255, 255, 255, 0.15);
 
   /* Topbar */
-  --topbar-bg: #ffffff;
+  --topbar-bg: rgba(255, 255, 255, 0.85);
 
   /* Table */
   --table-header-bg: #f8f8f8;
@@ -106,20 +110,27 @@ img {
   --dropzone-active-bg: var(--brand-soft);
 
   /* KPI */
-  --kpi-gradient: linear-gradient(160deg, #ffffff 0%, #ffffff 65%);
+  --kpi-gradient: linear-gradient(160deg, #f0f4ff 0%, #ffffff 65%);
   --kpi-trend: #1e40af;
 
   /* Notification popover */
   --notif-border: rgba(30, 64, 175, 0.5);
 
   /* Skeleton */
-  --skeleton-from: #ffffff;
-  --skeleton-mid: #f3f4f6;
+  --skeleton-from: #e8eeff;
+  --skeleton-mid: #d4daff;
+
+  /* Typography */
+  --font-heading: 'Anton', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-caption: 'Geist', sans-serif;
+  --font-data: 'IBM Plex Mono', monospace;
 
   /* Misc */
-  --radius: 10px;
-  --shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
-  --shadow-soft: 0 8px 18px rgba(0, 0, 0, 0.08);
+  --radius: 8px;
+  --shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+  --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-sharp: 0 4px 8px rgba(0, 0, 0, 0.5);
 
   /* Phase 1C: Transition tokens */
   --transition-fast: 150ms ease;
@@ -155,7 +166,7 @@ textarea,
    Base Typography & Elements
    ---------------------------------------------------------------- */
 body {
-  font-family: 'Source Sans 3', 'Segoe UI', sans-serif;
+  font-family: var(--font-body);
   background: var(--bg);
   color: var(--text);
 }
@@ -253,9 +264,9 @@ textarea:disabled {
    ---------------------------------------------------------------- */
 .btn {
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius);
   padding: 0.6rem 0.9rem;
-  background: #111111;
+  background: var(--brand);
   color: #fff;
   cursor: pointer;
   font-weight: 600;
@@ -379,11 +390,12 @@ textarea:disabled {
 }
 
 .sidebar-brand {
-  font-weight: 800;
-  letter-spacing: 0.03em;
+  font-weight: 400;
+  letter-spacing: 0.1em;
   margin-bottom: 1rem;
-  font-family: 'Source Sans 3', 'Segoe UI', sans-serif;
-  font-size: 1.1rem;
+  font-family: var(--font-heading);
+  font-size: 1.3rem;
+  text-transform: uppercase;
 }
 
 .nav-link {
@@ -427,8 +439,9 @@ textarea:disabled {
 
 .topbar-title {
   margin: 0;
-  font-weight: 700;
-  font-family: 'Source Sans 3', 'Segoe UI', sans-serif;
+  font-weight: 400;
+  font-family: var(--font-heading);
+  letter-spacing: 0.02em;
 }
 
 .topbar-sub {
@@ -507,7 +520,11 @@ textarea:disabled {
 
 .page-header h1 {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: 1.6rem;
+  font-family: var(--font-heading);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .page-header p {

@@ -1,4 +1,4 @@
-﻿import type { AppRole } from '../../lib/rbac'
+import type { AppRole } from '../../lib/rbac'
 
 export type NavItem = {
   to: string
@@ -16,5 +16,6 @@ export const internalNavItems: NavItem[] = [
   { to: '/applications', label: 'Applications', roles: ['Intern', 'Originator', 'LoanOfficer', 'Admin'] },
   { to: '/loans', label: 'Loans', roles: ['Originator', 'LoanOfficer', 'Admin'] },
   { to: '/portfolio', label: 'Portfolio', roles: ['LoanOfficer', 'Admin'] },
+  { to: '/reports', label: 'Reports', roles: ['LoanOfficer', 'Admin'] },
   { to: '/user-access', label: 'User Access', roles: ['Admin'] }
 ]

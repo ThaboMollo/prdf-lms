@@ -5,6 +5,8 @@ export function createReportsUseCases(accessToken: string) {
 
   return {
     getPortfolioSummary: () => repository.getPortfolioSummary(),
-    getArrears: () => repository.getArrears()
+    getArrears: () => repository.getArrears(),
+    getPipelineSummary: () => repository.getPipelineSummary(),
+    getOriginationTrends: () => repository.getOriginationTrends()
   }
 }

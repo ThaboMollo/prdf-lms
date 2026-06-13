@@ -80,6 +80,17 @@ export type CreateApplicationInput = {
   businessName?: string
   registrationNo?: string
   address?: string
+  industry?: string
+  gender?: string
+  isDisabled?: boolean
+  isHdp?: boolean
+  isRural?: boolean
+  isBlackWomenOwned?: boolean
+  saCitizenshipPercentage?: number
+  isDirectorOperational?: boolean
+  cipcRegistered?: boolean
+  sarsTaxPin?: string
+  insolventOrDebtReview?: boolean
   assignedToUserId?: string
 }
 

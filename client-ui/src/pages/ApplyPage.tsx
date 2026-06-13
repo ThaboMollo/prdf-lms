@@ -153,6 +153,17 @@ export function ApplyPage({ session }: ApplyPageProps) {
         address: [step1.addressLine1, step1.addressLine2, step1.city, step1.province, step1.country]
           .filter(Boolean)
           .join(', '),
+        industry: step1.industry,
+        gender: step1.gender,
+        isDisabled: step1.isDisabled,
+        isHdp: step1.isHdp,
+        isRural: step1.isRural,
+        isBlackWomenOwned: step1.isBlackWomenOwned,
+        saCitizenshipPercentage: step1.saCitizenshipPercentage,
+        isDirectorOperational: step1.isDirectorOperational,
+        cipcRegistered: step1.cipcRegistered,
+        sarsTaxPin: step1.sarsTaxPin,
+        insolventOrDebtReview: step1.insolventOrDebtReview
       })
 
       const appId = draft.id
@@ -263,6 +274,16 @@ function Step1({ initial, onNext }: { initial: Step1Data | null; onNext: (d: Ste
     businessName: initial?.businessName ?? '',
     registrationNo: initial?.registrationNo ?? '',
     industry: initial?.industry ?? '',
+    gender: initial?.gender ?? 'Prefer not to say',
+    isDisabled: initial?.isDisabled ?? false,
+    isHdp: initial?.isHdp ?? false,
+    isRural: initial?.isRural ?? false,
+    isBlackWomenOwned: initial?.isBlackWomenOwned ?? false,
+    saCitizenshipPercentage: initial?.saCitizenshipPercentage?.toString() ?? '',
+    isDirectorOperational: initial?.isDirectorOperational ?? false,
+    cipcRegistered: initial?.cipcRegistered ?? false,
+    sarsTaxPin: initial?.sarsTaxPin ?? '',
+    insolventOrDebtReview: initial?.insolventOrDebtReview ?? false,
     address: {
       addressLine1: initial?.addressLine1 ?? '',
       addressLine2: initial?.addressLine2 ?? '',
@@ -283,6 +304,16 @@ function Step1({ initial, onNext }: { initial: Step1Data | null; onNext: (d: Ste
       city: form.address.city,
       province: form.address.province,
       country: form.address.country,
+      gender: form.gender,
+      isDisabled: form.isDisabled,
+      isHdp: form.isHdp,
+      isRural: form.isRural,
+      isBlackWomenOwned: form.isBlackWomenOwned,
+      saCitizenshipPercentage: Number(form.saCitizenshipPercentage || 0),
+      isDirectorOperational: form.isDirectorOperational,
+      cipcRegistered: form.cipcRegistered,
+      sarsTaxPin: form.sarsTaxPin,
+      insolventOrDebtReview: form.insolventOrDebtReview
     }
     const result = step1Schema.safeParse(flat)
     if (!result.success) {
@@ -298,42 +329,37 @@ function Step1({ initial, onNext }: { initial: Step1Data | null; onNext: (d: Ste
     onNext(result.data)
   }
 
+  function set(key: keyof typeof form) {
+    return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+      setForm((prev) => ({ ...prev, [key]: e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value }))
+  }
+
   return (
     <div className="wizard-body">
-      <h2>Business Profile</h2>
-      <p>Tell us about your business so we can tailor the right funding solution.</p>
+      <h2>Business & Compliance Profile</h2>
+      <p>Tell us about your business and ensure you meet our eligibility criteria.</p>
 
       <div className="stack">
+        <h3 style={{ fontSize: '1rem', marginTop: '1rem', borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>Basic Details</h3>
         <div className="form-two-col">
           <div className="form-field">
             <label htmlFor="businessName">Business name</label>
             <input
               id="businessName"
               value={form.businessName}
-              onChange={(e) => setForm((p) => ({ ...p, businessName: e.target.value }))}
+              onChange={set('businessName')}
               placeholder="Acme Enterprises (Pty) Ltd"
             />
             <FieldError message={errors.businessName} />
           </div>
           <div className="form-field">
-            <label htmlFor="registrationNo">CIPC registration number</label>
-            <input
-              id="registrationNo"
-              value={form.registrationNo}
-              onChange={(e) => setForm((p) => ({ ...p, registrationNo: e.target.value }))}
-              placeholder="2021/123456/07"
-            />
-            <FieldError message={errors.registrationNo} />
+            <label htmlFor="industry">Industry</label>
+            <select id="industry" value={form.industry} onChange={set('industry')}>
+              <option value="">Select your industry…</option>
+              {INDUSTRIES.map((i) => <option key={i} value={i}>{i}</option>)}
+            </select>
+            <FieldError message={errors.industry} />
           </div>
-        </div>
-
-        <div className="form-field">
-          <label htmlFor="industry">Industry</label>
-          <select id="industry" value={form.industry} onChange={(e) => setForm((p) => ({ ...p, industry: e.target.value }))}>
-            <option value="">Select your industry…</option>
-            {INDUSTRIES.map((i) => <option key={i} value={i}>{i}</option>)}
-          </select>
-          <FieldError message={errors.industry} />
         </div>
 
         <AddressFields
@@ -346,6 +372,61 @@ function Step1({ initial, onNext }: { initial: Step1Data | null; onNext: (d: Ste
             country: errors.country,
           }}
         />
+
+        <h3 style={{ fontSize: '1rem', marginTop: '1.5rem', borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>Demographics</h3>
+        <div className="form-two-col">
+          <div className="form-field">
+            <label htmlFor="gender">Primary Director Gender</label>
+            <select id="gender" value={form.gender} onChange={set('gender')}>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Prefer not to say">Prefer not to say</option>
+            </select>
+            <FieldError message={errors.gender} />
+          </div>
+          <div className="form-field">
+            <label htmlFor="saCitizenshipPercentage">% SA National Ownership</label>
+            <input type="number" min="0" max="100" id="saCitizenshipPercentage" value={form.saCitizenshipPercentage} onChange={set('saCitizenshipPercentage')} placeholder="100" />
+            <FieldError message={errors.saCitizenshipPercentage} />
+          </div>
+        </div>
+
+        <div className="form-field" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <label className="terms-check"><input type="checkbox" checked={form.isBlackWomenOwned} onChange={set('isBlackWomenOwned')} /> {'>'}50.1% Black Women Owned</label>
+          <label className="terms-check"><input type="checkbox" checked={form.isHdp} onChange={set('isHdp')} /> Historically Disadvantaged Person (HDP)</label>
+          <label className="terms-check"><input type="checkbox" checked={form.isDisabled} onChange={set('isDisabled')} /> Disabled Persons / Ownership</label>
+          <label className="terms-check"><input type="checkbox" checked={form.isRural} onChange={set('isRural')} /> Rural Operations / Community</label>
+        </div>
+
+        <h3 style={{ fontSize: '1rem', marginTop: '1.5rem', borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>Compliance & Registration</h3>
+        <div className="form-two-col">
+          <div className="form-field">
+            <label htmlFor="registrationNo">CIPC Registration Number</label>
+            <input
+              id="registrationNo"
+              value={form.registrationNo}
+              onChange={set('registrationNo')}
+              placeholder="2021/123456/07"
+            />
+            <FieldError message={errors.registrationNo} />
+          </div>
+          <div className="form-field">
+            <label htmlFor="sarsTaxPin">SARS Tax Pin</label>
+            <input
+              id="sarsTaxPin"
+              value={form.sarsTaxPin}
+              onChange={set('sarsTaxPin')}
+              placeholder="1234567890"
+            />
+            <FieldError message={errors.sarsTaxPin} />
+          </div>
+        </div>
+
+        <div className="form-field" style={{ display: 'grid', gap: '0.5rem' }}>
+          <label className="terms-check"><input type="checkbox" checked={form.cipcRegistered} onChange={set('cipcRegistered')} /> Registered with CIPC</label>
+          <label className="terms-check"><input type="checkbox" checked={form.isDirectorOperational} onChange={set('isDirectorOperational')} /> Directors are 100% Operational in the business</label>
+          <label className="terms-check"><input type="checkbox" checked={form.insolventOrDebtReview} onChange={set('insolventOrDebtReview')} /> Directors are un-rehabilitated insolvents or under debt review</label>
+        </div>
       </div>
 
       <div className="wizard-nav">

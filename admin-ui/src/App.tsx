@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
 import { useQuery } from '@tanstack/react-query'
@@ -12,6 +12,7 @@ import { LoginPage } from './pages/LoginPage'
 import { LoanDetailsPage } from './pages/LoanDetailsPage'
 import { PortfolioPage } from './pages/PortfolioPage'
 import { RegisterPage } from './pages/RegisterPage'
+import { ReportsPage } from './pages/ReportsPage'
 import { UserAccessPage } from './pages/UserAccessPage'
 import { fetchMe, type MeResponse } from './lib/api'
 import { getDataProvider } from './lib/config/dataProvider'
@@ -87,6 +88,7 @@ export function App() {
               </Route>
               <Route element={<RequireRole me={meQuery.data!} allowed={['LoanOfficer', 'Admin']} />}>
                 <Route path="/portfolio" element={<PortfolioPage session={session as Session} />} />
+                <Route path="/reports" element={<ReportsPage session={session as Session} />} />
               </Route>
               <Route element={<RequireRole me={meQuery.data!} allowed={['Admin']} />}>
                 <Route path="/user-access" element={<UserAccessPage session={session as Session} />} />

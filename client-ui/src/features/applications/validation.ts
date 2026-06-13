@@ -14,6 +14,16 @@ export const step1Schema = z.object({
   city: z.string().trim().min(1, 'City is required'),
   province: z.string().min(1, 'Please select a province'),
   country: z.string().trim().min(1, 'Country is required').default('South Africa'),
+  gender: z.enum(['Male', 'Female', 'Prefer not to say']),
+  isDisabled: z.boolean(),
+  isHdp: z.boolean(),
+  isRural: z.boolean(),
+  isBlackWomenOwned: z.boolean(),
+  saCitizenshipPercentage: z.coerce.number().min(0).max(100, 'Cannot exceed 100%'),
+  isDirectorOperational: z.boolean(),
+  cipcRegistered: z.boolean(),
+  sarsTaxPin: z.string().trim().min(5, 'Tax pin is required'),
+  insolventOrDebtReview: z.boolean()
 })
 
 export const step2Schema = z.object({

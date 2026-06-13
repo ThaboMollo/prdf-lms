@@ -1,4 +1,4 @@
-import type { ArrearsItem, PortfolioSummary } from '../../../api'
+import type { ArrearsItem, PortfolioSummary, PipelineSummaryItem, OriginationTrendItem } from '../../../api'
 import { createSupabaseDataClient } from '../../../supabase/client'
 import type { ReportsRepository } from '../../repositories/reports.repo'
 
@@ -75,6 +75,45 @@ export function createSupabaseReportsAdapter(accessToken: string): ReportsReposi
           }
         })
         .filter((row) => row.outstandingAmount > 0)
+    },
+    async getPipelineSummary(): Promise<PipelineSummaryItem[]> {
+      const { data, error } = await client.from('loan_applications').select('status, requested_amount')
+      if (error) throw new Error(`Supabase pipeline query failed: ${error.message}`)
+
+      const summary = (data ?? []).reduce((acc: Record<string, { count: number; totalAmount: number }>, row) => {
+        const st = row.status
+        if (!acc[st]) acc[st] = { count: 0, totalAmount: 0 }
+        acc[st].count += 1
+        acc[st].totalAmount += Number(row.requested_amount)
+        return acc
+      }, {})
+
+      return Object.entries(summary).map(([status, metrics]) => ({
+        status: status as any,
+        count: metrics.count,
+        totalAmount: metrics.totalAmount
+      }))
+    },
+    async getOriginationTrends(): Promise<OriginationTrendItem[]> {
+      const { data, error } = await client
+        .from('loans')
+        .select('principal_amount, disbursed_at')
+        .not('disbursed_at', 'is', null)
+
+      if (error) throw new Error(`Supabase origination query failed: ${error.message}`)
+
+      const trends = (data ?? []).reduce((acc: Record<string, { count: number; totalAmount: number }>, row) => {
+        if (!row.disbursed_at) return acc
+        const month = row.disbursed_at.substring(0, 7) // 'YYYY-MM'
+        if (!acc[month]) acc[month] = { count: 0, totalAmount: 0 }
+        acc[month].count += 1
+        acc[month].totalAmount += Number(row.principal_amount)
+        return acc
+      }, {})
+
+      return Object.entries(trends)
+        .map(([month, metrics]) => ({ month, count: metrics.count, totalAmount: metrics.totalAmount }))
+        .sort((a, b) => a.month.localeCompare(b.month))
     }
   }
 }

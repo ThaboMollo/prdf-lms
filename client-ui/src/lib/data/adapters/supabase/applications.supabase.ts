@@ -101,7 +101,18 @@ async function resolveClientId(
       user_id: userId,
       business_name: input.businessName?.trim() || 'Client Business',
       registration_no: input.registrationNo ?? null,
-      address: input.address ?? null
+      address: input.address ?? null,
+      industry: input.industry ?? null,
+      gender: input.gender ?? null,
+      is_disabled: input.isDisabled ?? false,
+      is_hdp: input.isHdp ?? false,
+      is_rural: input.isRural ?? false,
+      is_black_women_owned: input.isBlackWomenOwned ?? false,
+      sa_citizenship_percentage: input.saCitizenshipPercentage ?? null,
+      is_director_operational: input.isDirectorOperational ?? false,
+      cipc_registered: input.cipcRegistered ?? false,
+      sars_tax_pin: input.sarsTaxPin ?? null,
+      insolvent_or_debt_review: input.insolventOrDebtReview ?? false
     })
     .select('id')
     .single()

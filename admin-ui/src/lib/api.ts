@@ -176,6 +176,18 @@ export type PortfolioSummary = {
   repaidPrincipal: number
 }
 
+export type PipelineSummaryItem = {
+  status: LoanApplicationStatus
+  count: number
+  totalAmount: number
+}
+
+export type OriginationTrendItem = {
+  month: string
+  count: number
+  totalAmount: number
+}
+
 export type NotificationItem = {
   id: string
   userId: string
