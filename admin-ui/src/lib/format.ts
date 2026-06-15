@@ -1,4 +1,4 @@
-﻿export function formatCurrency(value: number): string {
+export function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-ZA', {
     style: 'currency',
     currency: 'ZAR',
@@ -30,4 +30,14 @@ export function formatLongDate(value: string | null | undefined): string {
     month: 'long',
     year: 'numeric'
   }).format(date)
+}
+
+export function calculateDaysElapsed(value: string | null | undefined): number {
+  if (!value) return 0
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 0
+  
+  const now = new Date()
+  const diffTime = Math.abs(now.getTime() - date.getTime())
+  return Math.floor(diffTime / (1000 * 60 * 60 * 24))
 }

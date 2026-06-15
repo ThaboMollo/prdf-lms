@@ -1,4 +1,4 @@
-﻿
+
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
@@ -9,12 +9,14 @@ import {
   type LoanApplicationStatus,
   type MeResponse,
   type NoteItem,
+  type NonFinancialSupportItem,
   type StatusHistoryItem,
   type TaskItem
 } from '../lib/api'
 import { createApplicationsUseCases } from '../logic/usecases/applications'
 import { createDocumentsUseCases } from '../logic/usecases/documents'
 import { createNotesUseCases } from '../logic/usecases/notes'
+import { createNfsUseCases } from '../logic/usecases/nfs'
 import { createTasksUseCases } from '../logic/usecases/tasks'
 import { createSupabaseDataClient } from '../lib/supabase/client'
 import { createApplicationSchema, statusChangeSchema, uploadSchema, type CreateApplicationFormData } from '../features/applications/validation'
@@ -24,7 +26,7 @@ import { PageHeader } from '../components/shared/PageHeader'
 import { DetailSkeleton, ListSkeleton } from '../components/shared/Skeletons'
 import { StatusBadge } from '../components/shared/StatusBadge'
 import { useToast } from '../components/shared/ToastProvider'
-import { formatCurrency, formatDate, formatDateTime, formatLongDate } from '../lib/format'
+import { formatCurrency, formatDate, formatDateTime, formatLongDate, calculateDaysElapsed } from '../lib/format'
 import { hasAnyRole, toAppRoles } from '../lib/rbac'
 import { paginateItems, parsePageParam } from '../lib/pagination'
 
@@ -54,7 +56,7 @@ const statuses: LoanApplicationStatus[] = [
 const requiredDocumentTypes = ['IDDocument', 'BankStatement', 'BusinessRegistration']
 const APPLICATIONS_PAGE_SIZE = 10
 
-type DetailTab = 'Details' | 'Documents' | 'History' | 'Tasks' | 'Notes'
+type DetailTab = 'Details' | 'Documents' | 'History' | 'Tasks' | 'Notes' | 'Advisory (NFS)'
 
 export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
   const [params, setParams] = useSearchParams()
@@ -69,6 +71,10 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
   const [docType, setDocType] = useState('IDDocument')
   const [docFile, setDocFile] = useState<File | null>(null)
   const [infoRequestNote, setInfoRequestNote] = useState('')
+  const [nfsType, setNfsType] = useState('Mentorship')
+  const [nfsDuration, setNfsDuration] = useState(1)
+  const [nfsDate, setNfsDate] = useState('')
+  const [nfsNotes, setNfsNotes] = useState('')
   const [wizardStep, setWizardStep] = useState(1)
   const detailRef = useRef<HTMLDivElement | null>(null)
   const [wizardValues, setWizardValues] = useState<CreateApplicationFormData>({
@@ -86,6 +92,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
   const applicationsUseCases = useMemo(() => createApplicationsUseCases(accessToken), [accessToken])
   const documentsUseCases = useMemo(() => createDocumentsUseCases(accessToken), [accessToken])
   const notesUseCases = useMemo(() => createNotesUseCases(accessToken), [accessToken])
+  const nfsUseCases = useMemo(() => createNfsUseCases(accessToken), [accessToken])
   const tasksUseCases = useMemo(() => createTasksUseCases(accessToken), [accessToken])
   const roles = toAppRoles(me.roles)
   const isInternal = hasAnyRole(roles, ['Intern', 'Originator', 'LoanOfficer', 'Admin'])
@@ -233,6 +240,12 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
     enabled: Boolean(selectedApplicationId)
   })
 
+  const nfsQuery = useQuery({
+    queryKey: ['application-nfs', detailsQuery.data?.clientId],
+    queryFn: () => nfsUseCases.listNfs(detailsQuery.data!.clientId),
+    enabled: Boolean(detailsQuery.data?.clientId)
+  })
+
   const visibleUserIds = useMemo(() => {
     const ids = new Set<string>()
 
@@ -243,9 +256,10 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
       if (task.assignedTo) ids.add(task.assignedTo)
     }
     for (const note of notesQuery.data ?? []) ids.add(note.createdBy)
+    for (const nfs of nfsQuery.data ?? []) ids.add(nfs.advisorUserId)
 
     return [...ids].sort()
-  }, [detailsQuery.data?.assignedToUserId, docsQuery.data, historyQuery.data, notesQuery.data, tasksQuery.data])
+  }, [detailsQuery.data?.assignedToUserId, docsQuery.data, historyQuery.data, notesQuery.data, tasksQuery.data, nfsQuery.data])
 
   const profileNamesQuery = useQuery({
     queryKey: ['application-user-names', selectedApplicationId, visibleUserIds.join(',')],
@@ -407,6 +421,30 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
     onError: () => toast.push('Could not add note.', 'error')
   })
 
+  const createNfsMutation = useMutation({
+    mutationFn: async () => {
+      if (!detailsQuery.data?.clientId) throw new Error('Client context missing.')
+      if (!nfsType || !nfsDate || nfsDuration <= 0) throw new Error('Please fill all required NFS fields.')
+      return nfsUseCases.createNfs({
+        clientId: detailsQuery.data.clientId,
+        applicationId: selectedApplicationId ?? undefined,
+        supportType: nfsType,
+        durationHours: nfsDuration,
+        dateProvided: nfsDate,
+        notes: nfsNotes
+      })
+    },
+    onSuccess: async () => {
+      toast.push('Advisory session logged.', 'success')
+      setNfsType('Mentorship')
+      setNfsDuration(1)
+      setNfsDate('')
+      setNfsNotes('')
+      await queryClient.invalidateQueries({ queryKey: ['application-nfs', detailsQuery.data?.clientId] })
+    },
+    onError: (error) => toast.push(error instanceof Error ? error.message : 'Could not log advisory session.', 'error')
+  })
+
   const infoRequestedMutation = useMutation({
     mutationFn: async () => {
       if (!selectedApplicationId) throw new Error('Select an application first.')
@@ -486,7 +524,10 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
                       <td>{formatCurrency(app.requestedAmount)}</td>
                       <td><StatusBadge status={app.status} /></td>
                       <td>{resolveUserName(app.assignedToUserId, userNameById, 'Unassigned')}</td>
-                      <td>{formatDateTime(app.submittedAt ?? app.createdAt)}</td>
+                      <td>
+                        {formatDateTime(app.submittedAt ?? app.createdAt)}
+                        <SlaBadge status={app.status} submittedAt={app.submittedAt} />
+                      </td>
                       <td>
                         <button
                           className="link-btn"
@@ -521,6 +562,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
                   </div>
                   <p>{formatCurrency(app.requestedAmount)}</p>
                   <small>{resolveUserName(app.assignedToUserId, userNameById, 'Unassigned')} • {formatDateTime(app.submittedAt ?? app.createdAt)}</small>
+                  <SlaBadge status={app.status} submittedAt={app.submittedAt} />
                   <span className="link-quiet">{resolvePrimaryAction(app.status, isInternal)}</span>
                 </button>
               ))}
@@ -580,6 +622,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
           history={historyQuery.data ?? []}
           tasks={tasksQuery.data ?? []}
           notes={notesQuery.data ?? []}
+          nfs={nfsQuery.data ?? []}
           tab={tab}
           setTab={setTab}
           isInternal={isInternal}
@@ -618,6 +661,16 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
           setNoteBody={setNoteBody}
           onCreateNote={() => createNoteMutation.mutate()}
           notePending={createNoteMutation.isPending}
+          nfsType={nfsType}
+          setNfsType={setNfsType}
+          nfsDuration={nfsDuration}
+          setNfsDuration={setNfsDuration}
+          nfsDate={nfsDate}
+          setNfsDate={setNfsDate}
+          nfsNotes={nfsNotes}
+          setNfsNotes={setNfsNotes}
+          onCreateNfs={() => createNfsMutation.mutate()}
+          nfsPending={createNfsMutation.isPending}
           onSubmitApp={() => selectedApplicationId ? submitMutation.mutate(selectedApplicationId) : null}
           submitting={submitMutation.isPending}
           onOpenDocument={async (storagePath) => {
@@ -643,7 +696,8 @@ async function refreshSelected(queryClient: ReturnType<typeof useQueryClient>, s
     queryClient.invalidateQueries({ queryKey: ['application-history', selectedApplicationId] }),
     queryClient.invalidateQueries({ queryKey: ['application-documents', selectedApplicationId] }),
     queryClient.invalidateQueries({ queryKey: ['application-tasks', selectedApplicationId] }),
-    queryClient.invalidateQueries({ queryKey: ['application-notes', selectedApplicationId] })
+    queryClient.invalidateQueries({ queryKey: ['application-notes', selectedApplicationId] }),
+    queryClient.invalidateQueries({ queryKey: ['application-nfs'] })
   ])
 }
 
@@ -657,6 +711,20 @@ function resolvePrimaryAction(status: LoanApplicationStatus, isInternal: boolean
   if (!isInternal && (status === 'Draft' || status === 'InfoRequested')) return 'Continue'
   if (isInternal && (status === 'Submitted' || status === 'UnderReview')) return 'Review'
   return 'Open'
+}
+
+function SlaBadge({ status, submittedAt }: { status: LoanApplicationStatus, submittedAt: string | null }) {
+  if (!submittedAt) return null;
+  if (!['Submitted', 'UnderReview', 'InfoRequested'].includes(status)) return null;
+
+  const daysElapsed = calculateDaysElapsed(submittedAt);
+  
+  if (daysElapsed >= 5) {
+    return <div style={{ display: 'inline-block', marginLeft: '8px', padding: '2px 6px', fontSize: '0.75rem', fontWeight: 'bold', background: '#fee2e2', color: '#b91c1c', borderRadius: '4px' }}>SLA Breached: {daysElapsed} days</div>
+  } else if (daysElapsed === 4) {
+    return <div style={{ display: 'inline-block', marginLeft: '8px', padding: '2px 6px', fontSize: '0.75rem', fontWeight: 'bold', background: '#fef3c7', color: '#b45309', borderRadius: '4px' }}>SLA Warning: 4 days</div>
+  }
+  return null;
 }
 
 type ClientWizardProps = {
@@ -745,6 +813,7 @@ type ApplicationDetailProps = {
   history: StatusHistoryItem[]
   tasks: TaskItem[]
   notes: NoteItem[]
+  nfs: NonFinancialSupportItem[]
   tab: DetailTab
   setTab: (tab: DetailTab) => void
   isInternal: boolean
@@ -783,6 +852,16 @@ type ApplicationDetailProps = {
   setNoteBody: (value: string) => void
   onCreateNote: () => void
   notePending: boolean
+  nfsType: string
+  setNfsType: (value: string) => void
+  nfsDuration: number
+  setNfsDuration: (value: number) => void
+  nfsDate: string
+  setNfsDate: (value: string) => void
+  nfsNotes: string
+  setNfsNotes: (value: string) => void
+  onCreateNfs: () => void
+  nfsPending: boolean
   onSubmitApp: () => void
   submitting: boolean
   onOpenDocument: (storagePath: string) => Promise<void>
@@ -792,9 +871,25 @@ type ApplicationDetailProps = {
 function ApplicationDetail(props: ApplicationDetailProps) {
   const missingDocs = requiredDocumentTypes.filter((requiredDoc) => !props.docs.some((doc) => doc.docType === requiredDoc))
 
+  const isPendingStatus = ['Submitted', 'UnderReview', 'InfoRequested'].includes(props.application.status)
+  const daysElapsed = calculateDaysElapsed(props.application.submittedAt)
+  const isSlaBreached = isPendingStatus && daysElapsed >= 5
+  const isSlaWarning = isPendingStatus && daysElapsed === 4
+
   return (
     <section className="grid-two">
-      <article className="card">
+      <article className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {isSlaBreached && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', padding: '1rem', borderRadius: '8px', color: '#b91c1c', fontWeight: 'bold' }}>
+            ⚠️ SLA Breached! This application has been pending for {daysElapsed} days. Immediate action is required.
+          </div>
+        )}
+        {isSlaWarning && (
+          <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', padding: '1rem', borderRadius: '8px', color: '#b45309', fontWeight: 'bold' }}>
+            ⚠️ SLA Warning! This application has been pending for 4 days. It must be processed within 24 hours to meet the SLA.
+          </div>
+        )}
+        
         <PageHeader
           title={props.application.purpose}
           subtitle={`Amount ${formatCurrency(props.application.requestedAmount)}`}
@@ -862,7 +957,7 @@ function ApplicationDetail(props: ApplicationDetailProps) {
 
       <article className="card">
         <div className="tabs-row">
-          {(['Details', 'Documents', 'History', 'Tasks', 'Notes'] as DetailTab[]).map((name) => (
+          {(['Details', 'Documents', 'History', 'Tasks', 'Notes', 'Advisory (NFS)'] as DetailTab[]).map((name) => (
             <button key={name} type="button" className={props.tab === name ? 'tab tab-active' : 'tab'} onClick={() => props.setTab(name)}>
               {name}
             </button>
@@ -874,6 +969,7 @@ function ApplicationDetail(props: ApplicationDetailProps) {
         {props.tab === 'History' ? <HistoryTab history={props.history} userNameById={props.userNameById} /> : null}
         {props.tab === 'Tasks' ? <TasksTab {...props} /> : null}
         {props.tab === 'Notes' ? <NotesTab {...props} /> : null}
+        {props.tab === 'Advisory (NFS)' ? <NfsTab {...props} /> : null}
       </article>
     </section>
   )
@@ -1061,7 +1157,7 @@ function TasksTab(props: ApplicationDetailProps) {
           ))}
         </ul>
       ) : (
-        <EmptyState title="No tasks yet" message="Create your first follow-up task for this application." />
+        <EmptyState title="No tasks" message="Create tasks to track action items." />
       )}
     </div>
   )
@@ -1070,29 +1166,82 @@ function TasksTab(props: ApplicationDetailProps) {
 function NotesTab(props: ApplicationDetailProps) {
   return (
     <div className="stack-sm">
-      <label>
-        Add note
-        <textarea rows={4} value={props.noteBody} onChange={(e) => props.setNoteBody(e.target.value)} />
-      </label>
-      <button className="btn" type="button" onClick={props.onCreateNote} disabled={props.notePending || !props.noteBody.trim()}>
-        {props.notePending ? 'Saving...' : 'Add Note'}
-      </button>
+      <div className="form-grid">
+        <label>
+          New note
+          <textarea value={props.noteBody} onChange={(e) => props.setNoteBody(e.target.value)} rows={3} />
+        </label>
+        <button className="btn" type="button" onClick={props.onCreateNote} disabled={props.notePending || !props.noteBody.trim()}>
+          {props.notePending ? 'Adding...' : 'Add Note'}
+        </button>
+      </div>
 
       {props.notes.length ? (
-        <ul className="list-clean">
+        <ol className="timeline">
           {props.notes.map((note) => (
-            <li key={note.id} className="card list-card">
-              <small>{formatDateTime(note.createdAt)} by {resolveUserName(note.createdBy, props.userNameById, 'Unknown author')}</small>
-              <p>{note.body}</p>
+            <li key={note.id}>
+              <p style={{ whiteSpace: 'pre-wrap' }}>{note.body}</p>
+              <small>{formatDateTime(note.createdAt)} by {resolveUserName(note.createdBy, props.userNameById, 'Unknown user')}</small>
             </li>
           ))}
-        </ul>
+        </ol>
       ) : (
-        <EmptyState title="No notes" message="Capture context to support handover and review." />
+        <EmptyState title="No notes" message="Add internal notes for your team." />
       )}
     </div>
   )
 }
+
+function NfsTab(props: ApplicationDetailProps) {
+  return (
+    <div className="stack-sm">
+      <div className="form-grid">
+        <label>
+          Support type
+          <select value={props.nfsType} onChange={(e) => props.setNfsType(e.target.value)}>
+            <option value="Mentorship">Mentorship</option>
+            <option value="Accounting">Accounting Advisory</option>
+            <option value="Legal">Legal Advisory</option>
+            <option value="Business Plan">Business Plan Writing</option>
+            <option value="Other">Other</option>
+          </select>
+        </label>
+        <label>
+          Duration (hours)
+          <input type="number" step="0.5" value={props.nfsDuration} onChange={(e) => props.setNfsDuration(Number(e.target.value))} />
+        </label>
+        <label>
+          Date provided
+          <input type="date" value={props.nfsDate} onChange={(e) => props.setNfsDate(e.target.value)} />
+        </label>
+        <label style={{ gridColumn: '1 / -1' }}>
+          Notes
+          <textarea value={props.nfsNotes} onChange={(e) => props.setNfsNotes(e.target.value)} rows={3} />
+        </label>
+        <button className="btn" type="button" onClick={props.onCreateNfs} disabled={props.nfsPending || !props.nfsDate || props.nfsDuration <= 0}>
+          {props.nfsPending ? 'Logging...' : 'Log Session'}
+        </button>
+      </div>
+
+      {props.nfs.length ? (
+        <ul className="list-clean">
+          {props.nfs.map((item) => (
+            <li key={item.id} className="list-row" style={{ alignItems: 'flex-start' }}>
+              <div>
+                <p className="list-title">{item.supportType} ({item.durationHours} hours)</p>
+                <small>{formatDate(item.dateProvided)} | Logged by {resolveUserName(item.advisorUserId, props.userNameById, 'Unknown Advisor')}</small>
+                {item.notes ? <p style={{ marginTop: '0.5rem', whiteSpace: 'pre-wrap' }}>{item.notes}</p> : null}
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <EmptyState title="No advisory logs" message="Log non-financial support sessions above." />
+      )}
+    </div>
+  )
+}
+
 
 function NextStepPanel({
   status,

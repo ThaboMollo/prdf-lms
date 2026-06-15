@@ -213,6 +213,27 @@ export type ArrearsItem = {
   daysOverdue: number
 }
 
+export type NonFinancialSupportItem = {
+  id: string
+  clientId: string
+  applicationId: string | null
+  advisorUserId: string
+  supportType: string
+  durationHours: number
+  dateProvided: string
+  notes: string | null
+  createdAt: string
+}
+
+export type CreateNfsInput = {
+  clientId: string
+  applicationId?: string
+  supportType: string
+  durationHours: number
+  dateProvided: string
+  notes?: string
+}
+
 const apiBaseUrl = env.VITE_API_BASE_URL
 
 type AdminAccessRpcRow = {
@@ -639,4 +660,20 @@ export async function markNotificationRead(accessToken: string, id: string): Pro
     headers: authHeaders(accessToken)
   })
   await parseResponse<void>(response)
+}
+
+export async function listNfs(accessToken: string, clientId: string): Promise<NonFinancialSupportItem[]> {
+  const response = await fetch(`${apiBaseUrl}/api/clients/${clientId}/nfs`, {
+    headers: authHeaders(accessToken)
+  })
+  return parseResponse<NonFinancialSupportItem[]>(response)
+}
+
+export async function createNfs(accessToken: string, input: CreateNfsInput): Promise<NonFinancialSupportItem> {
+  const response = await fetch(`${apiBaseUrl}/api/clients/${input.clientId}/nfs`, {
+    method: 'POST',
+    headers: authHeaders(accessToken),
+    body: JSON.stringify(input)
+  })
+  return parseResponse<NonFinancialSupportItem>(response)
 }
