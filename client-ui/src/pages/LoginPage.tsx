@@ -11,6 +11,8 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
+  const [resetting, setResetting] = useState(false)
 
   const hasCalcState = amount !== 50000 || term !== 6
 
@@ -27,6 +29,24 @@ export function LoginPage() {
     }
 
     navigate('/apply')
+  }
+
+  async function onForgotPassword() {
+    if (!email) {
+      setError('Enter your email address above first.')
+      return
+    }
+    setResetting(true)
+    setError(null)
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`
+    })
+    setResetting(false)
+    if (resetError) {
+      setError(resetError.message)
+    } else {
+      setResetSent(true)
+    }
   }
 
   return (
@@ -91,6 +111,12 @@ export function LoginPage() {
           </button>
         </form>
         {error ? <p className="text-error" role="alert">{error}</p> : null}
+        {resetSent ? <p style={{ color: 'var(--success)', fontSize: '0.9rem' }}>Password reset email sent. Check your inbox.</p> : null}
+        <p style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
+          <button type="button" className="link-btn" onClick={onForgotPassword} disabled={resetting}>
+            {resetting ? 'Sending...' : 'Forgot your password?'}
+          </button>
+        </p>
         <p style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
           New to PRDF?{' '}
           <Link to="/register" style={{ fontWeight: 600 }}>

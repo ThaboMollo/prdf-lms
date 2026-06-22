@@ -31,7 +31,9 @@ export type ApplicationSummary = {
   assignedToUserId: string | null
 }
 
-export type ApplicationDetails = ApplicationSummary
+export type ApplicationDetails = ApplicationSummary & {
+  loanId?: string | null
+}
 
 export type StatusHistoryItem = {
   id: string

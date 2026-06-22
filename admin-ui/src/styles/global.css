@@ -602,6 +602,12 @@ textarea:disabled {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.grid-four {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .grid-two {
   display: grid;
   gap: 0.8rem;
@@ -633,6 +639,24 @@ textarea:disabled {
 .kpi-trend {
   margin: 0.2rem 0 0;
   color: var(--kpi-trend);
+}
+
+.kpi-card--warning {
+  border-color: #f59e0b;
+  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+}
+
+.kpi-card--warning .kpi-value {
+  color: #d97706;
+}
+
+.kpi-card--danger {
+  border-color: #ef4444;
+  background: linear-gradient(135deg, #fef2f2, #fee2e2);
+}
+
+.kpi-card--danger .kpi-value {
+  color: #dc2626;
 }
 
 /* ----------------------------------------------------------------
@@ -1130,6 +1154,7 @@ tbody tr:nth-child(even):hover {
   .mobile-only { display: inline-flex; }
   .desktop-only { display: none; }
 
+  .grid-four,
   .grid-three,
   .grid-two {
     grid-template-columns: 1fr;

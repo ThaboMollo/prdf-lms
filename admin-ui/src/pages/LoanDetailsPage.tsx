@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Session } from '@supabase/supabase-js'
-import { useSearchParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { EmptyState } from '../components/shared/EmptyState'
 import { PageHeader } from '../components/shared/PageHeader'
 import { PaginationControls } from '../components/shared/PaginationControls'
@@ -19,10 +19,9 @@ const REPAYMENTS_PAGE_SIZE = 12
 export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
   const queryClient = useQueryClient()
   const [params, setParams] = useSearchParams()
+  const { loanId } = useParams<{ loanId: string }>()
   const accessToken = session.access_token
   const loansUseCases = useMemo(() => createLoansUseCases(accessToken), [accessToken])
-  const [loanId, setLoanId] = useState('')
-  const [submittedLoanId, setSubmittedLoanId] = useState('')
   const [disburseAmount, setDisburseAmount] = useState(0)
   const [disburseReference, setDisburseReference] = useState('')
   const [repaymentAmount, setRepaymentAmount] = useState(0)
@@ -33,16 +32,16 @@ export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
   const repaymentsPage = parsePageParam(params.get('repaymentsPage'))
 
   const loanQuery = useQuery({
-    queryKey: ['loan-details', submittedLoanId],
-    queryFn: () => loansUseCases.getLoan(submittedLoanId),
-    enabled: Boolean(submittedLoanId)
+    queryKey: ['loan-details', loanId],
+    queryFn: () => loansUseCases.getLoan(loanId!),
+    enabled: Boolean(loanId)
   })
 
   const disburseMutation = useMutation({
-    mutationFn: () => loansUseCases.disburseLoan(submittedLoanId, disburseAmount, disburseReference),
+    mutationFn: () => loansUseCases.disburseLoan(loanId!, disburseAmount, disburseReference),
     onSuccess: async () => {
       setFormError(null)
-      await queryClient.invalidateQueries({ queryKey: ['loan-details', submittedLoanId] })
+      await queryClient.invalidateQueries({ queryKey: ['loan-details', loanId] })
     },
     onError: (error) => {
       setFormError(error instanceof Error ? error.message : 'Could not disburse loan.')
@@ -50,10 +49,10 @@ export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
   })
 
   const repaymentMutation = useMutation({
-    mutationFn: () => loansUseCases.recordRepayment(submittedLoanId, repaymentAmount, repaymentReference),
+    mutationFn: () => loansUseCases.recordRepayment(loanId!, repaymentAmount, repaymentReference),
     onSuccess: async () => {
       setFormError(null)
-      await queryClient.invalidateQueries({ queryKey: ['loan-details', submittedLoanId] })
+      await queryClient.invalidateQueries({ queryKey: ['loan-details', loanId] })
     },
     onError: (error) => {
       setFormError(error instanceof Error ? error.message : 'Could not record repayment.')
@@ -72,27 +71,18 @@ export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
     [loanQuery.data?.repayments, repaymentsPage]
   )
 
+  if (!loanId) {
+    return (
+      <section className="stack">
+        <PageHeader title="Loan Details" subtitle="No loan ID specified." />
+        <EmptyState title="No loan selected" message="Navigate to a loan from the Applications page." />
+      </section>
+    )
+  }
+
   return (
     <section className="stack">
-      <PageHeader title="Loan Details" subtitle="Load a loan record to manage disbursements and repayments." />
-
-      <div className="card form-grid">
-        <label>
-          Loan ID
-          <input placeholder="Loan ID (UUID)" value={loanId} onChange={(e) => setLoanId(e.target.value)} />
-        </label>
-        <button
-          type="button"
-          className="btn"
-          onClick={() => {
-            setFormError(null)
-            setSubmittedLoanId(loanId.trim())
-          }}
-          disabled={!loanId.trim()}
-        >
-          Load Loan
-        </button>
-      </div>
+      <PageHeader title="Loan Details" subtitle={`Loan ID: ${loanId}`} />
 
       {loanQuery.isError ? <p className="text-error">Unable to load loan details.</p> : null}
       {formError ? <p className="text-error">{formError}</p> : null}
@@ -199,7 +189,7 @@ export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
             ) : <EmptyState title="No repayments" message="No repayments have been posted yet." />}
           </div>
         </>
-      ) : null}
+      ) : loanQuery.isLoading ? <p>Loading loan...</p> : null}
     </section>
   )
 }

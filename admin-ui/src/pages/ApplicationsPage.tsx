@@ -26,6 +26,7 @@ import { PageHeader } from '../components/shared/PageHeader'
 import { DetailSkeleton, ListSkeleton } from '../components/shared/Skeletons'
 import { StatusBadge } from '../components/shared/StatusBadge'
 import { useToast } from '../components/shared/ToastProvider'
+import { Link } from 'react-router-dom'
 import { formatCurrency, formatDate, formatDateTime, formatLongDate, calculateDaysElapsed } from '../lib/format'
 import { hasAnyRole, toAppRoles } from '../lib/rbac'
 import { paginateItems, parsePageParam } from '../lib/pagination'
@@ -52,6 +53,20 @@ const statuses: LoanApplicationStatus[] = [
   'InRepayment',
   'Closed'
 ]
+
+const STATUS_TRANSITIONS: Partial<Record<LoanApplicationStatus, LoanApplicationStatus[]>> = {
+  Draft: ['Submitted'],
+  Submitted: ['UnderReview', 'InfoRequested', 'Approved', 'Rejected'],
+  UnderReview: ['InfoRequested', 'Approved', 'Rejected'],
+  InfoRequested: ['Submitted', 'UnderReview'],
+  Approved: ['Disbursed'],
+  Disbursed: ['InRepayment'],
+  InRepayment: ['Closed'],
+}
+
+function allowedNextStatuses(current: LoanApplicationStatus): LoanApplicationStatus[] {
+  return STATUS_TRANSITIONS[current] ?? []
+}
 
 const requiredDocumentTypes = ['IDDocument', 'BankStatement', 'BusinessRegistration']
 const APPLICATIONS_PAGE_SIZE = 10
@@ -445,6 +460,21 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
     onError: (error) => toast.push(error instanceof Error ? error.message : 'Could not log advisory session.', 'error')
   })
 
+  const verifyDocMutation = useMutation({
+    mutationFn: async ({ docId, status }: { docId: string; status: 'Verified' | 'Rejected' }) => {
+      if (!selectedApplicationId) throw new Error('Select an application first.')
+      if (status === 'Verified') {
+        return documentsUseCases.verifyDocument(selectedApplicationId, docId)
+      }
+      return documentsUseCases.rejectDocument(selectedApplicationId, docId)
+    },
+    onSuccess: async () => {
+      toast.push('Document status updated.', 'success')
+      await queryClient.invalidateQueries({ queryKey: ['application-documents', selectedApplicationId] })
+    },
+    onError: (error) => toast.push(error instanceof Error ? error.message : 'Could not update document status.', 'error')
+  })
+
   const infoRequestedMutation = useMutation({
     mutationFn: async () => {
       if (!selectedApplicationId) throw new Error('Select an application first.')
@@ -682,6 +712,8 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
               toast.push(error instanceof Error ? error.message : 'Could not open document.', 'error')
             }
           }}
+          onVerifyDocument={(docId, status) => verifyDocMutation.mutate({ docId, status })}
+          verifyDocPending={verifyDocMutation.isPending}
           userNameById={userNameById}
         />
       ) : null}
@@ -865,6 +897,8 @@ type ApplicationDetailProps = {
   onSubmitApp: () => void
   submitting: boolean
   onOpenDocument: (storagePath: string) => Promise<void>
+  onVerifyDocument: (docId: string, status: 'Verified' | 'Rejected') => void
+  verifyDocPending: boolean
   userNameById: Map<string, string>
 }
 
@@ -904,6 +938,15 @@ function ApplicationDetail(props: ApplicationDetailProps) {
           submitting={props.submitting}
         />
 
+        {props.application.loanId && (
+          <div style={{ padding: '0.75rem 1rem', background: 'var(--surface-secondary)', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <span style={{ fontWeight: 600 }}>Loan created</span>
+            <Link to={`/loan/${props.application.loanId}`} className="btn btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.875rem' }}>
+              View Loan &rarr;
+            </Link>
+          </div>
+        )}
+
         {props.isInternal ? (
           <div className="stack-sm">
             <h3>Internal Actions</h3>
@@ -933,7 +976,8 @@ function ApplicationDetail(props: ApplicationDetailProps) {
             <label>
               Change status
               <select value={props.statusTarget} onChange={(e) => props.setStatusTarget(e.target.value as LoanApplicationStatus)}>
-                {statuses.filter((status) => status !== 'Draft').map((status) => <option key={status} value={status}>{status}</option>)}
+                <option value="">— select next status —</option>
+                {allowedNextStatuses(props.application.status).map((status) => <option key={status} value={status}>{status}</option>)}
               </select>
             </label>
             <label>
@@ -1083,6 +1127,27 @@ function DocumentsTab(props: ApplicationDetailProps) {
                 >
                   {openingDocId === doc.id ? 'Opening...' : 'View / Download'}
                 </button>
+                {props.isInternal && doc.status !== 'Verified' && (
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={() => props.onVerifyDocument(doc.id, 'Verified')}
+                    disabled={props.verifyDocPending}
+                  >
+                    Verify
+                  </button>
+                )}
+                {props.isInternal && doc.status !== 'Rejected' && (
+                  <button
+                    className="btn btn-secondary"
+                    type="button"
+                    style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}
+                    onClick={() => props.onVerifyDocument(doc.id, 'Rejected')}
+                    disabled={props.verifyDocPending}
+                  >
+                    Reject
+                  </button>
+                )}
               </div>
             </li>
           ))}

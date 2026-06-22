@@ -1,13 +1,14 @@
 import type { Session } from '@supabase/supabase-js'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { EmptyState } from '../components/shared/EmptyState'
 import { ListSkeleton } from '../components/shared/Skeletons'
 import { StatusBadge } from '../components/shared/StatusBadge'
 import type { ApplicationSummary, MeResponse } from '../lib/api'
-import { formatDateTime } from '../lib/format'
+import { formatCurrency, formatDateTime } from '../lib/format'
 import { createApplicationsUseCases } from '../logic/usecases/applications'
+import { createLoansUseCases } from '../logic/usecases/loans'
 
 type StatusPageProps = {
   session: Session
@@ -64,6 +65,8 @@ const STATUS_ORDER = [
   'Draft', 'Submitted', 'UnderReview', 'InfoRequested',
   'Approved', 'Disbursed', 'InRepayment', 'Closed',
 ]
+
+const REPAYMENT_STATUSES = new Set(['Disbursed', 'InRepayment', 'Closed'])
 
 function getMilestoneState(milestone: Milestone, appStatus: string): 'done' | 'active' | 'pending' {
   const normalizedStatus = appStatus === 'InfoRequested' ? 'UnderReview' : appStatus
@@ -122,13 +125,13 @@ export function StatusPage({ session }: StatusPageProps) {
       ) : null}
 
       {!appsQuery.isError && applications.map((app) => (
-        <ApplicationTimeline key={app.id} app={app} />
+        <ApplicationTimeline key={app.id} app={app} accessToken={accessToken} />
       ))}
     </section>
   )
 }
 
-function ApplicationTimeline({ app }: { app: ApplicationSummary }) {
+function ApplicationTimeline({ app, accessToken }: { app: ApplicationSummary; accessToken: string }) {
   if (app.status === 'Draft') {
     return (
       <div className="status-app-card">
@@ -205,6 +208,112 @@ function ApplicationTimeline({ app }: { app: ApplicationSummary }) {
           <h3>Action required</h3>
           <p>Please check your notifications and upload the requested documents.</p>
         </div>
+      ) : null}
+
+      {REPAYMENT_STATUSES.has(app.status) ? (
+        <RepaymentSection appId={app.id} accessToken={accessToken} />
+      ) : null}
+    </div>
+  )
+}
+
+function RepaymentSection({ appId, accessToken }: { appId: string; accessToken: string }) {
+  const [scheduleOpen, setScheduleOpen] = useState(false)
+
+  const applicationsUseCases = useMemo(() => createApplicationsUseCases(accessToken), [accessToken])
+  const loansUseCases = useMemo(() => createLoansUseCases(accessToken), [accessToken])
+
+  const detailsQuery = useQuery({
+    queryKey: ['status-app-detail', appId],
+    queryFn: () => applicationsUseCases.getApplication(appId)
+  })
+
+  const loanId = detailsQuery.data?.loanId
+
+  const loanQuery = useQuery({
+    queryKey: ['status-loan', loanId],
+    queryFn: () => loansUseCases.getLoan(loanId!),
+    enabled: Boolean(loanId)
+  })
+
+  if (detailsQuery.isLoading) {
+    return <div className="repayment-section"><p className="muted-text">Loading loan details...</p></div>
+  }
+
+  if (!loanId) return null
+
+  const loan = loanQuery.data
+  const nextInstalment = loan?.schedule.find(s => s.status === 'Pending' || s.status === 'Overdue')
+
+  return (
+    <div className="repayment-section">
+      <h3>Repayment Summary</h3>
+
+      {loanQuery.isLoading ? (
+        <p className="muted-text">Loading...</p>
+      ) : loan ? (
+        <>
+          <div className="repayment-kpis">
+            <div className="repayment-kpi">
+              <span className="repayment-kpi-label">Outstanding Balance</span>
+              <span className="repayment-kpi-value">{formatCurrency(loan.outstandingPrincipal)}</span>
+            </div>
+            {nextInstalment ? (
+              <div className="repayment-kpi">
+                <span className="repayment-kpi-label">Next Instalment Due</span>
+                <span className="repayment-kpi-value">{formatCurrency(nextInstalment.dueTotal)}</span>
+                <span className="repayment-kpi-sub">{nextInstalment.dueDate}</span>
+              </div>
+            ) : (
+              <div className="repayment-kpi">
+                <span className="repayment-kpi-label">Next Instalment</span>
+                <span className="repayment-kpi-value">—</span>
+              </div>
+            )}
+            <div className="repayment-kpi">
+              <span className="repayment-kpi-label">Loan Status</span>
+              <span className="repayment-kpi-value">{loan.status}</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="link-btn"
+            onClick={() => setScheduleOpen((o) => !o)}
+            style={{ marginTop: '0.75rem' }}
+          >
+            {scheduleOpen ? 'Hide schedule' : 'View full schedule'} ({loan.schedule.length} instalments)
+          </button>
+
+          {scheduleOpen && (
+            <div className="table-wrap" style={{ marginTop: '0.75rem' }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Due Date</th>
+                    <th>Amount Due</th>
+                    <th>Paid</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loan.schedule.map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.installmentNo}</td>
+                      <td>{item.dueDate}</td>
+                      <td>{formatCurrency(item.dueTotal)}</td>
+                      <td>{formatCurrency(item.paidAmount)}</td>
+                      <td>{item.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      ) : loanQuery.isError ? (
+        <p className="muted-text">Could not load loan details.</p>
       ) : null}
     </div>
   )

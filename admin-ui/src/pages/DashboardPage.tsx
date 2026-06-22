@@ -14,7 +14,7 @@ import {
   type NotificationItem,
   type TaskItem
 } from '../lib/api'
-import { formatDateTime } from '../lib/format'
+import { calculateDaysElapsed, formatDateTime } from '../lib/format'
 import { paginateItems, parsePageParam } from '../lib/pagination'
 import { getPrimaryRole, toAppRoles } from '../lib/rbac'
 import { createApplicationsUseCases } from '../logic/usecases/applications'
@@ -54,7 +54,7 @@ export function DashboardPage({ session, me }: DashboardPageProps) {
   const notificationsQuery = useQuery({
     queryKey: ['dashboard-notifications', session.user.id],
     queryFn: () => notificationsUseCases.listNotifications(true),
-    enabled: false
+    enabled: true
   })
 
   const applications = appsQuery.data ?? []
@@ -124,6 +124,11 @@ function DashboardContent({
   const draftOrInfoApps = applications.filter((item) => item.status === 'Draft' || item.status === 'InfoRequested')
   const submittedApps = applications.filter((item) => item.status === 'Submitted' || item.status === 'UnderReview')
   const overdueTasks = tasks.filter((task) => task.status !== 'Completed' && Boolean(task.dueDate))
+  const slaBreached = applications.filter(
+    (item) =>
+      (item.status === 'Submitted' || item.status === 'UnderReview') &&
+      calculateDaysElapsed(item.submittedAt) >= 5
+  )
 
   if (!applications.length && !tasks.length) {
     return <EmptyState title="No activity yet" message="Your dashboard will populate as soon as applications and tasks are created." />
@@ -157,10 +162,11 @@ function DashboardContent({
 
   return (
     <>
-      <div className="grid-three">
+      <div className="grid-four">
         <KPIStatCard label="Pipeline Cases" value={applications.length} />
         <KPIStatCard label="Under Review" value={submittedApps.length} />
         <KPIStatCard label="Overdue Tasks" value={overdueTasks.length} />
+        <KPIStatCard label="SLA Breached" value={slaBreached.length} variant={slaBreached.length > 0 ? 'warning' : undefined} />
       </div>
       <QueuePanel title="Assigned Queue" applications={applications} page={queuePage} onPageChange={setQueuePage} />
     </>

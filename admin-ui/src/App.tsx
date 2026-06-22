@@ -84,7 +84,7 @@ export function App() {
               <Route path="/dashboard" element={<DashboardPage session={session as Session} me={meQuery.data!} />} />
               <Route path="/applications" element={<ApplicationsPage session={session as Session} me={meQuery.data!} />} />
               <Route element={<RequireRole me={meQuery.data!} allowed={['Originator', 'LoanOfficer', 'Admin']} />}>
-                <Route path="/loans" element={<LoanDetailsPage session={session as Session} />} />
+                <Route path="/loan/:loanId" element={<LoanDetailsPage session={session as Session} />} />
               </Route>
               <Route element={<RequireRole me={meQuery.data!} allowed={['LoanOfficer', 'Admin']} />}>
                 <Route path="/portfolio" element={<PortfolioPage session={session as Session} />} />

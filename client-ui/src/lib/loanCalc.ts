@@ -35,5 +35,5 @@ export function calculateMonthlyInstalment(amount: number, term: number): number
  * Format a number as South African Rand.
  */
 export function formatRand(value: number): string {
-  return `R ${value.toLocaleString('en-ZA')}`
+  return `R ${value.toLocaleString('en-ZA').replace(/ /g, ' ')}`
 }

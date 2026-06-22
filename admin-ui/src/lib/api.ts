@@ -64,6 +64,7 @@ export type ClientDetails = {
 }
 
 export type ApplicationDetails = ApplicationSummary & {
+  loanId?: string | null
   clientDetails?: ClientDetails
 }
 
@@ -211,6 +212,33 @@ export type ArrearsItem = {
   paidAmount: number
   outstandingAmount: number
   daysOverdue: number
+}
+
+export type TurnaroundResult = {
+  count: number
+  averageDays: number
+}
+
+export type PipelineConversionItem = {
+  fromStatus: LoanApplicationStatus | null
+  toStatus: LoanApplicationStatus
+  count: number
+}
+
+export type ProductivityItem = {
+  userId: string
+  tasksCompleted: number
+  applicationsHandled: number
+}
+
+export type AuditLogItem = {
+  id: string
+  entity: string
+  entityId: string
+  action: string
+  actorUserId: string
+  at: string
+  metadata: string | null
 }
 
 export type NonFinancialSupportItem = {
@@ -660,6 +688,60 @@ export async function markNotificationRead(accessToken: string, id: string): Pro
     headers: authHeaders(accessToken)
   })
   await parseResponse<void>(response)
+}
+
+export async function getPipelineSummary(accessToken: string, startDate?: string, endDate?: string): Promise<PipelineSummaryItem[]> {
+  const params = new URLSearchParams()
+  if (startDate) params.set('startDate', startDate)
+  if (endDate) params.set('endDate', endDate)
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  const response = await fetch(`${apiBaseUrl}/api/reports/pipeline-summary${suffix}`, {
+    headers: authHeaders(accessToken)
+  })
+  return parseResponse<PipelineSummaryItem[]>(response)
+}
+
+export async function getOriginationTrends(accessToken: string, startDate?: string, endDate?: string): Promise<OriginationTrendItem[]> {
+  const params = new URLSearchParams()
+  if (startDate) params.set('startDate', startDate)
+  if (endDate) params.set('endDate', endDate)
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  const response = await fetch(`${apiBaseUrl}/api/reports/origination-trends${suffix}`, {
+    headers: authHeaders(accessToken)
+  })
+  return parseResponse<OriginationTrendItem[]>(response)
+}
+
+export async function getTurnaround(accessToken: string): Promise<TurnaroundResult> {
+  const response = await fetch(`${apiBaseUrl}/api/reports/turnaround`, {
+    headers: authHeaders(accessToken)
+  })
+  return parseResponse<TurnaroundResult>(response)
+}
+
+export async function getPipelineConversion(accessToken: string): Promise<PipelineConversionItem[]> {
+  const response = await fetch(`${apiBaseUrl}/api/reports/pipeline-conversion`, {
+    headers: authHeaders(accessToken)
+  })
+  return parseResponse<PipelineConversionItem[]>(response)
+}
+
+export async function getProductivity(accessToken: string): Promise<ProductivityItem[]> {
+  const response = await fetch(`${apiBaseUrl}/api/reports/productivity`, {
+    headers: authHeaders(accessToken)
+  })
+  return parseResponse<ProductivityItem[]>(response)
+}
+
+export async function getAuditLog(accessToken: string, from?: string, to?: string, limit = 200): Promise<AuditLogItem[]> {
+  const params = new URLSearchParams()
+  if (from) params.set('from', from)
+  if (to) params.set('to', to)
+  params.set('limit', String(limit))
+  const response = await fetch(`${apiBaseUrl}/api/reports/audit?${params.toString()}`, {
+    headers: authHeaders(accessToken)
+  })
+  return parseResponse<AuditLogItem[]>(response)
 }
 
 export async function listNfs(accessToken: string, clientId: string): Promise<NonFinancialSupportItem[]> {

@@ -3,48 +3,75 @@ import { useQuery } from '@tanstack/react-query'
 import type { Session } from '@supabase/supabase-js'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid } from 'recharts'
 import { createReportsUseCases } from '../logic/usecases/reports'
-import { formatCurrency } from '../lib/format'
+import { formatCurrency, formatDateTime } from '../lib/format'
 import { PageHeader } from '../components/shared/PageHeader'
+import { KPIStatCard } from '../components/shared/KPIStatCard'
+import { EmptyState } from '../components/shared/EmptyState'
 
 type ReportsPageProps = {
   session: Session
 }
 
+function getDateRange(timeRange: string): { startDate?: string; endDate?: string } {
+  if (timeRange === 'all') return {}
+  const days = Number(timeRange)
+  const start = new Date()
+  start.setDate(start.getDate() - days)
+  return { startDate: start.toISOString(), endDate: new Date().toISOString() }
+}
+
 export function ReportsPage({ session }: ReportsPageProps) {
-  const [timeRange, setTimeRange] = useState('all') // '30', '90', 'all'
+  const [timeRange, setTimeRange] = useState('all')
   const reportsUseCases = useMemo(() => createReportsUseCases(session.access_token), [session.access_token])
 
+  const { startDate, endDate } = getDateRange(timeRange)
+
   const pipelineQuery = useQuery({
-    queryKey: ['reports-pipeline', session.user.id],
-    queryFn: () => reportsUseCases.getPipelineSummary()
+    queryKey: ['reports-pipeline', session.user.id, timeRange],
+    queryFn: () => reportsUseCases.getPipelineSummary(startDate, endDate)
   })
 
   const originationQuery = useQuery({
-    queryKey: ['reports-origination', session.user.id],
-    queryFn: () => reportsUseCases.getOriginationTrends()
+    queryKey: ['reports-origination', session.user.id, timeRange],
+    queryFn: () => reportsUseCases.getOriginationTrends(startDate, endDate)
   })
 
-  // Format pipeline data for chart
-  const pipelineData = useMemo(() => {
-    if (!pipelineQuery.data) return []
-    return pipelineQuery.data.map((item) => ({
-      name: item.status,
-      count: item.count,
-      totalAmount: item.totalAmount
-    }))
-  }, [pipelineQuery.data])
+  const turnaroundQuery = useQuery({
+    queryKey: ['reports-turnaround', session.user.id],
+    queryFn: () => reportsUseCases.getTurnaround()
+  })
 
-  // Formate origination data for chart
-  const originationData = useMemo(() => {
-    if (!originationQuery.data) return []
-    return originationQuery.data.map((item) => ({
-      name: item.month, // 'YYYY-MM'
-      count: item.count,
-      amount: item.totalAmount
-    }))
-  }, [originationQuery.data])
+  const conversionQuery = useQuery({
+    queryKey: ['reports-conversion', session.user.id],
+    queryFn: () => reportsUseCases.getPipelineConversion()
+  })
 
-  const handleExportCsv = (type: 'pipeline' | 'origination') => {
+  const productivityQuery = useQuery({
+    queryKey: ['reports-productivity', session.user.id],
+    queryFn: () => reportsUseCases.getProductivity()
+  })
+
+  const auditQuery = useQuery({
+    queryKey: ['reports-audit', session.user.id, timeRange],
+    queryFn: () => reportsUseCases.getAuditLog(startDate, endDate, 100)
+  })
+
+  const pipelineData = useMemo(
+    () => (pipelineQuery.data ?? []).map((item) => ({ name: item.status, count: item.count, totalAmount: item.totalAmount })),
+    [pipelineQuery.data]
+  )
+
+  const originationData = useMemo(
+    () => (originationQuery.data ?? []).map((item) => ({ name: item.month, count: item.count, amount: item.totalAmount })),
+    [originationQuery.data]
+  )
+
+  const conversionData = useMemo(
+    () => (conversionQuery.data ?? []).map((item) => ({ name: `${item.fromStatus} → ${item.toStatus}`, count: item.count })),
+    [conversionQuery.data]
+  )
+
+  const handleExportCsv = (type: 'pipeline' | 'origination' | 'productivity' | 'audit') => {
     let csv = ''
     let filename = ''
 
@@ -54,14 +81,18 @@ export function ReportsPage({ session }: ReportsPageProps) {
     } else if (type === 'origination' && originationQuery.data) {
       csv = 'Month,LoansOriginated,TotalVolume\n' + originationQuery.data.map(i => `${i.month},${i.count},${i.totalAmount}`).join('\n')
       filename = 'origination_trends.csv'
+    } else if (type === 'productivity' && productivityQuery.data) {
+      csv = 'UserId,TasksCompleted,ApplicationsHandled\n' + productivityQuery.data.map(i => `"${i.userId}",${i.tasksCompleted},${i.applicationsHandled}`).join('\n')
+      filename = 'staff_productivity.csv'
+    } else if (type === 'audit' && auditQuery.data) {
+      csv = 'Timestamp,ActorUserId,Action,Entity,EntityId\n' + auditQuery.data.map(i => `"${i.at}","${i.actorUserId ?? ''}","${i.action}","${i.entity}","${i.entityId ?? ''}"`).join('\n')
+      filename = 'audit_log.csv'
     }
 
     if (!csv) return
-
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.setAttribute('href', url)
+    link.setAttribute('href', URL.createObjectURL(blob))
     link.setAttribute('download', filename)
     link.style.visibility = 'hidden'
     document.body.appendChild(link)
@@ -83,20 +114,31 @@ export function ReportsPage({ session }: ReportsPageProps) {
         }
       />
 
+      {/* Turnaround KPI */}
+      <div className="grid-two">
+        <KPIStatCard
+          label="Avg. Turnaround (days)"
+          value={turnaroundQuery.isLoading ? '—' : turnaroundQuery.data?.averageDays != null ? turnaroundQuery.data.averageDays.toFixed(1) : '—'}
+          variant={turnaroundQuery.data?.averageDays != null && turnaroundQuery.data.averageDays >= 5 ? 'warning' : undefined}
+        />
+        <KPIStatCard
+          label="Applications Measured"
+          value={turnaroundQuery.isLoading ? '—' : turnaroundQuery.data?.count ?? '—'}
+        />
+      </div>
+
+      {/* Pipeline + Origination charts */}
       <div className="grid-two">
         <div className="card">
           <h3 style={{ marginBottom: '1.5rem', fontWeight: 600 }}>Pipeline Status Summary</h3>
-          {pipelineQuery.isLoading ? <p>Loading...</p> : (
+          {pipelineQuery.isLoading ? <p>Loading...</p> : !pipelineData.length ? <EmptyState title="No data" message="No pipeline data for selected range." /> : (
             <div style={{ width: '100%', height: 300 }}>
               <ResponsiveContainer>
                 <BarChart data={pipelineData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
                   <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <Tooltip 
-                    cursor={{ fill: 'transparent' }} 
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} 
-                  />
+                  <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
                   <Bar dataKey="count" fill="#4f46e5" radius={[4, 4, 0, 0]} name="Applications" />
                 </BarChart>
               </ResponsiveContainer>
@@ -106,17 +148,14 @@ export function ReportsPage({ session }: ReportsPageProps) {
 
         <div className="card">
           <h3 style={{ marginBottom: '1.5rem', fontWeight: 600 }}>Origination Volume Trend</h3>
-          {originationQuery.isLoading ? <p>Loading...</p> : (
+          {originationQuery.isLoading ? <p>Loading...</p> : !originationData.length ? <EmptyState title="No data" message="No origination data for selected range." /> : (
             <div style={{ width: '100%', height: 300 }}>
               <ResponsiveContainer>
                 <LineChart data={originationData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
                   <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={val => `$${val/1000}k`} />
-                  <Tooltip 
-                    formatter={(value: any) => formatCurrency(Number(value) || 0)}
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} 
-                  />
+                  <YAxis tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={val => `R${val / 1000}k`} />
+                  <Tooltip formatter={(value) => formatCurrency(Number(value) || 0)} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
                   <Line type="monotone" dataKey="amount" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981', strokeWidth: 0 }} name="Total Volume" />
                 </LineChart>
               </ResponsiveContainer>
@@ -125,6 +164,81 @@ export function ReportsPage({ session }: ReportsPageProps) {
         </div>
       </div>
 
+      {/* Pipeline Conversion */}
+      <div className="card">
+        <h3 style={{ marginBottom: '1.5rem', fontWeight: 600 }}>Pipeline Conversion</h3>
+        {conversionQuery.isLoading ? <p>Loading...</p> : !conversionData.length ? <EmptyState title="No data" message="No conversion data available." /> : (
+          <div style={{ width: '100%', height: 260 }}>
+            <ResponsiveContainer>
+              <BarChart data={conversionData} layout="vertical" margin={{ top: 5, right: 30, left: 120, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#eee" />
+                <XAxis type="number" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="name" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} width={120} />
+                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                <Bar dataKey="count" fill="#6366f1" radius={[0, 4, 4, 0]} name="Transitions" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+
+      {/* Staff Productivity */}
+      <div className="card">
+        <h3 style={{ marginBottom: '1rem', fontWeight: 600 }}>Staff Productivity</h3>
+        {productivityQuery.isLoading ? <p>Loading...</p> : !productivityQuery.data?.length ? <EmptyState title="No data" message="No productivity data available." /> : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>User ID</th>
+                  <th>Tasks Completed</th>
+                  <th>Applications Handled</th>
+                </tr>
+              </thead>
+              <tbody>
+                {productivityQuery.data.map((row) => (
+                  <tr key={row.userId}>
+                    <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{row.userId.slice(0, 8)}</td>
+                    <td>{row.tasksCompleted}</td>
+                    <td>{row.applicationsHandled}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Audit Log */}
+      <div className="card">
+        <h3 style={{ marginBottom: '1rem', fontWeight: 600 }}>Audit Log</h3>
+        {auditQuery.isLoading ? <p>Loading...</p> : !auditQuery.data?.length ? <EmptyState title="No activity" message="No audit events for the selected period." /> : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Actor</th>
+                  <th>Action</th>
+                  <th>Entity</th>
+                </tr>
+              </thead>
+              <tbody>
+                {auditQuery.data.map((row) => (
+                  <tr key={row.id}>
+                    <td style={{ whiteSpace: 'nowrap' }}>{formatDateTime(row.at)}</td>
+                    <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{row.actorUserId?.slice(0, 8) ?? '—'}</td>
+                    <td>{row.action}</td>
+                    <td>{row.entity}{row.entityId ? ` · ${row.entityId.slice(0, 8)}` : ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Export Center */}
       <div className="card">
         <h3 style={{ marginBottom: '1rem', fontWeight: 600 }}>Export Center</h3>
         <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>Download aggregated data for external analysis.</p>
@@ -150,6 +264,18 @@ export function ReportsPage({ session }: ReportsPageProps) {
                 <td>Month-over-month disbursed loan volume and counts.</td>
                 <td><span className="status-badge status-neutral">CSV</span></td>
                 <td><button className="link-btn" onClick={() => handleExportCsv('origination')}>Download</button></td>
+              </tr>
+              <tr>
+                <td><strong>Staff Productivity</strong></td>
+                <td>Tasks completed and applications handled per staff member.</td>
+                <td><span className="status-badge status-neutral">CSV</span></td>
+                <td><button className="link-btn" onClick={() => handleExportCsv('productivity')}>Download</button></td>
+              </tr>
+              <tr>
+                <td><strong>Audit Log</strong></td>
+                <td>System event log for the selected time range (up to 100 entries).</td>
+                <td><span className="status-badge status-neutral">CSV</span></td>
+                <td><button className="link-btn" onClick={() => handleExportCsv('audit')}>Download</button></td>
               </tr>
             </tbody>
           </table>

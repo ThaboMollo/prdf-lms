@@ -53,4 +53,33 @@ export class ReportsService {
       `with task_stats as (select coalesce(assigned_to, changed_by) as user_id, cast(count(*) filter (where status='Completed') as int) as tasks_completed from public.tasks t left join public.application_status_history h on h.application_id=t.application_id group by coalesce(assigned_to, changed_by)), app_stats as (select assigned_to_user_id as user_id, cast(count(*) as int) as applications_handled from public.loan_applications where assigned_to_user_id is not null group by assigned_to_user_id) select coalesce(t.user_id, a.user_id) as "userId", coalesce(t.tasks_completed,0) as "tasksCompleted", coalesce(a.applications_handled,0) as "applicationsHandled" from task_stats t full join app_stats a on a.user_id=t.user_id where coalesce(t.user_id,a.user_id) is not null order by coalesce(t.tasks_completed,0) desc`,
     );
   }
+
+  async pipelineSummary(actor: CurrentUser, startDate?: string, endDate?: string) {
+    await this.ensureStaff(actor);
+    return this.db.query(
+      `select status, cast(count(*) as int) as count, cast(coalesce(sum(requested_amount), 0) as double precision) as "totalAmount"
+       from public.loan_applications
+       where ($1::timestamptz is null or created_at >= $1::timestamptz)
+         and ($2::timestamptz is null or created_at <= $2::timestamptz)
+       group by status
+       order by count(*) desc`,
+      [startDate ?? null, endDate ?? null],
+    );
+  }
+
+  async originationTrends(actor: CurrentUser, startDate?: string, endDate?: string) {
+    await this.ensureStaff(actor);
+    return this.db.query(
+      `select to_char(disbursed_at, 'YYYY-MM') as month,
+              cast(count(*) as int) as count,
+              cast(coalesce(sum(principal_amount), 0) as double precision) as "totalAmount"
+       from public.loans
+       where disbursed_at is not null
+         and ($1::timestamptz is null or disbursed_at >= $1::timestamptz)
+         and ($2::timestamptz is null or disbursed_at <= $2::timestamptz)
+       group by 1
+       order by 1 asc`,
+      [startDate ?? null, endDate ?? null],
+    );
+  }
 }

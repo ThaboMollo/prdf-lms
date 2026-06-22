@@ -13,6 +13,7 @@ import { TasksModule } from './tasks/tasks.module';
 import { DocumentsModule } from './documents/documents.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ReportsModule } from './reports/reports.module';
+import { NfsModule } from './nfs/nfs.module';
 import { NotificationSweepJob } from './jobs/notification-sweep.job';
 
 @Module({
@@ -29,6 +30,7 @@ import { NotificationSweepJob } from './jobs/notification-sweep.job';
     DocumentsModule,
     NotificationsModule,
     ReportsModule,
+    NfsModule,
   ],
   controllers: [HealthController, MeController],
   providers: [NotificationSweepJob],

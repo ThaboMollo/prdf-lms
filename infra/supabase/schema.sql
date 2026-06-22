@@ -27,6 +27,17 @@ create table if not exists public.clients (
   registration_no text,
   address text,
   employment_status text,
+  industry text,
+  gender text,
+  is_hdp boolean default false,
+  is_disabled boolean default false,
+  is_rural boolean default false,
+  is_black_women_owned boolean default false,
+  sa_citizenship_percentage numeric,
+  is_director_operational boolean default false,
+  cipc_registered boolean default false,
+  sars_tax_pin text,
+  insolvent_or_debt_review boolean default false,
   created_at timestamptz not null default now()
 );
 
@@ -235,3 +246,20 @@ create trigger trg_prevent_immutable_document_changes
 before update on public.loan_documents
 for each row
 execute function public.prevent_immutable_document_changes();
+
+-- Non-Financial Support
+create table if not exists public.non_financial_support (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.clients(id) on delete cascade,
+  application_id uuid references public.loan_applications(id) on delete set null,
+  advisor_user_id uuid not null references auth.users(id) on delete restrict,
+  support_type text not null,
+  duration_hours numeric(5,2) not null check (duration_hours > 0),
+  date_provided date not null,
+  notes text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_nfs_client on public.non_financial_support(client_id);
+create index if not exists idx_nfs_advisor on public.non_financial_support(advisor_user_id);
+create index if not exists idx_nfs_date on public.non_financial_support(date_provided);

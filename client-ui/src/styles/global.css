@@ -1684,7 +1684,7 @@ input[type="range"]::-moz-range-thumb {
 
 .calc-display {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 0.5rem;
   background: var(--bg);
   border-radius: var(--radius);
@@ -2371,6 +2371,48 @@ input[type="range"]::-moz-range-thumb {
   margin-bottom: 1.5rem;
 }
 
+.repayment-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-light);
+}
+
+.repayment-section h3 {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.repayment-kpis {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.repayment-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 120px;
+}
+
+.repayment-kpi-label {
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.repayment-kpi-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.repayment-kpi-sub {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
 /* ----------------------------------------------------------------
    Responsive — Public / Wizard / Auth
    ---------------------------------------------------------------- */
@@ -2647,10 +2689,15 @@ input[type="range"]::-moz-range-thumb {
   border-radius: 10px;
   padding: 0.625rem 0.875rem;
   margin-bottom: 0.25rem;
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .calc-metric--highlight .calc-metric-label {
   color: #3b82f6;
+  margin-bottom: 0;
 }
 
 .calc-metric--highlight .calc-metric-value {

@@ -11,6 +11,7 @@ import { internalNavItems } from './navigation'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { createNotificationsUseCases } from '../../logic/usecases/notifications'
+import { env } from '../../lib/config/env'
 
 type AppShellProps = {
   session: Session
@@ -34,11 +35,13 @@ export function AppShell({ session, me }: AppShellProps) {
     }
   }, [me.roles])
 
+  const notificationsEnabled = env.VITE_ENABLE_NOTIFICATIONS === 'true'
+
   const notificationsQuery = useQuery({
     queryKey: ['notifications', session.user.id],
     queryFn: () => notificationsUseCases.listNotifications(true),
-    refetchInterval: false,
-    enabled: false
+    refetchInterval: notificationsEnabled ? 60_000 : false,
+    enabled: notificationsEnabled
   })
 
   const markReadMutation = useMutation({

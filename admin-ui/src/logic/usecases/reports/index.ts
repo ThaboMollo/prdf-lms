@@ -6,7 +6,11 @@ export function createReportsUseCases(accessToken: string) {
   return {
     getPortfolioSummary: () => repository.getPortfolioSummary(),
     getArrears: () => repository.getArrears(),
-    getPipelineSummary: () => repository.getPipelineSummary(),
-    getOriginationTrends: () => repository.getOriginationTrends()
+    getPipelineSummary: (startDate?: string, endDate?: string) => repository.getPipelineSummary(startDate, endDate),
+    getOriginationTrends: (startDate?: string, endDate?: string) => repository.getOriginationTrends(startDate, endDate),
+    getTurnaround: () => repository.getTurnaround(),
+    getPipelineConversion: () => repository.getPipelineConversion(),
+    getProductivity: () => repository.getProductivity(),
+    getAuditLog: (from?: string, to?: string, limit?: number) => repository.getAuditLog(from, to, limit)
   }
 }

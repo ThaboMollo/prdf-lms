@@ -1,4 +1,4 @@
-import type { ArrearsItem, PortfolioSummary, PipelineSummaryItem, OriginationTrendItem } from '../../../api'
+import type { ArrearsItem, AuditLogItem, OriginationTrendItem, PipelineConversionItem, PipelineSummaryItem, PortfolioSummary, ProductivityItem, TurnaroundResult } from '../../../api'
 import { createSupabaseDataClient } from '../../../supabase/client'
 import type { ReportsRepository } from '../../repositories/reports.repo'
 
@@ -114,6 +114,18 @@ export function createSupabaseReportsAdapter(accessToken: string): ReportsReposi
       return Object.entries(trends)
         .map(([month, metrics]) => ({ month, count: metrics.count, totalAmount: metrics.totalAmount }))
         .sort((a, b) => a.month.localeCompare(b.month))
+    },
+    async getTurnaround(): Promise<TurnaroundResult> {
+      throw new Error('getTurnaround is only available on the API provider.')
+    },
+    async getPipelineConversion(): Promise<PipelineConversionItem[]> {
+      throw new Error('getPipelineConversion is only available on the API provider.')
+    },
+    async getProductivity(): Promise<ProductivityItem[]> {
+      throw new Error('getProductivity is only available on the API provider.')
+    },
+    async getAuditLog(): Promise<AuditLogItem[]> {
+      throw new Error('getAuditLog is only available on the API provider.')
     }
   }
 }

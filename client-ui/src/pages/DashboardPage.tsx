@@ -51,7 +51,7 @@ export function DashboardPage({ session, me }: DashboardPageProps) {
   const notificationsQuery = useQuery({
     queryKey: ['dashboard-notifications', session.user.id],
     queryFn: () => notificationsUseCases.listNotifications(true),
-    enabled: false
+    enabled: true
   })
 
   const applications = appsQuery.data ?? []

@@ -55,8 +55,11 @@ export class ApplicationsService {
       `select la.id, la.client_id as "clientId", la.requested_amount as "requestedAmount",
               la.term_months as "termMonths", la.purpose, la.status,
               la.created_at as "createdAt", la.submitted_at as "submittedAt",
-              la.assigned_to_user_id as "assignedToUserId"
-       from public.loan_applications la where la.id = $1`,
+              la.assigned_to_user_id as "assignedToUserId",
+              l.id as "loanId"
+       from public.loan_applications la
+       left join public.loans l on l.application_id = la.id
+       where la.id = $1`,
       [applicationId],
     );
   }

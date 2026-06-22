@@ -15,4 +15,6 @@ export class ReportsController {
   @Get('turnaround') turnaround(@GetCurrentUser() u: CurrentUser) { return this.svc.turnaround(u); }
   @Get('pipeline-conversion') pipelineConversion(@GetCurrentUser() u: CurrentUser) { return this.svc.pipelineConversion(u); }
   @Get('productivity') productivity(@GetCurrentUser() u: CurrentUser) { return this.svc.productivity(u); }
+  @Get('pipeline-summary') pipelineSummary(@GetCurrentUser() u: CurrentUser, @Query('startDate') startDate?: string, @Query('endDate') endDate?: string) { return this.svc.pipelineSummary(u, startDate, endDate); }
+  @Get('origination-trends') originationTrends(@GetCurrentUser() u: CurrentUser, @Query('startDate') startDate?: string, @Query('endDate') endDate?: string) { return this.svc.originationTrends(u, startDate, endDate); }
 }
