@@ -53,7 +53,10 @@ export function LoginPage() {
     <div className="split-auth">
       {/* Brand Panel */}
       <div className="auth-brand-panel">
-        <div className="brand-logo">PRDF</div>
+        <div className="brand-logo">
+          <img src="/prdf-logo.png" alt="" className="brand-logo__mark" />
+          <span>PRDF</span>
+        </div>
         <div>
           <h2>Business Finance, Built for Growth</h2>
           <p>Access the capital your business needs — quickly, transparently, and entirely online.</p>

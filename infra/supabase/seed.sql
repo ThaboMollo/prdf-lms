@@ -1,5 +1,5 @@
 insert into public.roles (name)
-values ('Admin'), ('LoanOfficer'), ('Intern'), ('Originator'), ('Client')
+values ('SuperAdmin'), ('Admin'), ('LoanOfficer'), ('Intern'), ('Originator'), ('Client')
 on conflict (name) do nothing;
 
 insert into public.notification_templates (type, channel, title_template, body_template, is_active)

@@ -16,6 +16,7 @@ export type AdminAccessListItem = {
   email: string | null
   roles: string[]
   isAdmin: boolean
+  isSuperAdmin: boolean
   isInternal: boolean
   canGrantAdmin: boolean
   canRevokeAdmin: boolean
@@ -29,7 +30,7 @@ export type AdminAccessMutationResult = {
   isAdmin: boolean
 }
 
-export type AssignableRole = 'Client' | 'Intern' | 'Originator' | 'LoanOfficer'
+export type AssignableRole = 'Client' | 'Intern' | 'Originator' | 'LoanOfficer' | 'Admin' | 'SuperAdmin'
 
 export type LoanApplicationStatus =
   | 'Draft'
@@ -116,6 +117,19 @@ export type CreateApplicationInput = {
   registrationNo?: string
   address?: string
   assignedToUserId?: string
+  consent?: ApplicationConsentInput
+}
+
+export type ApplicationConsentItem = {
+  key: string
+  section: string
+  prompt: string
+  answer: boolean
+}
+
+export type ApplicationConsentInput = {
+  version: string
+  items: ApplicationConsentItem[]
 }
 
 export type UpdateApplicationInput = {
@@ -219,6 +233,29 @@ export type TurnaroundResult = {
   averageDays: number
 }
 
+export type DemographicCount = {
+  label: string
+  count: number
+}
+
+export type DemographicBreakdown = {
+  totalClients: number
+  byGender: DemographicCount[]
+  flags: DemographicCount[]
+}
+
+export type ProvinceBreakdown = {
+  totalClients: number
+  byProvince: DemographicCount[]
+  bySpatialType: DemographicCount[]
+}
+
+export type DebtorsAgeBucket = {
+  bucket: string
+  installments: number
+  outstandingAmount: number
+}
+
 export type PipelineConversionItem = {
   fromStatus: LoanApplicationStatus | null
   toStatus: LoanApplicationStatus
@@ -270,6 +307,7 @@ type AdminAccessRpcRow = {
   email: string | null
   roles: string[] | null
   is_admin: boolean
+  is_super_admin: boolean
   is_internal: boolean
   can_grant_admin: boolean
   can_revoke_admin: boolean
@@ -321,6 +359,16 @@ export async function fetchMe(accessToken: string): Promise<MeResponse> {
   return parseResponse<MeResponse>(response)
 }
 
+/** Roles for the signed-in user, read from the DB (same source RLS trusts). */
+export async function getMyRoles(accessToken: string): Promise<string[]> {
+  const client = createSupabaseDataClient(accessToken)
+  const { data, error } = await client.rpc('get_my_roles')
+  if (error) {
+    throw new Error(error.message)
+  }
+  return (data as string[] | null) ?? []
+}
+
 export async function listAdminUserAccess(
   accessToken: string,
   input: { search?: string; filter?: AdminAccessFilter; role?: string } = {}
@@ -342,56 +390,13 @@ export async function listAdminUserAccess(
     email: row.email,
     roles: row.roles ?? [],
     isAdmin: row.is_admin,
+    isSuperAdmin: row.is_super_admin,
     isInternal: row.is_internal,
     canGrantAdmin: row.can_grant_admin,
     canRevokeAdmin: row.can_revoke_admin,
     grantDisabledReason: row.grant_disabled_reason,
     revokeDisabledReason: row.revoke_disabled_reason
   }))
-}
-
-export async function grantAdminAccess(accessToken: string, userId: string): Promise<AdminAccessMutationResult> {
-  const client = createSupabaseDataClient(accessToken)
-  const { data, error } = await client.rpc('admin_access_grant', {
-    p_target_user_id: userId
-  })
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  const row = (data as AdminAccessMutationRpcRow[] | null)?.[0]
-  if (!row) {
-    throw new Error('Unable to grant Admin access.')
-  }
-
-  return {
-    userId: row.user_id,
-    roles: row.roles ?? [],
-    isAdmin: row.is_admin
-  }
-}
-
-export async function revokeAdminAccess(accessToken: string, userId: string): Promise<AdminAccessMutationResult> {
-  const client = createSupabaseDataClient(accessToken)
-  const { data, error } = await client.rpc('admin_access_revoke', {
-    p_target_user_id: userId
-  })
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  const row = (data as AdminAccessMutationRpcRow[] | null)?.[0]
-  if (!row) {
-    throw new Error('Unable to revoke Admin access.')
-  }
-
-  return {
-    userId: row.user_id,
-    roles: row.roles ?? [],
-    isAdmin: row.is_admin
-  }
 }
 
 export async function assignUserRole(
@@ -412,6 +417,33 @@ export async function assignUserRole(
   const row = (data as AdminAccessMutationRpcRow[] | null)?.[0]
   if (!row) {
     throw new Error('Unable to assign role.')
+  }
+
+  return {
+    userId: row.user_id,
+    roles: row.roles ?? [],
+    isAdmin: row.is_admin
+  }
+}
+
+export async function removeUserRole(
+  accessToken: string,
+  userId: string,
+  role: AssignableRole
+): Promise<AdminAccessMutationResult> {
+  const client = createSupabaseDataClient(accessToken)
+  const { data, error } = await client.rpc('admin_access_remove_role', {
+    p_target_user_id: userId,
+    p_role_name: role
+  })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  const row = (data as AdminAccessMutationRpcRow[] | null)?.[0]
+  if (!row) {
+    throw new Error('Unable to remove role.')
   }
 
   return {

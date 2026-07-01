@@ -284,7 +284,22 @@ export function createSupabaseApplicationsAdapter(accessToken: string): Applicat
         throw new Error(`Supabase create draft failed: ${error.message}`)
       }
 
-      return mapApplicationRow(data as ApplicationRow)
+      const created = mapApplicationRow(data as ApplicationRow)
+
+      if (input.consent) {
+        const consentInsert = await client.from('application_consents').insert({
+          application_id: created.id,
+          consent_version: input.consent.version,
+          items: input.consent.items,
+          acknowledged_by: actorUserId || null,
+          user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null
+        })
+        if (consentInsert.error) {
+          throw new Error(`Supabase consent insert failed: ${consentInsert.error.message}`)
+        }
+      }
+
+      return created
     },
 
     updateDraft: (id: string, input: UpdateApplicationInput) => updateDraftInternal(id, input),

@@ -11,6 +11,7 @@ export const clientNavItems: NavItem[] = [
   { to: '/home', label: 'Home', roles: ['Client'], icon: 'fa-house' },
   { to: '/apply', label: 'Applications', roles: ['Client'], icon: 'fa-file-lines' },
   { to: '/documents', label: 'Documents', roles: ['Client'], icon: 'fa-folder-open' },
+  { to: '/loans', label: 'My Loans', roles: ['Client'], icon: 'fa-hand-holding-dollar' },
   { to: '/status', label: 'Status', roles: ['Client'], icon: 'fa-chart-line' }
 ]
 

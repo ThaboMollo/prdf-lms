@@ -1,4 +1,4 @@
-import type { LoanDetails, LoanRepaymentItem, LoanScheduleItem } from '../../../api'
+import type { LoanDetails, LoanRepaymentItem, LoanScheduleItem, LoanSummary } from '../../../api'
 import { createSupabaseDataClient } from '../../../supabase/client'
 import type { LoansRepository } from '../../repositories/loans.repo'
 
@@ -120,6 +120,36 @@ export function createSupabaseLoansAdapter(accessToken: string): LoansRepository
   }
 
   return {
+    async listMyLoans(): Promise<LoanSummary[]> {
+      // Scope strictly to the signed-in client's own applications, regardless
+      // of the loans-table RLS policy.
+      const apps = await client.from('loan_applications').select('id')
+      if (apps.error) {
+        throw new Error(`Supabase list applications failed: ${apps.error.message}`)
+      }
+      const appIds = (apps.data as { id: string }[]).map((a) => a.id)
+      if (appIds.length === 0) return []
+
+      const loans = await client
+        .from('loans')
+        .select('id, application_id, principal_amount, outstanding_principal, term_months, status, disbursed_at, created_at')
+        .in('application_id', appIds)
+        .order('created_at', { ascending: false })
+      if (loans.error) {
+        throw new Error(`Supabase list loans failed: ${loans.error.message}`)
+      }
+
+      return (loans.data as LoanRow[]).map((row) => ({
+        id: row.id,
+        applicationId: row.application_id,
+        principalAmount: row.principal_amount,
+        outstandingPrincipal: row.outstanding_principal,
+        termMonths: row.term_months,
+        status: row.status,
+        disbursedAt: row.disbursed_at,
+        createdAt: row.created_at
+      }))
+    },
     getLoan: (loanId: string) => getLoanInternal(loanId),
     async disburseLoan(loanId: string, amount: number, reference?: string): Promise<LoanDetails> {
       const nowIso = new Date().toISOString()

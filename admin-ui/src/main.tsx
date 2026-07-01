@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { App } from './App'
 import { ErrorBoundary } from './components/shared/ErrorBoundary'
 import { ToastProvider } from './components/shared/ToastProvider'
+import { GlobalLoader } from './components/shared/GlobalLoader'
 import './styles/global.css'
 
 document.documentElement.setAttribute('data-theme', 'light')
@@ -28,6 +29,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <ToastProvider>
           <BrowserRouter>
             <App />
+            <GlobalLoader />
           </BrowserRouter>
         </ToastProvider>
       </QueryClientProvider>

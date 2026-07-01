@@ -56,6 +56,21 @@ export function ReportsPage({ session }: ReportsPageProps) {
     queryFn: () => reportsUseCases.getAuditLog(startDate, endDate, 100)
   })
 
+  const demographicQuery = useQuery({
+    queryKey: ['reports-demographic', session.user.id],
+    queryFn: () => reportsUseCases.getDemographicBreakdown()
+  })
+
+  const debtorsAgeQuery = useQuery({
+    queryKey: ['reports-debtors-age', session.user.id],
+    queryFn: () => reportsUseCases.getDebtorsAgeAnalysis()
+  })
+
+  const provinceQuery = useQuery({
+    queryKey: ['reports-province', session.user.id],
+    queryFn: () => reportsUseCases.getProvinceBreakdown()
+  })
+
   const pipelineData = useMemo(
     () => (pipelineQuery.data ?? []).map((item) => ({ name: item.status, count: item.count, totalAmount: item.totalAmount })),
     [pipelineQuery.data]
@@ -71,11 +86,31 @@ export function ReportsPage({ session }: ReportsPageProps) {
     [conversionQuery.data]
   )
 
-  const handleExportCsv = (type: 'pipeline' | 'origination' | 'productivity' | 'audit') => {
+  const handleExportCsv = (type: 'pipeline' | 'origination' | 'productivity' | 'audit' | 'demographic' | 'debtors-age' | 'province') => {
     let csv = ''
     let filename = ''
 
-    if (type === 'pipeline' && pipelineQuery.data) {
+    if (type === 'province' && provinceQuery.data) {
+      csv = [
+        'Dimension,Label,Count',
+        ...provinceQuery.data.byProvince.map(i => `Province,"${i.label}",${i.count}`),
+        ...provinceQuery.data.bySpatialType.map(i => `Spatial,"${i.label}",${i.count}`)
+      ].join('\n')
+      filename = 'province_breakdown.csv'
+    } else if (type === 'demographic' && demographicQuery.data) {
+      const lines = [
+        `Total Clients,${demographicQuery.data.totalClients}`,
+        '',
+        'Category,Label,Count',
+        ...demographicQuery.data.byGender.map(i => `Gender,"${i.label}",${i.count}`),
+        ...demographicQuery.data.flags.map(i => `Designation,"${i.label}",${i.count}`)
+      ]
+      csv = lines.join('\n')
+      filename = 'demographic_breakdown.csv'
+    } else if (type === 'debtors-age' && debtorsAgeQuery.data) {
+      csv = 'AgeBucket,Installments,OutstandingAmount\n' + debtorsAgeQuery.data.map(i => `"${i.bucket}",${i.installments},${i.outstandingAmount.toFixed(2)}`).join('\n')
+      filename = 'debtors_age_analysis.csv'
+    } else if (type === 'pipeline' && pipelineQuery.data) {
       csv = 'Status,Count,TotalAmount\n' + pipelineQuery.data.map(i => `${i.status},${i.count},${i.totalAmount}`).join('\n')
       filename = 'pipeline_summary.csv'
     } else if (type === 'origination' && originationQuery.data) {
@@ -238,6 +273,147 @@ export function ReportsPage({ session }: ReportsPageProps) {
         )}
       </div>
 
+      {/* Regulatory / Compliance */}
+      <div className="grid-two">
+        <div className="card">
+          <h3 style={{ marginBottom: '1rem', fontWeight: 600 }}>Demographic Breakdown</h3>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: '0.85rem' }}>
+            Client composition for NCR / SEDFA compliance reporting.
+          </p>
+          {demographicQuery.isLoading ? <p>Loading...</p> : !demographicQuery.data?.totalClients ? (
+            <EmptyState title="No data" message="No client demographic data available." />
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Category</th><th>Count</th><th>Share</th></tr>
+                </thead>
+                <tbody>
+                  {demographicQuery.data.byGender.map((row) => (
+                    <tr key={`gender-${row.label}`}>
+                      <td>Gender · {row.label}</td>
+                      <td>{row.count}</td>
+                      <td>{((row.count / demographicQuery.data!.totalClients) * 100).toFixed(1)}%</td>
+                    </tr>
+                  ))}
+                  {demographicQuery.data.flags.map((row) => (
+                    <tr key={`flag-${row.label}`}>
+                      <td>{row.label}</td>
+                      <td>{row.count}</td>
+                      <td>{((row.count / demographicQuery.data!.totalClients) * 100).toFixed(1)}%</td>
+                    </tr>
+                  ))}
+                  <tr style={{ fontWeight: 600 }}>
+                    <td>Total Clients</td>
+                    <td>{demographicQuery.data.totalClients}</td>
+                    <td>100%</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div className="card">
+          <h3 style={{ marginBottom: '1rem', fontWeight: 600 }}>Debtors Book Age Analysis</h3>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: '0.85rem' }}>
+            Outstanding installments aged by days overdue.
+          </p>
+          {debtorsAgeQuery.isLoading ? <p>Loading...</p> : !debtorsAgeQuery.data?.length ? (
+            <EmptyState title="No data" message="No outstanding installments to age." />
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Age Bucket</th><th>Installments</th><th>Outstanding</th></tr>
+                </thead>
+                <tbody>
+                  {debtorsAgeQuery.data.map((row) => (
+                    <tr key={row.bucket}>
+                      <td>{row.bucket}</td>
+                      <td>{row.installments}</td>
+                      <td>{formatCurrency(row.outstandingAmount)}</td>
+                    </tr>
+                  ))}
+                  <tr style={{ fontWeight: 600 }}>
+                    <td>Total</td>
+                    <td>{debtorsAgeQuery.data.reduce((s, r) => s + r.installments, 0)}</td>
+                    <td>{formatCurrency(debtorsAgeQuery.data.reduce((s, r) => s + r.outstandingAmount, 0))}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Province & Spatial Breakdown */}
+      <div className="grid-two">
+        <div className="card">
+          <h3 style={{ marginBottom: '1rem', fontWeight: 600 }}>Province Breakdown</h3>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: '0.85rem' }}>
+            Client distribution across the nine provinces for NCR / SEDFA reporting.
+          </p>
+          {provinceQuery.isLoading ? <p>Loading...</p> : !provinceQuery.data?.totalClients ? (
+            <EmptyState title="No data" message="No client province data available." />
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Province</th><th>Count</th><th>Share</th></tr>
+                </thead>
+                <tbody>
+                  {provinceQuery.data.byProvince.map((row) => (
+                    <tr key={row.label}>
+                      <td>{row.label}</td>
+                      <td>{row.count}</td>
+                      <td>{((row.count / provinceQuery.data!.totalClients) * 100).toFixed(1)}%</td>
+                    </tr>
+                  ))}
+                  <tr style={{ fontWeight: 600 }}>
+                    <td>Total Clients</td>
+                    <td>{provinceQuery.data.totalClients}</td>
+                    <td>100%</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div className="card">
+          <h3 style={{ marginBottom: '1rem', fontWeight: 600 }}>Spatial Classification</h3>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: '0.85rem' }}>
+            Rural / Township / City split (RFQ spatial preference points).
+          </p>
+          {provinceQuery.isLoading ? <p>Loading...</p> : !provinceQuery.data?.totalClients ? (
+            <EmptyState title="No data" message="No client spatial data available." />
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Location Type</th><th>Count</th><th>Share</th></tr>
+                </thead>
+                <tbody>
+                  {provinceQuery.data.bySpatialType.map((row) => (
+                    <tr key={row.label}>
+                      <td>{row.label}</td>
+                      <td>{row.count}</td>
+                      <td>{((row.count / provinceQuery.data!.totalClients) * 100).toFixed(1)}%</td>
+                    </tr>
+                  ))}
+                  <tr style={{ fontWeight: 600 }}>
+                    <td>Total Clients</td>
+                    <td>{provinceQuery.data.totalClients}</td>
+                    <td>100%</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Export Center */}
       <div className="card">
         <h3 style={{ marginBottom: '1rem', fontWeight: 600 }}>Export Center</h3>
@@ -276,6 +452,24 @@ export function ReportsPage({ session }: ReportsPageProps) {
                 <td>System event log for the selected time range (up to 100 entries).</td>
                 <td><span className="status-badge status-neutral">CSV</span></td>
                 <td><button className="link-btn" onClick={() => handleExportCsv('audit')}>Download</button></td>
+              </tr>
+              <tr>
+                <td><strong>Demographic Breakdown</strong></td>
+                <td>Client composition by gender and designation (HDP, disability, rural, black women-owned).</td>
+                <td><span className="status-badge status-neutral">CSV</span></td>
+                <td><button className="link-btn" onClick={() => handleExportCsv('demographic')}>Download</button></td>
+              </tr>
+              <tr>
+                <td><strong>Debtors Book Age Analysis</strong></td>
+                <td>Outstanding installments aged by days overdue (30/60/90/120+).</td>
+                <td><span className="status-badge status-neutral">CSV</span></td>
+                <td><button className="link-btn" onClick={() => handleExportCsv('debtors-age')}>Download</button></td>
+              </tr>
+              <tr>
+                <td><strong>Province Breakdown</strong></td>
+                <td>Client distribution by province and spatial classification (Rural/Township/City).</td>
+                <td><span className="status-badge status-neutral">CSV</span></td>
+                <td><button className="link-btn" onClick={() => handleExportCsv('province')}>Download</button></td>
               </tr>
             </tbody>
           </table>

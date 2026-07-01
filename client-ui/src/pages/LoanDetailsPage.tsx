@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Link, useParams } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
 import { createLoansUseCases } from '../logic/usecases/loans'
 import { EmptyState } from '../components/shared/EmptyState'
@@ -14,13 +15,12 @@ type LoanDetailsPageProps = {
 export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
   const accessToken = session.access_token
   const loansUseCases = useMemo(() => createLoansUseCases(accessToken), [accessToken])
-  const [loanId, setLoanId] = useState('')
-  const [submittedLoanId, setSubmittedLoanId] = useState('')
+  const { id: loanId = '' } = useParams<{ id: string }>()
 
   const loanQuery = useQuery({
-    queryKey: ['loan-details', submittedLoanId],
-    queryFn: () => loansUseCases.getLoan(submittedLoanId),
-    enabled: Boolean(submittedLoanId)
+    queryKey: ['loan-details', loanId],
+    queryFn: () => loansUseCases.getLoan(loanId),
+    enabled: Boolean(loanId)
   })
 
   const totalDue = useMemo(() => loanQuery.data?.schedule.reduce((sum, item) => sum + item.dueTotal, 0) ?? 0, [loanQuery.data])
@@ -28,22 +28,11 @@ export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
 
   return (
     <section className="stack">
-      <PageHeader title="Loan Account" subtitle="View loan status, repayment schedule, and repayment history." />
-
-      <div className="card form-grid">
-        <label>
-          Loan ID
-          <input placeholder="Loan ID" value={loanId} onChange={(e) => setLoanId(e.target.value)} />
-        </label>
-        <button
-          type="button"
-          className="btn"
-          onClick={() => setSubmittedLoanId(loanId.trim())}
-          disabled={!loanId.trim()}
-        >
-          Load Loan
-        </button>
-      </div>
+      <PageHeader
+        title="Loan Account"
+        subtitle="View loan status, repayment schedule, and repayment history."
+        actions={<Link to="/loans" className="btn btn-secondary">Back to My Loans</Link>}
+      />
 
       {loanQuery.isError ? (
         <EmptyState

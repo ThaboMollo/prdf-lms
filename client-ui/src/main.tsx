@@ -6,6 +6,7 @@ import { Analytics } from '@vercel/analytics/react'
 import { App } from './App'
 import { ErrorBoundary } from './components/shared/ErrorBoundary'
 import { ToastProvider } from './components/shared/ToastProvider'
+import { GlobalLoader } from './components/shared/GlobalLoader'
 import './styles/global.css'
 
 const queryClient = new QueryClient({
@@ -26,6 +27,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <ToastProvider>
           <BrowserRouter>
             <App />
+            <GlobalLoader />
             <Analytics />
           </BrowserRouter>
         </ToastProvider>

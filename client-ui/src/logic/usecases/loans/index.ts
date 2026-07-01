@@ -4,6 +4,7 @@ export function createLoansUseCases(accessToken: string) {
   const repository = createLoansRepository(accessToken)
 
   return {
+    listMyLoans: () => repository.listMyLoans(),
     getLoan: (loanId: string) => repository.getLoan(loanId),
     disburseLoan: (loanId: string, amount: number, reference?: string) => repository.disburseLoan(loanId, amount, reference),
     recordRepayment: (loanId: string, amount: number, paymentReference?: string, paidAt?: string) =>

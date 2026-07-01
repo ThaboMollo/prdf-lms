@@ -1,5 +1,5 @@
 import type { CreateApplicationFormData } from '../../../features/applications/validation'
-import type { LoanApplicationStatus, UpdateApplicationInput } from '../../../lib/api'
+import type { ApplicationConsentInput, LoanApplicationStatus, UpdateApplicationInput } from '../../../lib/api'
 import { createApplicationsRepository } from '../../../lib/data/repositories/applications.repo'
 
 export function createApplicationsUseCases(accessToken: string) {
@@ -9,14 +9,15 @@ export function createApplicationsUseCases(accessToken: string) {
     listApplications: () => repository.listApplications(),
     getApplication: (id: string) => repository.getApplication(id),
     getHistory: (applicationId: string) => repository.getHistory(applicationId),
-    createDraft: (payload: CreateApplicationFormData) =>
+    createDraft: (payload: CreateApplicationFormData, consent?: ApplicationConsentInput) =>
       repository.createDraft({
         requestedAmount: payload.requestedAmount,
         termMonths: payload.termMonths,
         purpose: payload.purpose,
         businessName: payload.businessName,
         registrationNo: payload.registrationNo,
-        address: payload.address
+        address: payload.address,
+        consent
       }),
     updateDraft: (id: string, input: UpdateApplicationInput) => repository.updateDraft(id, input),
     assignApplication: (id: string, input: UpdateApplicationInput) => repository.assignApplication(id, input),

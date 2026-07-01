@@ -23,6 +23,7 @@ alter table public.user_roles enable row level security;
 alter table public.clients enable row level security;
 alter table public.loan_products enable row level security;
 alter table public.loan_applications enable row level security;
+alter table public.application_consents enable row level security;
 alter table public.loan_documents enable row level security;
 alter table public.application_status_history enable row level security;
 alter table public.tasks enable row level security;
@@ -150,6 +151,49 @@ with check (
     from public.clients c
     where c.id = loan_applications.client_id
       and c.user_id = auth.uid()
+  )
+);
+
+-- Consent records follow the parent application; immutable (no update/delete).
+create policy "consents select"
+on public.application_consents
+for select
+to authenticated
+using (
+  exists (
+    select 1 from public.loan_applications la
+    join public.clients c on c.id = la.client_id
+    where la.id = application_consents.application_id
+      and c.user_id = auth.uid()
+  )
+  or public.is_in_role(auth.uid(), 'Admin')
+  or public.is_in_role(auth.uid(), 'LoanOfficer')
+  or exists (
+    select 1 from public.loan_applications la
+    where la.id = application_consents.application_id
+      and la.assigned_to_user_id = auth.uid()
+      and (public.is_in_role(auth.uid(), 'Intern') or public.is_in_role(auth.uid(), 'Originator'))
+  )
+);
+
+create policy "consents insert"
+on public.application_consents
+for insert
+to authenticated
+with check (
+  exists (
+    select 1 from public.loan_applications la
+    join public.clients c on c.id = la.client_id
+    where la.id = application_consents.application_id
+      and c.user_id = auth.uid()
+  )
+  or public.is_in_role(auth.uid(), 'Admin')
+  or public.is_in_role(auth.uid(), 'LoanOfficer')
+  or exists (
+    select 1 from public.loan_applications la
+    where la.id = application_consents.application_id
+      and la.assigned_to_user_id = auth.uid()
+      and (public.is_in_role(auth.uid(), 'Intern') or public.is_in_role(auth.uid(), 'Originator'))
   )
 );
 

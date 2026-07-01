@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCalculator } from '../../contexts/CalculatorContext'
 import {
@@ -28,6 +29,11 @@ function pct(value: number, min: number, max: number): string {
   return `${((value - min) / (max - min)) * 100}%`
 }
 
+function clamp(value: number, min: number, max: number): number {
+  if (Number.isNaN(value)) return min
+  return Math.min(Math.max(value, min), max)
+}
+
 export function LoanCalculator({
   compact = false,
   showApplyButton = true,
@@ -38,20 +44,32 @@ export function LoanCalculator({
   const navigate = useNavigate()
   const { amount, term, setCalculator } = useCalculator()
 
+  // Drafts let the typed value be edited freely; committed on blur/Enter.
+  const [amountDraft, setAmountDraft] = useState<string | null>(null)
+  const [termDraft, setTermDraft] = useState<string | null>(null)
+
   const monthly = calculateMonthlyInstalment(amount, term)
   const total = calculateTotalRepayment(amount, term)
   const fees = calculateTotalFees(amount, term)
 
+  function commitAmount(v: number) {
+    const clamped = clamp(Math.round(v), LOAN_AMOUNT_MIN, LOAN_AMOUNT_MAX)
+    setCalculator(clamped, term)
+    onAmountChange?.(clamped)
+  }
+
+  function commitTerm(v: number) {
+    const clamped = clamp(Math.round(v), LOAN_TERM_MIN, LOAN_TERM_MAX)
+    setCalculator(amount, clamped)
+    onTermChange?.(clamped)
+  }
+
   function handleAmount(e: React.ChangeEvent<HTMLInputElement>) {
-    const v = Number(e.target.value)
-    setCalculator(v, term)
-    onAmountChange?.(v)
+    commitAmount(Number(e.target.value))
   }
 
   function handleTerm(e: React.ChangeEvent<HTMLInputElement>) {
-    const v = Number(e.target.value)
-    setCalculator(amount, v)
-    onTermChange?.(v)
+    commitTerm(Number(e.target.value))
   }
 
   return (
@@ -61,7 +79,26 @@ export function LoanCalculator({
       <div className="calc-field">
         <label>
           How much do you need?
-          <span>{formatRand(amount)}</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            className="calc-value-input"
+            value={amountDraft ?? formatRand(amount)}
+            onFocus={() => setAmountDraft(String(amount))}
+            onChange={(e) => {
+              const digits = e.target.value.replace(/[^\d]/g, '')
+              setAmountDraft(digits)
+              if (digits) commitAmount(Number(digits))
+            }}
+            onBlur={() => {
+              if (amountDraft !== null) commitAmount(Number(amountDraft))
+              setAmountDraft(null)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+            }}
+            aria-label="Loan amount in rand"
+          />
         </label>
         <input
           type="range"
@@ -82,7 +119,26 @@ export function LoanCalculator({
       <div className="calc-field">
         <label>
           Over how many months?
-          <span>{term} month{term !== 1 ? 's' : ''}</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            className="calc-value-input"
+            value={termDraft ?? `${term} month${term !== 1 ? 's' : ''}`}
+            onFocus={() => setTermDraft(String(term))}
+            onChange={(e) => {
+              const digits = e.target.value.replace(/[^\d]/g, '')
+              setTermDraft(digits)
+              if (digits) commitTerm(Number(digits))
+            }}
+            onBlur={() => {
+              if (termDraft !== null) commitTerm(Number(termDraft))
+              setTermDraft(null)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+            }}
+            aria-label="Loan term in months"
+          />
         </label>
         <input
           type="range"

@@ -1,6 +1,9 @@
 import type {
   ArrearsItem,
   AuditLogItem,
+  DebtorsAgeBucket,
+  DemographicBreakdown,
+  ProvinceBreakdown,
   OriginationTrendItem,
   PipelineConversionItem,
   PipelineSummaryItem,
@@ -23,6 +26,15 @@ export function createApiReportsAdapter(accessToken: string): ReportsRepository 
     getPipelineConversion: (): Promise<PipelineConversionItem[]> => api.getPipelineConversion(accessToken),
     getProductivity: (): Promise<ProductivityItem[]> => api.getProductivity(accessToken),
     getAuditLog: (from?: string, to?: string, limit?: number): Promise<AuditLogItem[]> =>
-      api.getAuditLog(accessToken, from, to, limit)
+      api.getAuditLog(accessToken, from, to, limit),
+    getDemographicBreakdown: (): Promise<DemographicBreakdown> => {
+      throw new Error('getDemographicBreakdown is only available on the Supabase provider.')
+    },
+    getDebtorsAgeAnalysis: (): Promise<DebtorsAgeBucket[]> => {
+      throw new Error('getDebtorsAgeAnalysis is only available on the Supabase provider.')
+    },
+    getProvinceBreakdown: (): Promise<ProvinceBreakdown> => {
+      throw new Error('getProvinceBreakdown is only available on the Supabase provider.')
+    }
   }
 }

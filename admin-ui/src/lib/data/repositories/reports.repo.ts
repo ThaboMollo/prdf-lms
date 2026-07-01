@@ -1,6 +1,9 @@
 import type {
   ArrearsItem,
   AuditLogItem,
+  DebtorsAgeBucket,
+  DemographicBreakdown,
+  ProvinceBreakdown,
   OriginationTrendItem,
   PipelineConversionItem,
   PipelineSummaryItem,
@@ -21,6 +24,9 @@ export type ReportsRepository = {
   getPipelineConversion: () => Promise<PipelineConversionItem[]>
   getProductivity: () => Promise<ProductivityItem[]>
   getAuditLog: (from?: string, to?: string, limit?: number) => Promise<AuditLogItem[]>
+  getDemographicBreakdown: () => Promise<DemographicBreakdown>
+  getDebtorsAgeAnalysis: () => Promise<DebtorsAgeBucket[]>
+  getProvinceBreakdown: () => Promise<ProvinceBreakdown>
 }
 
 export function createReportsRepository(accessToken: string): ReportsRepository {

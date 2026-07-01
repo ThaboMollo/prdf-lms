@@ -15,6 +15,9 @@ export const step1Schema = z.object({
   province: z.string().min(1, 'Please select a province'),
   country: z.string().trim().min(1, 'Country is required').default('South Africa'),
   gender: z.enum(['Male', 'Female', 'Prefer not to say']),
+  spatialType: z.enum(['Rural', 'Township', 'City'], {
+    message: 'Please select where the business operates',
+  }),
   isDisabled: z.boolean(),
   isHdp: z.boolean(),
   isRural: z.boolean(),

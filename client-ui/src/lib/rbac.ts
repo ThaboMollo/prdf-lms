@@ -1,11 +1,12 @@
-﻿export const APP_ROLES = ['Client', 'Intern', 'Originator', 'LoanOfficer', 'Admin'] as const
+﻿export const APP_ROLES = ['Client', 'Intern', 'Originator', 'LoanOfficer', 'Admin', 'SuperAdmin'] as const
 
 export type AppRole = (typeof APP_ROLES)[number]
 
-const rolePriority: AppRole[] = ['Admin', 'LoanOfficer', 'Originator', 'Intern', 'Client']
+const rolePriority: AppRole[] = ['SuperAdmin', 'Admin', 'LoanOfficer', 'Originator', 'Intern', 'Client']
 
 export function normalizeRole(value: string): AppRole | null {
   const clean = value.trim().toLowerCase()
+  if (clean === 'superadmin' || clean === 'super_admin' || clean === 'super admin') return 'SuperAdmin'
   if (clean === 'admin') return 'Admin'
   if (clean === 'loanofficer' || clean === 'loan_officer' || clean === 'loan officer') return 'LoanOfficer'
   if (clean === 'originator') return 'Originator'
@@ -19,6 +20,11 @@ export function toAppRoles(values: string[] | undefined | null): AppRole[] {
   const normalized = values
     .map(normalizeRole)
     .filter((item): item is AppRole => Boolean(item))
+
+  // SuperAdmin implies Admin so every Admin-gated guard also passes for them.
+  if (normalized.includes('SuperAdmin') && !normalized.includes('Admin')) {
+    normalized.push('Admin')
+  }
 
   return normalized.length ? Array.from(new Set(normalized)) : ['Client']
 }

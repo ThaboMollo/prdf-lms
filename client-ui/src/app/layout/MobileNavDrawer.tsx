@@ -13,7 +13,9 @@ export function MobileNavDrawer({ open, onClose, items, title }: MobileNavDrawer
     <div className={open ? 'drawer drawer-open' : 'drawer'} aria-hidden={!open}>
       <button type="button" className="drawer-backdrop" onClick={onClose} aria-label="Close menu" />
       <aside className="drawer-panel" aria-label="Mobile navigation">
-        <div className="sidebar-brand"><span>{title}</span></div>
+        <NavLink to="/home" className="sidebar-brand" onClick={onClose} aria-label={`${title} home`}>
+          <span>{title}</span>
+        </NavLink>
         <nav>
           {items.map((item) => (
             <NavLink

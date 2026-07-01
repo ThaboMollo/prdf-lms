@@ -9,9 +9,9 @@ type SidebarProps = {
 export function Sidebar({ items, title }: SidebarProps) {
   return (
     <aside className="sidebar" aria-label="Primary">
-      <div className="sidebar-brand">
+      <NavLink to="/home" className="sidebar-brand" aria-label={`${title} home`}>
         <span>{title}</span>
-      </div>
+      </NavLink>
       <nav>
         {items.map((item) => (
           <NavLink

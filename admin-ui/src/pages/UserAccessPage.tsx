@@ -8,29 +8,31 @@ import { PageHeader } from '../components/shared/PageHeader'
 import { useToast } from '../components/shared/ToastProvider'
 import {
   assignUserRole,
-  grantAdminAccess,
+  removeUserRole,
   listAdminUserAccess,
-  revokeAdminAccess,
   type AssignableRole,
   type AdminAccessFilter,
-  type AdminAccessListItem
+  type AdminAccessListItem,
+  type MeResponse
 } from '../lib/api'
+import { toAppRoles } from '../lib/rbac'
 import { paginateItems, parsePageParam } from '../lib/pagination'
 
 type UserAccessPageProps = {
   session: Session
+  me: MeResponse
 }
 
 type PendingAction =
-  | { type: 'grant'; user: AdminAccessListItem }
-  | { type: 'revoke'; user: AdminAccessListItem }
-  | { type: 'assign-role'; user: AdminAccessListItem; role: AssignableRole }
+  | { type: 'assign'; user: AdminAccessListItem; role: AssignableRole }
+  | { type: 'remove'; user: AdminAccessListItem; role: AssignableRole }
 
-const ROLE_OPTIONS = ['Admin', 'LoanOfficer', 'Originator', 'Intern', 'Client'] as const
-const ASSIGNABLE_ROLE_OPTIONS: AssignableRole[] = ['Client', 'Intern', 'Originator', 'LoanOfficer']
+const ALL_ROLES: AssignableRole[] = ['Client', 'Intern', 'Originator', 'LoanOfficer', 'Admin', 'SuperAdmin']
+const ELEVATED_ROLES: AssignableRole[] = ['Admin', 'SuperAdmin']
+const ROLE_OPTIONS = ['SuperAdmin', 'Admin', 'LoanOfficer', 'Originator', 'Intern', 'Client'] as const
 const PAGE_SIZE = 10
 
-export function UserAccessPage({ session }: UserAccessPageProps) {
+export function UserAccessPage({ session, me }: UserAccessPageProps) {
   const accessToken = session.access_token
   const queryClient = useQueryClient()
   const toast = useToast()
@@ -44,6 +46,14 @@ export function UserAccessPage({ session }: UserAccessPageProps) {
   const modalRef = useRef<HTMLElement | null>(null)
   const usersPage = parsePageParam(params.get('usersPage'))
 
+  // The actor's own powers decide which roles they may grant/revoke.
+  const actorRoles = useMemo(() => toAppRoles(me.roles), [me.roles])
+  const isSuperAdmin = actorRoles.includes('SuperAdmin')
+  const isAdmin = actorRoles.includes('Admin')
+  const canManageRole = (target: AssignableRole) =>
+    ELEVATED_ROLES.includes(target) ? isSuperAdmin : isAdmin || isSuperAdmin
+  const assignableRoles = useMemo(() => ALL_ROLES.filter((r) => canManageRole(r)), [isSuperAdmin, isAdmin])
+
   const accessQuery = useQuery({
     queryKey: ['admin-user-access', session.user.id, deferredSearch, filter, role],
     queryFn: () =>
@@ -56,19 +66,16 @@ export function UserAccessPage({ session }: UserAccessPageProps) {
 
   const mutation = useMutation({
     mutationFn: async (action: PendingAction) =>
-      action.type === 'grant'
-        ? grantAdminAccess(accessToken, action.user.userId)
-        : action.type === 'revoke'
-          ? revokeAdminAccess(accessToken, action.user.userId)
-          : assignUserRole(accessToken, action.user.userId, action.role),
+      action.type === 'assign'
+        ? assignUserRole(accessToken, action.user.userId, action.role)
+        : removeUserRole(accessToken, action.user.userId, action.role),
     onSuccess: (_result, action) => {
       queryClient.invalidateQueries({ queryKey: ['admin-user-access'] })
+      queryClient.invalidateQueries({ queryKey: ['me'] })
       toast.push(
-        action.type === 'grant'
-          ? `${displayName(action.user)} now has Admin access.`
-          : action.type === 'revoke'
-            ? `${displayName(action.user)} no longer has Admin access.`
-            : `${displayName(action.user)} now has the ${action.role} role.`,
+        action.type === 'assign'
+          ? `${displayName(action.user)} now has the ${action.role} role.`
+          : `Removed the ${action.role} role from ${displayName(action.user)}.`,
         'success'
       )
       setPendingAction(null)
@@ -83,7 +90,7 @@ export function UserAccessPage({ session }: UserAccessPageProps) {
     return {
       visibleUsers: items.length,
       admins: items.filter((item) => item.isAdmin).length,
-      eligible: items.filter((item) => item.canGrantAdmin).length
+      superAdmins: items.filter((item) => item.isSuperAdmin).length
     }
   }, [accessQuery.data])
 
@@ -113,7 +120,11 @@ export function UserAccessPage({ session }: UserAccessPageProps) {
     <section className="stack">
       <PageHeader
         title="User Access"
-        subtitle="Review all users and grant or revoke Admin access for eligible internal users."
+        subtitle={
+          isSuperAdmin
+            ? 'Assign or remove any role, including Admin and SuperAdmin, for any registered user.'
+            : 'Assign or remove standard internal roles. Only a SuperAdmin can manage Admin access.'
+        }
       />
 
       <div className="grid-three">
@@ -122,12 +133,12 @@ export function UserAccessPage({ session }: UserAccessPageProps) {
           <p className="kpi-value">{summary.visibleUsers}</p>
         </article>
         <article className="kpi-card">
-          <p className="kpi-label">Current Admins</p>
+          <p className="kpi-label">Admins</p>
           <p className="kpi-value">{summary.admins}</p>
         </article>
         <article className="kpi-card">
-          <p className="kpi-label">Eligible For Admin</p>
-          <p className="kpi-value">{summary.eligible}</p>
+          <p className="kpi-label">Super Admins</p>
+          <p className="kpi-value">{summary.superAdmins}</p>
         </article>
       </div>
 
@@ -202,12 +213,16 @@ export function UserAccessPage({ session }: UserAccessPageProps) {
                 <th>Name</th>
                 <th>Email</th>
                 <th>Roles</th>
-                <th>Admin Access</th>
-                <th>Actions</th>
+                <th>Assign Role</th>
               </tr>
             </thead>
             <tbody>
-              {pagedUsers.items.map((user) => (
+              {pagedUsers.items.map((user) => {
+                const selected = selectedRoleByUser[user.userId]
+                  ?? assignableRoles.find((r) => !user.roles.includes(r))
+                  ?? assignableRoles[0]
+                const alreadyHas = selected ? user.roles.includes(selected) : true
+                return (
                 <tr key={user.userId}>
                   <td>
                     <div className="stack-sm">
@@ -219,87 +234,69 @@ export function UserAccessPage({ session }: UserAccessPageProps) {
                   <td>
                     <div className="role-chip-row">
                       {user.roles.length === 0 ? <span className="table-meta">No roles</span> : null}
-                      {user.roles.map((roleName) => (
-                        <span key={`${user.userId}-${roleName}`} className="role-chip">
-                          {roleName}
-                        </span>
-                      ))}
+                      {user.roles.map((roleName) => {
+                        const managed = canManageRole(roleName as AssignableRole)
+                        return (
+                          <span key={`${user.userId}-${roleName}`} className="role-chip">
+                            {roleName}
+                            {managed ? (
+                              <button
+                                type="button"
+                                className="role-chip-remove"
+                                aria-label={`Remove ${roleName} role from ${displayName(user)}`}
+                                title={`Remove ${roleName} role`}
+                                disabled={mutation.isPending}
+                                onClick={() =>
+                                  setPendingAction({ type: 'remove', user, role: roleName as AssignableRole })
+                                }
+                              >
+                                ×
+                              </button>
+                            ) : null}
+                          </span>
+                        )
+                      })}
                     </div>
                   </td>
                   <td>
-                    <span className={`status-badge ${user.isAdmin ? 'status-ok' : 'status-alert'}`}>
-                      {user.isAdmin ? 'Admin' : user.isInternal ? 'Standard internal' : 'Client/External'}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="inline-actions">
-                      <button
-                        type="button"
-                        className="btn"
-                        disabled={!user.canGrantAdmin || mutation.isPending}
-                        title={user.grantDisabledReason ?? 'Grant Admin access'}
-                        onClick={() => setPendingAction({ type: 'grant', user })}
-                      >
-                        Grant Admin
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        disabled={!user.canRevokeAdmin || mutation.isPending}
-                        title={user.revokeDisabledReason ?? 'Revoke Admin access'}
-                        onClick={() => setPendingAction({ type: 'revoke', user })}
-                      >
-                        Revoke Admin
-                      </button>
-                      <select
-                        value={selectedRoleByUser[user.userId] ?? 'Client'}
-                        onChange={(event) =>
-                          setSelectedRoleByUser((prev) => ({
-                            ...prev,
-                            [user.userId]: event.target.value as AssignableRole
-                          }))
-                        }
-                        aria-label={`Assign role for ${displayName(user)}`}
-                        disabled={mutation.isPending}
-                      >
-                        {ASSIGNABLE_ROLE_OPTIONS.map((roleOption) => (
-                          <option key={`${user.userId}-assign-${roleOption}`} value={roleOption}>
-                            {roleOption}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        disabled={
-                          mutation.isPending ||
-                          user.roles.includes(selectedRoleByUser[user.userId] ?? 'Client')
-                        }
-                        title={
-                          user.roles.includes(selectedRoleByUser[user.userId] ?? 'Client')
-                            ? 'User already has this role.'
-                            : 'Assign selected role'
-                        }
-                        onClick={() =>
-                          setPendingAction({
-                            type: 'assign-role',
-                            user,
-                            role: selectedRoleByUser[user.userId] ?? 'Client'
-                          })
-                        }
-                      >
-                        Assign Role
-                      </button>
-                    </div>
-                    {!user.canGrantAdmin && user.grantDisabledReason ? (
-                      <p className="helper-text">{user.grantDisabledReason}</p>
-                    ) : null}
-                    {!user.canRevokeAdmin && user.revokeDisabledReason ? (
-                      <p className="helper-text">{user.revokeDisabledReason}</p>
-                    ) : null}
+                    {assignableRoles.length === 0 ? (
+                      <span className="table-meta">No assignable roles</span>
+                    ) : (
+                      <div className="inline-actions">
+                        <select
+                          value={selected}
+                          onChange={(event) =>
+                            setSelectedRoleByUser((prev) => ({
+                              ...prev,
+                              [user.userId]: event.target.value as AssignableRole
+                            }))
+                          }
+                          aria-label={`Assign role for ${displayName(user)}`}
+                          disabled={mutation.isPending}
+                        >
+                          {assignableRoles.map((roleOption) => (
+                            <option key={`${user.userId}-assign-${roleOption}`} value={roleOption}>
+                              {roleOption}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          className="btn"
+                          disabled={mutation.isPending || alreadyHas || !selected}
+                          title={alreadyHas ? 'User already has this role.' : 'Assign selected role'}
+                          onClick={() =>
+                            selected && setPendingAction({ type: 'assign', user, role: selected })
+                          }
+                        >
+                          Assign
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
           <PaginationControls
@@ -321,18 +318,14 @@ export function UserAccessPage({ session }: UserAccessPageProps) {
             <header className="modal-header">
               <div className="stack-sm">
                 <h2 id="user-access-dialog-title">
-                  {pendingAction.type === 'grant'
-                    ? 'Grant Admin access'
-                    : pendingAction.type === 'revoke'
-                      ? 'Revoke Admin access'
-                      : `Assign ${pendingAction.role} role`}
+                  {pendingAction.type === 'assign'
+                    ? `Assign ${pendingAction.role} role`
+                    : `Remove ${pendingAction.role} role`}
                 </h2>
                 <p>
-                  {pendingAction.type === 'grant'
-                    ? "This will add the Admin role while preserving the user's existing internal roles."
-                    : pendingAction.type === 'revoke'
-                      ? "This will remove only the Admin role and leave the user's other roles unchanged."
-                      : `This will add the ${pendingAction.role} role while preserving all existing roles.`}
+                  {pendingAction.type === 'assign'
+                    ? `This will add the ${pendingAction.role} role while preserving all existing roles.`
+                    : `This will remove only the ${pendingAction.role} role and leave the user's other roles unchanged.`}
                 </p>
               </div>
             </header>

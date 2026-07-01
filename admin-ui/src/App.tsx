@@ -14,7 +14,7 @@ import { PortfolioPage } from './pages/PortfolioPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { UserAccessPage } from './pages/UserAccessPage'
-import { fetchMe, type MeResponse } from './lib/api'
+import { fetchMe, getMyRoles, type MeResponse } from './lib/api'
 import { getDataProvider } from './lib/config/dataProvider'
 import { supabase } from './lib/supabase'
 
@@ -53,7 +53,15 @@ export function App() {
 
       const provider = getDataProvider()
       if (provider === 'supabase') {
-        return resolveMeFromSession(session)
+        // Roles are read from the DB (user_roles) — the same source RLS uses —
+        // so role changes take effect on refetch without a token refresh. If the
+        // RPC isn't deployed yet, fall back to JWT metadata.
+        try {
+          const dbRoles = await getMyRoles(session.access_token)
+          return resolveMeFromSession(session, dbRoles)
+        } catch {
+          return resolveMeFromSession(session)
+        }
       }
 
       return fetchMe(session.access_token)
@@ -91,7 +99,7 @@ export function App() {
                 <Route path="/reports" element={<ReportsPage session={session as Session} />} />
               </Route>
               <Route element={<RequireRole me={meQuery.data!} allowed={['Admin']} />}>
-                <Route path="/user-access" element={<UserAccessPage session={session as Session} />} />
+                <Route path="/user-access" element={<UserAccessPage session={session as Session} me={meQuery.data!} />} />
               </Route>
             </Route>
           </Route>
@@ -113,13 +121,14 @@ export function App() {
   )
 }
 
-function resolveMeFromSession(session: Session): MeResponse {
+function resolveMeFromSession(session: Session, dbRoles?: string[]): MeResponse {
   const appMetadata = session.user.app_metadata as Record<string, unknown> | undefined
   const userMetadata = session.user.user_metadata as Record<string, unknown> | undefined
 
   const appRoles = Array.isArray(appMetadata?.roles) ? appMetadata.roles.filter((x): x is string => typeof x === 'string') : []
   const userRoles = Array.isArray(userMetadata?.roles) ? userMetadata.roles.filter((x): x is string => typeof x === 'string') : []
-  const mergedRoles = [...new Set([...appRoles, ...userRoles])]
+  // DB roles are authoritative; metadata is only a fallback when none are present.
+  const mergedRoles = dbRoles && dbRoles.length ? [...new Set(dbRoles)] : [...new Set([...appRoles, ...userRoles])]
   const firstName = typeof userMetadata?.first_name === 'string' ? userMetadata.first_name.trim() : ''
   const lastName = typeof userMetadata?.last_name === 'string' ? userMetadata.last_name.trim() : ''
   const fallbackName = `${firstName} ${lastName}`.trim()

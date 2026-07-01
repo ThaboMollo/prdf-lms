@@ -20,6 +20,8 @@ import { createNfsUseCases } from '../logic/usecases/nfs'
 import { createTasksUseCases } from '../logic/usecases/tasks'
 import { createSupabaseDataClient } from '../lib/supabase/client'
 import { createApplicationSchema, statusChangeSchema, uploadSchema, type CreateApplicationFormData } from '../features/applications/validation'
+import { ConsentModal } from '../components/shared/ConsentModal'
+import type { ConsentPayload } from '../features/consent/consentItems'
 import { EmptyState } from '../components/shared/EmptyState'
 import { PaginationControls } from '../components/shared/PaginationControls'
 import { PageHeader } from '../components/shared/PageHeader'
@@ -91,6 +93,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
   const [nfsDate, setNfsDate] = useState('')
   const [nfsNotes, setNfsNotes] = useState('')
   const [wizardStep, setWizardStep] = useState(1)
+  const [consentOpen, setConsentOpen] = useState(false)
   const detailRef = useRef<HTMLDivElement | null>(null)
   const [wizardValues, setWizardValues] = useState<CreateApplicationFormData>({
     businessName: '',
@@ -320,8 +323,10 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
   }, [assignableUsersQuery.data, profileNamesQuery.data])
 
   const createDraftMutation = useMutation({
-    mutationFn: (payload: CreateApplicationFormData) => applicationsUseCases.createDraft(payload),
+    mutationFn: (vars: { values: CreateApplicationFormData; consent: ConsentPayload }) =>
+      applicationsUseCases.createDraft(vars.values, vars.consent),
     onSuccess: async (created) => {
+      setConsentOpen(false)
       toast.push('Draft application created.', 'success')
       await queryClient.invalidateQueries({ queryKey: ['applications'] })
       const next = new URLSearchParams(params)
@@ -330,6 +335,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
       setWizardStep(3)
     },
     onError: (error) => {
+      setConsentOpen(false)
       toast.push(error instanceof Error ? error.message : 'Could not create draft.', 'error')
     }
   })
@@ -631,7 +637,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
             }
 
             setWizardValues(parsed.data)
-            createDraftMutation.mutate(parsed.data)
+            setConsentOpen(true)
           }}
           onSubmit={() => selectedApplicationId ? submitMutation.mutate(selectedApplicationId) : null}
           creating={createDraftMutation.isPending}
@@ -639,6 +645,23 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
           selectedApplicationId={selectedApplicationId}
         />
       ) : null}
+
+      <ConsentModal
+        open={consentOpen}
+        submitting={createDraftMutation.isPending}
+        onClose={() => {
+          if (!createDraftMutation.isPending) setConsentOpen(false)
+        }}
+        onProceed={(consent) => {
+          const parsed = createApplicationSchema.safeParse(wizardValues)
+          if (!parsed.success) {
+            toast.push(parsed.error.issues[0].message, 'error')
+            setConsentOpen(false)
+            return
+          }
+          createDraftMutation.mutate({ values: parsed.data, consent })
+        }}
+      />
 
       <div ref={detailRef} />
       {detailsQuery.isLoading ? <DetailSkeleton /> : null}

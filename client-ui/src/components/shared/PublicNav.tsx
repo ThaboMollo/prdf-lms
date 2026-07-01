@@ -11,8 +11,9 @@ export function PublicNav({ session }: PublicNavProps) {
   return (
     <nav className="public-nav" aria-label="Main navigation">
       <div className="public-nav-inner">
-        <Link to="/" className="public-nav-brand">
-          PRDF
+        <Link to="/" className="public-nav-brand" aria-label="PRDF home">
+          <img src="/prdf-logo.png" alt="" className="public-nav-brand__mark" />
+          <span>PRDF</span>
         </Link>
         <div className="public-nav-actions">
           {session ? (

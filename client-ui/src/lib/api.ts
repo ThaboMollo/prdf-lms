@@ -1,4 +1,5 @@
 import { env } from './config/env'
+import { createSupabaseDataClient } from './supabase/client'
 
 export type MeResponse = {
   userId: string
@@ -82,6 +83,8 @@ export type CreateApplicationInput = {
   businessName?: string
   registrationNo?: string
   address?: string
+  province?: string
+  spatialType?: string
   industry?: string
   gender?: string
   isDisabled?: boolean
@@ -94,6 +97,19 @@ export type CreateApplicationInput = {
   sarsTaxPin?: string
   insolventOrDebtReview?: boolean
   assignedToUserId?: string
+  consent?: ApplicationConsentInput
+}
+
+export type ApplicationConsentItem = {
+  key: string
+  section: string
+  prompt: string
+  answer: boolean
+}
+
+export type ApplicationConsentInput = {
+  version: string
+  items: ApplicationConsentItem[]
 }
 
 export type UpdateApplicationInput = {
@@ -145,6 +161,17 @@ export type LoanDetails = {
   createdAt: string
   schedule: LoanScheduleItem[]
   repayments: LoanRepaymentItem[]
+}
+
+export type LoanSummary = {
+  id: string
+  applicationId: string
+  principalAmount: number
+  outstandingPrincipal: number
+  termMonths: number
+  status: LoanStatus
+  disbursedAt: string | null
+  createdAt: string
 }
 
 export type PortfolioSummary = {
@@ -218,6 +245,16 @@ export async function fetchMe(accessToken: string): Promise<MeResponse> {
     headers: authHeaders(accessToken)
   })
   return parseResponse<MeResponse>(response)
+}
+
+/** Roles for the signed-in user, read from the DB (same source RLS trusts). */
+export async function getMyRoles(accessToken: string): Promise<string[]> {
+  const client = createSupabaseDataClient(accessToken)
+  const { data, error } = await client.rpc('get_my_roles')
+  if (error) {
+    throw new Error(error.message)
+  }
+  return (data as string[] | null) ?? []
 }
 
 export async function createApplication(accessToken: string, input: CreateApplicationInput): Promise<ApplicationDetails> {

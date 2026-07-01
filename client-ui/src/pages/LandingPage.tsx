@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { useNavigate, Link } from 'react-router-dom'
 import { LoanCalculator } from '../components/shared/LoanCalculator'
@@ -59,10 +60,11 @@ export function LandingPage({ session }: LandingPageProps) {
 
   return (
     <div className="public-shell landing-design-page">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       {/* ── Hero ── */}
       <div className="landing-gradient-hero">
         <PublicNav session={session} />
-        <main className="landing-main">
+        <main className="landing-main" id="main-content">
           <section className="landing-hero">
             <div className="landing-copy-panel">
               <p className="eyebrow">Developmental Finance</p>
@@ -81,14 +83,17 @@ export function LandingPage({ session }: LandingPageProps) {
                   Check Eligibility
                 </button>
               </div>
+              <p className="landing-hero-note">No obligation &middot; Takes about 5 minutes</p>
             </div>
             <LoanCalculator showApplyButton={true} applyLabel="Apply Now" />
           </section>
         </main>
       </div>
 
+      <LandingSectionNav />
+
       {/* ── About Section ── */}
-      <section className="landing-section landing-section--white landing-section--centered" aria-label="About PRDF">
+      <section id="about" className="landing-section landing-section--white landing-section--centered" aria-label="About PRDF">
         <span className="landing-section__eyebrow">WHO WE ARE</span>
         <h2 className="landing-section__heading">ABOUT PRDF</h2>
         <p className="landing-section__body landing-section__body--narrow">
@@ -111,10 +116,11 @@ export function LandingPage({ session }: LandingPageProps) {
             <span className="landing-stat__label">JOBS CREATED</span>
           </div>
         </div>
+        <p className="landing-stats-note">Cumulative impact since inception across South Africa.</p>
       </section>
 
       {/* ── Eligibility Section ── */}
-      <section className="landing-section landing-section--dark" aria-label="Eligibility criteria">
+      <section id="eligibility" className="landing-section landing-section--dark" aria-label="Eligibility criteria">
         <span className="landing-section__eyebrow landing-section__eyebrow--accent">ELIGIBILITY CRITERIA</span>
         <h2 className="landing-section__heading landing-section__heading--white">DO YOU QUALIFY?</h2>
         <p className="landing-section__body landing-section__body--white-muted" style={{ maxWidth: 720 }}>
@@ -127,11 +133,11 @@ export function LandingPage({ session }: LandingPageProps) {
             <h3 className="landing-elig-col__title">WHO QUALIFIES</h3>
             {QUALIFY_CRITERIA.map((c) => (
               <div key={c} className="landing-elig-item">
-                <svg className="landing-elig-item__icon landing-elig-item__icon--check" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg aria-hidden="true" focusable="false" className="landing-elig-item__icon landing-elig-item__icon--check" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                   <polyline points="22 4 12 14.01 9 11.01" />
                 </svg>
-                <span>{c}</span>
+                <span><span className="sr-only">Qualifies: </span>{c}</span>
               </div>
             ))}
           </div>
@@ -139,12 +145,12 @@ export function LandingPage({ session }: LandingPageProps) {
             <h3 className="landing-elig-col__title">WHO DOES NOT QUALIFY</h3>
             {DISQUALIFY_CRITERIA.map((c) => (
               <div key={c} className="landing-elig-item">
-                <svg className="landing-elig-item__icon landing-elig-item__icon--x" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg aria-hidden="true" focusable="false" className="landing-elig-item__icon landing-elig-item__icon--x" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="10" />
                   <line x1="15" y1="9" x2="9" y2="15" />
                   <line x1="9" y1="9" x2="15" y2="15" />
                 </svg>
-                <span>{c}</span>
+                <span><span className="sr-only">Does not qualify: </span>{c}</span>
               </div>
             ))}
           </div>
@@ -159,7 +165,7 @@ export function LandingPage({ session }: LandingPageProps) {
       </section>
 
       {/* ── How It Works ── */}
-      <section className="landing-section landing-section--white landing-section--centered" aria-label="How it works">
+      <section id="how-it-works" className="landing-section landing-section--white landing-section--centered" aria-label="How it works">
         <span className="landing-section__eyebrow">HOW IT WORKS</span>
         <h2 className="landing-section__heading">YOUR PATH TO FUNDING</h2>
 
@@ -178,7 +184,7 @@ export function LandingPage({ session }: LandingPageProps) {
       </section>
 
       {/* ── Non-Financial Support ── */}
-      <section className="landing-section landing-section--light" aria-label="Non-financial support">
+      <section id="support" className="landing-section landing-section--light" aria-label="Non-financial support">
         <span className="landing-section__eyebrow">BEYOND FUNDING</span>
         <h2 className="landing-section__heading">NON-FINANCIAL SUPPORT SERVICES</h2>
         <p className="landing-section__body">
@@ -196,7 +202,7 @@ export function LandingPage({ session }: LandingPageProps) {
       </section>
 
       {/* ── Required Documents ── */}
-      <section className="landing-section landing-section--white landing-section--centered" aria-label="Required documents">
+      <section id="documents" className="landing-section landing-section--white landing-section--centered" aria-label="Required documents">
         <span className="landing-section__eyebrow">PREPARE YOUR APPLICATION</span>
         <h2 className="landing-section__heading">DOCUMENTS YOU WILL NEED</h2>
         <p className="landing-section__body landing-section__body--narrow">
@@ -207,7 +213,7 @@ export function LandingPage({ session }: LandingPageProps) {
           {DOCUMENTS.map((doc) => (
             <div key={doc.title} className="landing-doc-card">
               <div className="landing-doc-card__icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg aria-hidden="true" focusable="false" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                   <polyline points="14 2 14 8 20 8" />
                   <line x1="16" y1="13" x2="8" y2="13" />
@@ -233,17 +239,67 @@ export function LandingPage({ session }: LandingPageProps) {
           Check your eligibility, prepare your documents, and apply in under 10 minutes.
         </p>
         <div className="landing-cta-footer__actions">
-          <Link to="/eligibility" className="btn btn-secondary landing-cta-footer__btn">
-            Check Eligibility
-          </Link>
           <button type="button" className="btn btn-primary landing-cta-footer__btn" onClick={() => navigate('/register')} style={{ background: 'var(--brand-accent)' }}>
             Apply Now
           </button>
         </div>
+        <p className="landing-cta-footer__secondary">
+          Not sure yet? <Link to="/eligibility">Check your eligibility first</Link>.
+        </p>
         <p className="landing-cta-footer__note">
           NCR Registered &nbsp;|&nbsp; Funds within 5 working days &nbsp;|&nbsp; 100% Online
         </p>
       </section>
+
+      <BackToTop />
     </div>
+  )
+}
+
+const SECTION_LINKS = [
+  { href: '#about', label: 'About' },
+  { href: '#eligibility', label: 'Eligibility' },
+  { href: '#how-it-works', label: 'How It Works' },
+  { href: '#support', label: 'Support' },
+  { href: '#documents', label: 'Documents' },
+]
+
+function LandingSectionNav() {
+  return (
+    <nav className="landing-section-nav" aria-label="Page sections">
+      <ul>
+        {SECTION_LINKS.map((link) => (
+          <li key={link.href}>
+            <a href={link.href}>{link.label}</a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  )
+}
+
+function BackToTop() {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const onScroll = () => setVisible(window.scrollY > 600)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  if (!visible) return null
+
+  return (
+    <button
+      type="button"
+      className="landing-back-to-top"
+      aria-label="Back to top"
+      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+    >
+      <svg aria-hidden="true" focusable="false" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="18 15 12 9 6 15" />
+      </svg>
+    </button>
   )
 }

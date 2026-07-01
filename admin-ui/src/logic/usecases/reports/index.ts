@@ -11,6 +11,9 @@ export function createReportsUseCases(accessToken: string) {
     getTurnaround: () => repository.getTurnaround(),
     getPipelineConversion: () => repository.getPipelineConversion(),
     getProductivity: () => repository.getProductivity(),
-    getAuditLog: (from?: string, to?: string, limit?: number) => repository.getAuditLog(from, to, limit)
+    getAuditLog: (from?: string, to?: string, limit?: number) => repository.getAuditLog(from, to, limit),
+    getDemographicBreakdown: () => repository.getDemographicBreakdown(),
+    getDebtorsAgeAnalysis: () => repository.getDebtorsAgeAnalysis(),
+    getProvinceBreakdown: () => repository.getProvinceBreakdown()
   }
 }

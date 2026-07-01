@@ -16,7 +16,6 @@ import {
   step2Schema,
   step3Schema,
   step4Schema,
-  step5Schema,
   type Step1Data,
   type Step2Data,
   type Step3Data,
@@ -25,6 +24,8 @@ import {
 } from '../features/applications/validation'
 import { createApplicationsUseCases } from '../logic/usecases/applications'
 import { createDocumentsUseCases } from '../logic/usecases/documents'
+import { ConsentModal } from '../components/shared/ConsentModal'
+import type { ConsentPayload } from '../features/consent/consentItems'
 
 const STEPS = ['Business Profile', 'Financials', 'Loan Details', 'Documents', 'Review']
 
@@ -122,20 +123,20 @@ export function ApplyPage({ session }: ApplyPageProps) {
 
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [consentOpen, setConsentOpen] = useState(false)
 
-  async function handleFinalSubmit(termsAccepted: boolean) {
+  async function handleFinalSubmit(consent: ConsentPayload) {
     const { step1, step2, step3, step4 } = state.data
 
-    const step5Result = step5Schema.safeParse({ termsAccepted })
-    if (!step5Result.success) return
-
     if (!step1 || !step2 || !step3 || !step4) {
+      setConsentOpen(false)
       setSubmitError('Please complete all steps before submitting.')
       return
     }
 
     const step4Result = step4Schema.safeParse(step4)
     if (!step4Result.success) {
+      setConsentOpen(false)
       setSubmitError('Please upload all required documents before submitting.')
       return
     }
@@ -145,6 +146,7 @@ export function ApplyPage({ session }: ApplyPageProps) {
 
     try {
       const draft = await applicationsUseCases.createDraft({
+        consent,
         requestedAmount: step3.requestedAmount,
         termMonths: step3.termMonths,
         purpose: `${step3.loanPurposeCategory}: ${step3.purpose}`,
@@ -153,6 +155,8 @@ export function ApplyPage({ session }: ApplyPageProps) {
         address: [step1.addressLine1, step1.addressLine2, step1.city, step1.province, step1.country]
           .filter(Boolean)
           .join(', '),
+        province: step1.province,
+        spatialType: step1.spatialType,
         industry: step1.industry,
         gender: step1.gender,
         isDisabled: step1.isDisabled,
@@ -190,6 +194,7 @@ export function ApplyPage({ session }: ApplyPageProps) {
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Submission failed. Please try again.')
       setSubmitting(false)
+      setConsentOpen(false)
     }
   }
 
@@ -248,7 +253,10 @@ export function ApplyPage({ session }: ApplyPageProps) {
               submitting={submitting}
               submitError={submitError}
               onBack={() => dispatch({ type: 'PREV' })}
-              onSubmit={handleFinalSubmit}
+              onOpenConsent={() => {
+                setSubmitError(null)
+                setConsentOpen(true)
+              }}
             />
           )}
         </div>
@@ -262,6 +270,15 @@ export function ApplyPage({ session }: ApplyPageProps) {
           onEdit={() => dispatch({ type: 'GOTO_STEP', step: 3 })}
         />
       </div>
+
+      <ConsentModal
+        open={consentOpen}
+        submitting={submitting}
+        onClose={() => {
+          if (!submitting) setConsentOpen(false)
+        }}
+        onProceed={handleFinalSubmit}
+      />
     </div>
   )
 }
@@ -275,6 +292,7 @@ function Step1({ initial, onNext }: { initial: Step1Data | null; onNext: (d: Ste
     registrationNo: initial?.registrationNo ?? '',
     industry: initial?.industry ?? '',
     gender: initial?.gender ?? 'Prefer not to say',
+    spatialType: initial?.spatialType ?? '',
     isDisabled: initial?.isDisabled ?? false,
     isHdp: initial?.isHdp ?? false,
     isRural: initial?.isRural ?? false,
@@ -305,9 +323,11 @@ function Step1({ initial, onNext }: { initial: Step1Data | null; onNext: (d: Ste
       province: form.address.province,
       country: form.address.country,
       gender: form.gender,
+      spatialType: form.spatialType,
+      // Keep the legacy is_rural flag in sync with the spatial classification.
+      isRural: form.spatialType === 'Rural',
       isDisabled: form.isDisabled,
       isHdp: form.isHdp,
-      isRural: form.isRural,
       isBlackWomenOwned: form.isBlackWomenOwned,
       saCitizenshipPercentage: Number(form.saCitizenshipPercentage || 0),
       isDirectorOperational: form.isDirectorOperational,
@@ -389,13 +409,22 @@ function Step1({ initial, onNext }: { initial: Step1Data | null; onNext: (d: Ste
             <input type="number" min="0" max="100" id="saCitizenshipPercentage" value={form.saCitizenshipPercentage} onChange={set('saCitizenshipPercentage')} placeholder="100" />
             <FieldError message={errors.saCitizenshipPercentage} />
           </div>
+          <div className="form-field">
+            <label htmlFor="spatialType">Where does the business operate?</label>
+            <select id="spatialType" value={form.spatialType} onChange={set('spatialType')}>
+              <option value="">Select location type…</option>
+              <option value="Rural">Rural</option>
+              <option value="Township">Township</option>
+              <option value="City">City / Urban</option>
+            </select>
+            <FieldError message={errors.spatialType} />
+          </div>
         </div>
 
         <div className="form-field" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
           <label className="terms-check"><input type="checkbox" checked={form.isBlackWomenOwned} onChange={set('isBlackWomenOwned')} /> {'>'}50.1% Black Women Owned</label>
           <label className="terms-check"><input type="checkbox" checked={form.isHdp} onChange={set('isHdp')} /> Historically Disadvantaged Person (HDP)</label>
           <label className="terms-check"><input type="checkbox" checked={form.isDisabled} onChange={set('isDisabled')} /> Disabled Persons / Ownership</label>
-          <label className="terms-check"><input type="checkbox" checked={form.isRural} onChange={set('isRural')} /> Rural Operations / Community</label>
         </div>
 
         <h3 style={{ fontSize: '1rem', marginTop: '1.5rem', borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>Compliance & Registration</h3>
@@ -726,32 +755,20 @@ function Step5({
   submitting,
   submitError,
   onBack,
-  onSubmit,
+  onOpenConsent,
 }: {
   data: WizardFormState
   submitting: boolean
   submitError: string | null
   onBack: () => void
-  onSubmit: (termsAccepted: boolean) => void
+  onOpenConsent: () => void
 }) {
-  const [termsAccepted, setTermsAccepted] = useState(false)
-  const [termsError, setTermsError] = useState<string | null>(null)
-
   const { step1, step2, step3, step4 } = data
   const amount = step3?.requestedAmount ?? 0
   const term = step3?.termMonths ?? 0
   const monthly = calculateMonthlyInstalment(amount, term)
   const total = calculateTotalRepayment(amount, term)
   const fees = calculateTotalFees(amount, term)
-
-  function handleSubmit() {
-    if (!termsAccepted) {
-      setTermsError('You must accept the terms and conditions to proceed.')
-      return
-    }
-    setTermsError(null)
-    onSubmit(termsAccepted)
-  }
 
   return (
     <div className="wizard-body">
@@ -767,6 +784,7 @@ function Step5({
               <div className="review-row"><dt>Reg. number</dt><dd>{step1.registrationNo}</dd></div>
               <div className="review-row"><dt>Industry</dt><dd>{step1.industry}</dd></div>
               <div className="review-row"><dt>Province</dt><dd>{step1.province}</dd></div>
+              <div className="review-row"><dt>Location type</dt><dd>{step1.spatialType}</dd></div>
             </dl>
           </div>
         )}
@@ -818,15 +836,10 @@ function Step5({
         </dl>
       </div>
 
-      <label className="terms-check">
-        <input
-          type="checkbox"
-          checked={termsAccepted}
-          onChange={(e) => setTermsAccepted(e.target.checked)}
-        />
-        I confirm that all information provided is accurate and I agree to the PRDF terms and conditions.
-      </label>
-      {termsError && <p className="field-error" role="alert">{termsError}</p>}
+      <p className="consent-notice">
+        Before your application is saved and sent, you will be asked to review and acknowledge PRDF's
+        data privacy (POPIA) consent, policy acknowledgements, and Terms &amp; Conditions.
+      </p>
       {submitError && <p className="text-error" role="alert" style={{ marginTop: '0.5rem' }}>{submitError}</p>}
 
       <div className="wizard-nav">
@@ -834,7 +847,7 @@ function Step5({
         <button
           type="button"
           className={`btn btn-primary${submitting ? ' btn-loading' : ''}`}
-          onClick={handleSubmit}
+          onClick={onOpenConsent}
           disabled={submitting}
         >
           {submitting ? '' : 'Submit Application'}

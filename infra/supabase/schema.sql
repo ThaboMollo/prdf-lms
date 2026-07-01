@@ -26,6 +26,11 @@ create table if not exists public.clients (
   business_name text not null,
   registration_no text,
   address text,
+  province text check (province is null or province in (
+    'Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal', 'Limpopo',
+    'Mpumalanga', 'North West', 'Northern Cape', 'Western Cape'
+  )),
+  spatial_type text check (spatial_type is null or spatial_type in ('Rural', 'Township', 'City')),
   employment_status text,
   industry text,
   gender text,
@@ -59,6 +64,19 @@ create table if not exists public.loan_applications (
   assigned_to_user_id uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now()
 );
+
+create table if not exists public.application_consents (
+  id uuid primary key default gen_random_uuid(),
+  application_id uuid not null references public.loan_applications(id) on delete cascade,
+  consent_version text not null,
+  items jsonb not null,
+  acknowledged_by uuid references auth.users(id) on delete set null,
+  acknowledged_at timestamptz not null default now(),
+  user_agent text
+);
+
+create index if not exists idx_application_consents_application
+  on public.application_consents (application_id);
 
 create table if not exists public.loan_documents (
   id uuid primary key default gen_random_uuid(),
