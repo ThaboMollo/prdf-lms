@@ -47,10 +47,10 @@ export function RegisterPage() {
     <div className="split-auth">
       {/* Brand Panel */}
       <div className="auth-brand-panel">
-        <div className="brand-logo">
+        <Link to="/" className="brand-logo" aria-label="PRDF home">
           <img src="/prdf-logo.png" alt="" className="brand-logo__mark" />
           <span>PRDF</span>
-        </div>
+        </Link>
         <div>
           <h2>Start your business loan application today</h2>
           <p>Join hundreds of South African businesses that have grown with PRDF funding.</p>

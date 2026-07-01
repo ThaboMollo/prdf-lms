@@ -1819,6 +1819,14 @@ input[type="range"]::-moz-range-thumb {
   font-weight: 400;
   letter-spacing: 0.1em;
   font-family: var(--font-heading);
+  color: inherit;
+  text-decoration: none;
+  width: fit-content;
+  transition: opacity 0.15s ease;
+}
+
+.auth-brand-panel .brand-logo:hover {
+  opacity: 0.85;
 }
 
 .brand-logo__mark {
