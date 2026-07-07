@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useCalculator } from '../contexts/CalculatorContext'
 import { formatRand } from '../lib/loanCalc'
+import { LOAN_AMOUNT_MIN } from '../lib/loanLimits'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -14,7 +15,7 @@ export function LoginPage() {
   const [resetSent, setResetSent] = useState(false)
   const [resetting, setResetting] = useState(false)
 
-  const hasCalcState = amount !== 50000 || term !== 6
+  const hasCalcState = amount !== LOAN_AMOUNT_MIN || term !== 6
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault()

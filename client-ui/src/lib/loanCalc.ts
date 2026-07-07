@@ -1,23 +1,25 @@
 /**
  * Loan calculation utilities.
- * Uses a simple flat-fee model: 3% origination fee + 2% monthly service fee.
- * Adjust ORIGINATION_RATE and MONTHLY_RATE to match PRDF's actual product rates.
+ *
+ * These figures are indicative only. PRDF's user-facing lending-rate rule is
+ * Prime+, up to P+10 based on the quality of the transaction; final pricing is
+ * confirmed during assessment.
  */
 
-const ORIGINATION_RATE = 0.03   // 3% once-off origination fee
-const MONTHLY_RATE = 0.02       // 2% per month flat rate
+const BASE_ESTIMATE_RATE = 0.03
+const MONTHLY_ESTIMATE_RATE = 0.02
 
 /**
- * Total fees (origination + monthly service fees).
+ * Indicative finance charge used only for pre-assessment estimates.
  */
 export function calculateTotalFees(amount: number, term: number): number {
-  const originationFee = amount * ORIGINATION_RATE
-  const monthlyFees = amount * MONTHLY_RATE * term
-  return Math.round(originationFee + monthlyFees)
+  const baseEstimate = amount * BASE_ESTIMATE_RATE
+  const monthlyEstimate = amount * MONTHLY_ESTIMATE_RATE * term
+  return Math.round(baseEstimate + monthlyEstimate)
 }
 
 /**
- * Total repayment = principal + all fees.
+ * Indicative repayment = principal + estimated finance charge.
  */
 export function calculateTotalRepayment(amount: number, term: number): number {
   return amount + calculateTotalFees(amount, term)

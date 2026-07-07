@@ -202,6 +202,14 @@ Requirements:
 - Allow internal users to view full application history
 - Track current stage and status
 
+Product limits (enforced in the client UI, both backend APIs and the database):
+
+- Requested amount: **R250 000 minimum, R5 000 000 maximum**
+- Loan term: **1 to 60 months**
+- Lending rate display: Prime+, up to P+10 based on the quality of the transaction
+- Drafts may hold partial values; the limits are enforced when an application
+  is submitted (leaves Draft status)
+
 Suggested statuses:
 
 - Draft

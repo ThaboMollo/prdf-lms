@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { CurrentUser, hasRole, hasAnyRole, isStaff, STAFF_ROLES, ASSIGNED_ROLES } from '../auth/roles.helper';
+import { LOAN_AMOUNT_MIN, LOAN_AMOUNT_MAX, LOAN_TERM_MIN, LOAN_TERM_MAX } from '../common/loan-limits';
 import { randomUUID } from 'crypto';
 import { PoolClient } from 'pg';
 import axios from 'axios';
@@ -40,6 +41,15 @@ export class ApplicationsService {
     if (hasAnyRole(roles, ...ASSIGNED_ROLES) && proj.assigned_to_user_id === userId) return;
     if (hasRole(roles, 'Client') && proj.client_owner_user_id === userId) return;
     throw new Error('User cannot access this application.');
+  }
+
+  private ensureWithinLoanLimits(requestedAmount: number, termMonths: number) {
+    if (!(requestedAmount >= LOAN_AMOUNT_MIN && requestedAmount <= LOAN_AMOUNT_MAX)) {
+      throw new Error('Requested amount must be between R250 000 and R5 000 000.');
+    }
+    if (!(termMonths >= LOAN_TERM_MIN && termMonths <= LOAN_TERM_MAX)) {
+      throw new Error('Term months must be between 1 and 60.');
+    }
   }
 
   private ensureTransitionAllowed(roles: string[], fromStatus: string, toStatus: string) {
@@ -118,6 +128,7 @@ export class ApplicationsService {
     businessName?: string; registrationNo?: string; address?: string; assignedToUserId?: string;
   }) {
     const roles = await this.getRoles(actor.userId);
+    this.ensureWithinLoanLimits(body.requestedAmount, body.termMonths);
     let clientId = body.clientId ?? null;
     const assignedTo = body.assignedToUserId ?? null;
 
@@ -173,6 +184,7 @@ export class ApplicationsService {
       return this.getById(applicationId);
     }
 
+    this.ensureWithinLoanLimits(body.requestedAmount, body.termMonths);
     await this.db.execute(
       `update public.loan_applications set requested_amount=$1, term_months=$2, purpose=$3, assigned_to_user_id=$4 where id=$5`,
       [body.requestedAmount, body.termMonths, body.purpose, body.assignedToUserId ?? null, applicationId],

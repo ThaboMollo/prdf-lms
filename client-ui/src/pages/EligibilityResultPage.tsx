@@ -55,7 +55,8 @@ export function EligibilityResultPage() {
         </div>
 
         <p className="elig-result__fine-print">
-          This is a preliminary assessment. Final approval is subject to document verification and credit checks.
+          This is a preliminary assessment. Final approval is subject to document verification,
+          affordability, governance, and PRDF assessment.
         </p>
       </main>
     </div>

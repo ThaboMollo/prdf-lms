@@ -25,7 +25,7 @@ function getGreeting(): string {
 function getNextAction(app: ApplicationSummary): { label: string; to: string } | null {
   switch (app.status) {
     case 'Draft':
-      return { label: 'Complete your application', to: '/apply' }
+      return { label: 'Resume your draft', to: `/apply?draft=${app.id}` }
     case 'InfoRequested':
       return { label: 'Upload requested documents', to: '/documents' }
     case 'Approved':

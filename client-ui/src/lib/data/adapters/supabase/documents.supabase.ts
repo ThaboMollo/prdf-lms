@@ -142,6 +142,26 @@ export function createSupabaseDocumentsAdapter(accessToken: string): DocumentsRe
       if (error) {
         throw new Error(`Supabase verify document failed: ${error.message}`)
       }
+    },
+    async deleteDocument(_applicationId: string, documentId: string, storagePath: string): Promise<void> {
+      // Remove the stored object first, then the row. Storage RLS scopes this to
+      // the owning client's draft; a missing object shouldn't block row removal.
+      const removal = await client.storage.from(bucket).remove([storagePath])
+      if (removal.error) {
+        throw new Error(`Supabase storage remove failed: ${removal.error.message}`)
+      }
+
+      const { error } = await client.from('loan_documents').delete().eq('id', documentId)
+      if (error) {
+        throw new Error(`Supabase delete document failed: ${error.message}`)
+      }
+    },
+    async createSignedUrl(storagePath: string, expiresInSeconds = 300): Promise<string> {
+      const { data, error } = await client.storage.from(bucket).createSignedUrl(storagePath, expiresInSeconds)
+      if (error || !data?.signedUrl) {
+        throw new Error(`Supabase signed URL failed: ${error?.message ?? 'unknown error'}`)
+      }
+      return data.signedUrl
     }
   }
 }

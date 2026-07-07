@@ -14,6 +14,10 @@ export function createDocumentsUseCases(accessToken: string) {
     verifyDocument: (applicationId: string, documentId: string, note?: string) =>
       repository.verifyDocument(applicationId, documentId, 'Verified', note),
     rejectDocument: (applicationId: string, documentId: string, note?: string) =>
-      repository.verifyDocument(applicationId, documentId, 'Rejected', note)
+      repository.verifyDocument(applicationId, documentId, 'Rejected', note),
+    deleteDocument: (applicationId: string, documentId: string, storagePath: string) =>
+      repository.deleteDocument(applicationId, documentId, storagePath),
+    createSignedUrl: (storagePath: string, expiresInSeconds?: number) =>
+      repository.createSignedUrl(storagePath, expiresInSeconds)
   }
 }

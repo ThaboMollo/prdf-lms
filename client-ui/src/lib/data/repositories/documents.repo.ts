@@ -24,6 +24,10 @@ export type DocumentsRepository = {
     status: DocumentVerificationStatus,
     note?: string
   ) => Promise<void>
+  // Remove a document (storage object + row). Client-allowed only on own drafts.
+  deleteDocument: (applicationId: string, documentId: string, storagePath: string) => Promise<void>
+  // A short-lived signed URL for viewing/downloading a stored document.
+  createSignedUrl: (storagePath: string, expiresInSeconds?: number) => Promise<string>
 }
 
 export function createDocumentsRepository(accessToken: string): DocumentsRepository {

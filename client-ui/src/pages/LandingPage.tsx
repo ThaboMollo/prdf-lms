@@ -3,31 +3,31 @@ import type { Session } from '@supabase/supabase-js'
 import { useNavigate, Link } from 'react-router-dom'
 import { LoanCalculator } from '../components/shared/LoanCalculator'
 import { PublicNav } from '../components/shared/PublicNav'
+import { LOAN_AMOUNT_RANGE_LABEL } from '../lib/loanLimits'
 
 type LandingPageProps = {
   session: Session | null
 }
 
 const QUALIFY_CRITERIA = [
-  'South African registered company (Pty Ltd, CC, or Co-op)',
-  'In operation for at least 12 months',
-  'Enterprise is >50.1% black women owned',
-  '90% SA nationals controlling operations',
-  'CIPC registration is current and compliant',
-  'Valid SARS tax clearance certificate',
-  'Clear credit record with no judgments',
-  'Business bank account in the entity\'s name',
+  'Applicants who demonstrate expected Developmental Impact',
+  'Projects must demonstrate targets for employment creation',
+  'Enterprises must be >50.1% black women owned',
+  'Applicants must be 90% South African nationals with operations controlled by SA citizens',
+  'Enterprises must be 100% Director Operational',
+  'Applicants must be willing to participate in developmental programs',
+  'Transactions from rural provinces must have rural community participation',
+  'Projects must demonstrate sustainability',
+  'Applicants must be permanent residents of South Africa',
+  'The Enterprise(s) must be compliant with generally accepted corporate governance practices appropriate to the client\'s legal status',
+  'The business must demonstrate capacity to repay the loan offered',
+  'The business must be registered with the CIPC',
+  'The business must be registered with SARS as a taxpayer and in possession of a valid tax clearance certificate or a tax pin',
+  'The members/shareholders of the business must not be unrehabilitated insolvents and not be under debt review or an administration order',
 ]
-
-const DISQUALIFY_CRITERIA = [
-  'Sole proprietors or informal traders',
-  'Businesses operating for less than 12 months',
-  'Annual turnover below R500,000',
-  'Non-South African owned entities',
-  'Companies with outstanding tax obligations',
-  'Businesses under business rescue proceedings',
-  'Entities with adverse credit listings',
-  'NGOs, trusts, or non-profit organisations',
+const QUALIFY_CRITERIA_COLUMNS = [
+  QUALIFY_CRITERIA.slice(0, 7),
+  QUALIFY_CRITERIA.slice(7),
 ]
 
 const STEPS = [
@@ -72,9 +72,10 @@ export function LandingPage({ session }: LandingPageProps) {
                 EMPOWERING SOUTH AFRICAN BUSINESSES TO <span>GROW</span>
               </h1>
               <p className="hero-desc">
-                PRDF provides affordable loan financing from R10,000 to R10 million for qualifying
+                PRDF provides affordable loan financing for qualifying
                 small and medium enterprises across South Africa.
               </p>
+              <p className="landing-hero-note">{LOAN_AMOUNT_RANGE_LABEL}.</p>
               <div className="landing-hero-actions">
                 <button className="btn btn-primary landing-primary-action" type="button" onClick={() => navigate('/register')}>
                   Apply Now
@@ -129,31 +130,20 @@ export function LandingPage({ session }: LandingPageProps) {
         </p>
 
         <div className="landing-elig-columns">
-          <div className="landing-elig-col">
-            <h3 className="landing-elig-col__title">WHO QUALIFIES</h3>
-            {QUALIFY_CRITERIA.map((c) => (
-              <div key={c} className="landing-elig-item">
-                <svg aria-hidden="true" focusable="false" className="landing-elig-item__icon landing-elig-item__icon--check" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                  <polyline points="22 4 12 14.01 9 11.01" />
-                </svg>
-                <span><span className="sr-only">Qualifies: </span>{c}</span>
+          {QUALIFY_CRITERIA_COLUMNS.map((criteria, index) => (
+            <div key={index} className="landing-elig-col">
+              <h3 className="landing-elig-col__title">{index === 0 ? 'CORE REQUIREMENTS' : 'COMPLIANCE REQUIREMENTS'}</h3>
+              {criteria.map((c) => (
+                <div key={c} className="landing-elig-item">
+                  <svg aria-hidden="true" focusable="false" className="landing-elig-item__icon landing-elig-item__icon--check" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <polyline points="22 4 12 14.01 9 11.01" />
+                  </svg>
+                  <span><span className="sr-only">Requirement: </span>{c}</span>
+                </div>
+              ))}
               </div>
-            ))}
-          </div>
-          <div className="landing-elig-col">
-            <h3 className="landing-elig-col__title">WHO DOES NOT QUALIFY</h3>
-            {DISQUALIFY_CRITERIA.map((c) => (
-              <div key={c} className="landing-elig-item">
-                <svg aria-hidden="true" focusable="false" className="landing-elig-item__icon landing-elig-item__icon--x" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="15" y1="9" x2="9" y2="15" />
-                  <line x1="9" y1="9" x2="15" y2="15" />
-                </svg>
-                <span><span className="sr-only">Does not qualify: </span>{c}</span>
-              </div>
-            ))}
-          </div>
+          ))}
         </div>
 
         <div className="landing-elig-cta">

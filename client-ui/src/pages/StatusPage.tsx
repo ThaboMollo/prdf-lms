@@ -1,6 +1,6 @@
 import type { Session } from '@supabase/supabase-js'
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { EmptyState } from '../components/shared/EmptyState'
 import { ListSkeleton } from '../components/shared/Skeletons'
@@ -146,6 +146,11 @@ function ApplicationTimeline({ app, accessToken }: { app: ApplicationSummary; ac
         <p className="muted-text">
           This application is still in draft. Complete and submit it to begin the review process.
         </p>
+        <div style={{ marginTop: '0.75rem' }}>
+          <Link to={`/apply?draft=${app.id}`} className="btn btn-primary">
+            Resume your draft
+          </Link>
+        </div>
       </div>
     )
   }

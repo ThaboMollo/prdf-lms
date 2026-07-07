@@ -1,4 +1,5 @@
 import type {
+  ApplicationConsentInput,
   ApplicationDetails,
   ApplicationSummary,
   CreateApplicationInput,
@@ -8,6 +9,12 @@ import type {
 } from '../../../api'
 import { createSupabaseDataClient } from '../../../supabase/client'
 import type { ApplicationsRepository } from '../../repositories/applications.repo'
+
+// Columns for a list/summary read.
+const SUMMARY_COLS =
+  'id, client_id, requested_amount, term_months, purpose, status, created_at, submitted_at, assigned_to_user_id'
+// Adds the draft-resume fields for a detailed read.
+const DETAIL_COLS = `${SUMMARY_COLS}, current_step, draft_state`
 
 type ApplicationRow = {
   id: string
@@ -19,6 +26,8 @@ type ApplicationRow = {
   created_at: string
   submitted_at: string | null
   assigned_to_user_id: string | null
+  current_step?: number | null
+  draft_state?: Record<string, unknown> | null
 }
 
 type HistoryRow = {
@@ -42,6 +51,14 @@ function mapApplicationRow(row: ApplicationRow): ApplicationSummary {
     createdAt: row.created_at,
     submittedAt: row.submitted_at,
     assignedToUserId: row.assigned_to_user_id
+  }
+}
+
+function mapApplicationDetail(row: ApplicationRow): ApplicationDetails {
+  return {
+    ...mapApplicationRow(row),
+    currentStep: row.current_step ?? null,
+    draftState: row.draft_state ?? null
   }
 }
 
@@ -80,6 +97,30 @@ async function resolveClientId(
     throw new Error('Unable to resolve authenticated user id for application draft.')
   }
 
+  // Only patch fields the caller actually provided, so an early draft save (before
+  // the business profile is filled) doesn't clobber existing client data — and
+  // never write empty strings, which fail column CHECK constraints (e.g. province).
+  const fields: Record<string, unknown> = {}
+  const setIf = (key: string, value: unknown) => {
+    if (value !== undefined && value !== '') fields[key] = value
+  }
+  setIf('registration_no', input.registrationNo)
+  setIf('address', input.address)
+  setIf('province', input.province)
+  setIf('spatial_type', input.spatialType)
+  setIf('industry', input.industry)
+  setIf('gender', input.gender)
+  setIf('is_disabled', input.isDisabled)
+  setIf('is_hdp', input.isHdp)
+  setIf('is_rural', input.isRural)
+  setIf('is_black_women_owned', input.isBlackWomenOwned)
+  setIf('sa_citizenship_percentage', input.saCitizenshipPercentage)
+  setIf('is_director_operational', input.isDirectorOperational)
+  setIf('cipc_registered', input.cipcRegistered)
+  setIf('sars_tax_pin', input.sarsTaxPin)
+  setIf('insolvent_or_debt_review', input.insolventOrDebtReview)
+  if (input.businessName?.trim()) fields.business_name = input.businessName.trim()
+
   const existing = await client
     .from('clients')
     .select('id')
@@ -92,6 +133,13 @@ async function resolveClientId(
   }
 
   if (existing.data?.id) {
+    // Persist any business-profile edits onto the existing client row.
+    if (Object.keys(fields).length) {
+      const updated = await client.from('clients').update(fields).eq('id', existing.data.id)
+      if (updated.error) {
+        throw new Error(`Supabase update client failed: ${updated.error.message}`)
+      }
+    }
     return existing.data.id as string
   }
 
@@ -100,21 +148,14 @@ async function resolveClientId(
     .insert({
       user_id: userId,
       business_name: input.businessName?.trim() || 'Client Business',
-      registration_no: input.registrationNo ?? null,
-      address: input.address ?? null,
-      province: input.province ?? null,
-      spatial_type: input.spatialType ?? null,
-      industry: input.industry ?? null,
-      gender: input.gender ?? null,
       is_disabled: input.isDisabled ?? false,
       is_hdp: input.isHdp ?? false,
       is_rural: input.isRural ?? false,
       is_black_women_owned: input.isBlackWomenOwned ?? false,
-      sa_citizenship_percentage: input.saCitizenshipPercentage ?? null,
       is_director_operational: input.isDirectorOperational ?? false,
       cipc_registered: input.cipcRegistered ?? false,
-      sars_tax_pin: input.sarsTaxPin ?? null,
-      insolvent_or_debt_review: input.insolventOrDebtReview ?? false
+      insolvent_or_debt_review: input.insolventOrDebtReview ?? false,
+      ...fields
     })
     .select('id')
     .single()
@@ -133,7 +174,7 @@ export function createSupabaseApplicationsAdapter(accessToken: string): Applicat
   const getById = async (id: string): Promise<ApplicationDetails> => {
     const { data, error } = await client
       .from('loan_applications')
-      .select('id, client_id, requested_amount, term_months, purpose, status, created_at, submitted_at, assigned_to_user_id')
+      .select(DETAIL_COLS)
       .eq('id', id)
       .single()
 
@@ -141,7 +182,7 @@ export function createSupabaseApplicationsAdapter(accessToken: string): Applicat
       throw new Error(`Supabase get application failed: ${error.message}`)
     }
 
-    return mapApplicationRow(data as ApplicationRow)
+    return mapApplicationDetail(data as ApplicationRow)
   }
 
   const updateDraftInternal = async (id: string, input: UpdateApplicationInput): Promise<ApplicationDetails> => {
@@ -177,7 +218,10 @@ export function createSupabaseApplicationsAdapter(accessToken: string): Applicat
       .from('loan_applications')
       .update({
         status: toStatus,
-        submitted_at: submittedAt
+        submitted_at: submittedAt,
+        // Leaving Draft: normalized columns are authoritative, so drop the
+        // exact-UI-state blob (and its duplicated PII) once submitted.
+        ...(toStatus === 'Draft' ? {} : { draft_state: null })
       })
       .eq('id', applicationId)
       .select('id, client_id, requested_amount, term_months, purpose, status, created_at, submitted_at, assigned_to_user_id')
@@ -198,6 +242,123 @@ export function createSupabaseApplicationsAdapter(accessToken: string): Applicat
     }
 
     return mapApplicationRow(update.data as ApplicationRow)
+  }
+
+  const recordConsentInternal = async (
+    applicationId: string,
+    consent: ApplicationConsentInput
+  ): Promise<void> => {
+    const consentInsert = await client.from('application_consents').insert({
+      application_id: applicationId,
+      consent_version: consent.version,
+      items: consent.items,
+      acknowledged_by: actorUserId || null,
+      user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null
+    })
+    if (consentInsert.error) {
+      throw new Error(`Supabase consent insert failed: ${consentInsert.error.message}`)
+    }
+  }
+
+  const createDraftInternal = async (input: CreateApplicationInput): Promise<ApplicationDetails> => {
+    const clientId = await resolveClientId(client, accessToken, input)
+
+    const { data, error } = await client
+      .from('loan_applications')
+      .insert({
+        client_id: clientId,
+        requested_amount: input.requestedAmount ?? 0,
+        term_months: input.termMonths ?? 0,
+        purpose: input.purpose ?? '',
+        status: 'Draft',
+        assigned_to_user_id: input.assignedToUserId ?? null,
+        monthly_revenue: input.monthlyRevenue ?? null,
+        years_in_operation: input.yearsInOperation ?? null,
+        number_of_employees: input.numberOfEmployees ?? null,
+        bank_name: input.bankName ?? null,
+        current_step: input.currentStep ?? 1,
+        draft_state: input.draftState ?? null,
+        last_saved_at: new Date().toISOString()
+      })
+      .select(DETAIL_COLS)
+      .single()
+
+    if (error) {
+      throw new Error(`Supabase create draft failed: ${error.message}`)
+    }
+
+    const created = mapApplicationDetail(data as ApplicationRow)
+    if (input.consent) {
+      await recordConsentInternal(created.id, input.consent)
+    }
+    return created
+  }
+
+  // Full draft update: business profile (client row) + financials + loan details +
+  // wizard position + exact UI state. Only patches fields the caller provided.
+  const updateDraftFull = async (id: string, input: CreateApplicationInput): Promise<ApplicationDetails> => {
+    await resolveClientId(client, accessToken, input)
+
+    const patch: Record<string, unknown> = { last_saved_at: new Date().toISOString() }
+    const setIf = (key: string, value: unknown) => {
+      if (value !== undefined) patch[key] = value
+    }
+    setIf('requested_amount', input.requestedAmount)
+    setIf('term_months', input.termMonths)
+    setIf('purpose', input.purpose)
+    setIf('monthly_revenue', input.monthlyRevenue)
+    setIf('years_in_operation', input.yearsInOperation)
+    setIf('number_of_employees', input.numberOfEmployees)
+    setIf('bank_name', input.bankName)
+    setIf('current_step', input.currentStep)
+    setIf('draft_state', input.draftState)
+
+    const { data, error } = await client
+      .from('loan_applications')
+      .update(patch)
+      .eq('id', id)
+      .eq('status', 'Draft')
+      .select(DETAIL_COLS)
+      .single()
+
+    if (error) {
+      throw new Error(`Supabase save draft failed: ${error.message}`)
+    }
+    return mapApplicationDetail(data as ApplicationRow)
+  }
+
+  const getMyDraftInternal = async (): Promise<ApplicationSummary | null> => {
+    const userId = getUserIdFromAccessToken(accessToken)
+    if (!userId) return null
+
+    const clientRow = await client.from('clients').select('id').eq('user_id', userId).maybeSingle()
+    if (clientRow.error) {
+      throw new Error(`Supabase client lookup failed: ${clientRow.error.message}`)
+    }
+    if (!clientRow.data?.id) return null
+
+    const draft = await client
+      .from('loan_applications')
+      .select(SUMMARY_COLS)
+      .eq('client_id', clientRow.data.id)
+      .eq('status', 'Draft')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (draft.error) {
+      throw new Error(`Supabase get draft failed: ${draft.error.message}`)
+    }
+    return draft.data ? mapApplicationRow(draft.data as ApplicationRow) : null
+  }
+
+  // Create-or-update the client's single active draft (§ one active draft/client).
+  const saveDraftInternal = async (
+    id: string | null,
+    input: CreateApplicationInput
+  ): Promise<ApplicationDetails> => {
+    const targetId = id ?? (await getMyDraftInternal())?.id ?? null
+    return targetId ? updateDraftFull(targetId, input) : createDraftInternal(input)
   }
 
   return {
@@ -230,46 +391,19 @@ export function createSupabaseApplicationsAdapter(accessToken: string): Applicat
       return (data as HistoryRow[]).map(mapHistoryRow)
     },
 
-    async createDraft(input: CreateApplicationInput): Promise<ApplicationDetails> {
-      const clientId = await resolveClientId(client, accessToken, input)
-
-      const { data, error } = await client
-        .from('loan_applications')
-        .insert({
-          client_id: clientId,
-          requested_amount: input.requestedAmount,
-          term_months: input.termMonths,
-          purpose: input.purpose,
-          status: 'Draft',
-          assigned_to_user_id: input.assignedToUserId ?? null
-        })
-        .select('id, client_id, requested_amount, term_months, purpose, status, created_at, submitted_at, assigned_to_user_id')
-        .single()
-
-      if (error) {
-        throw new Error(`Supabase create draft failed: ${error.message}`)
-      }
-
-      const created = mapApplicationRow(data as ApplicationRow)
-
-      if (input.consent) {
-        const consentInsert = await client.from('application_consents').insert({
-          application_id: created.id,
-          consent_version: input.consent.version,
-          items: input.consent.items,
-          acknowledged_by: actorUserId || null,
-          user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null
-        })
-        if (consentInsert.error) {
-          throw new Error(`Supabase consent insert failed: ${consentInsert.error.message}`)
-        }
-      }
-
-      return created
-    },
-
+    createDraft: (input: CreateApplicationInput) => createDraftInternal(input),
     updateDraft: (id: string, input: UpdateApplicationInput) => updateDraftInternal(id, input),
     assignApplication: (id: string, input: UpdateApplicationInput) => updateDraftInternal(id, input),
+    saveDraft: (id: string | null, input: CreateApplicationInput) => saveDraftInternal(id, input),
+    getMyDraft: () => getMyDraftInternal(),
+    recordConsent: (applicationId: string, consent: ApplicationConsentInput) =>
+      recordConsentInternal(applicationId, consent),
+    async deleteApplication(id: string): Promise<void> {
+      const { error } = await client.from('loan_applications').delete().eq('id', id)
+      if (error) {
+        throw new Error(`Supabase delete application failed: ${error.message}`)
+      }
+    },
     submit: (id: string, note?: string) => changeStatusInternal(id, 'Submitted', note),
     changeStatus: (applicationId: string, toStatus: LoanApplicationStatus, note?: string) =>
       changeStatusInternal(applicationId, toStatus, note)

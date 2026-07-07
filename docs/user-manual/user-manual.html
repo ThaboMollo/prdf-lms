@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PRDF Loan Management System — User Manual</title>
+<style>
+  :root {
+    --navy: #16276b;
+    --blue: #1d4ed8;
+    --light: #eef2ff;
+    --ink: #1f2937;
+    --muted: #6b7280;
+    --border: #d7dcec;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    color: var(--ink);
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.55;
+  }
+  h1, h2, h3, h4 { font-family: "Arial Black", "Helvetica Neue", Arial, sans-serif; color: var(--navy); line-height: 1.25; }
+  h1 { font-size: 22pt; text-transform: uppercase; letter-spacing: .5px; }
+  h2 { font-size: 15pt; text-transform: uppercase; border-bottom: 3px solid var(--navy); padding-bottom: 6px; margin-top: 0; }
+  h3 { font-size: 12pt; margin: 20px 0 6px; }
+  h4 { font-size: 10.5pt; margin: 14px 0 4px; color: var(--blue); }
+  p { margin: 6px 0 10px; }
+  ul, ol { margin: 4px 0 10px; padding-left: 20px; }
+  li { margin: 3px 0; }
+  strong { color: var(--navy); }
+
+  .page { page-break-after: always; padding: 0; }
+  .page:last-child { page-break-after: auto; }
+  section { page-break-inside: avoid; }
+
+  /* ---------- Cover ---------- */
+  .cover {
+    height: 257mm;
+    background: linear-gradient(160deg, #16276b 0%, #1d3a9e 60%, #2450d8 100%);
+    color: #fff;
+    border-radius: 6px;
+    padding: 28mm 22mm;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .cover .logo-box { background: #fff; border-radius: 14px; width: 84px; height: 84px; display: flex; align-items: center; justify-content: center; }
+  .cover .logo-box img { width: 62px; height: 62px; object-fit: contain; }
+  .cover h1 { color: #fff; font-size: 30pt; margin: 10mm 0 4mm; }
+  .cover .subtitle { font-size: 14pt; color: #c7d4ff; margin: 0; }
+  .cover .kicker { text-transform: uppercase; letter-spacing: 3px; font-size: 9pt; color: #9db4f7; margin-top: 12mm; }
+  .cover .meta { font-size: 9.5pt; color: #c7d4ff; border-top: 1px solid rgba(255,255,255,.3); padding-top: 6mm; }
+  .cover .meta div { margin: 2px 0; }
+
+  /* ---------- TOC ---------- */
+  .toc ol { list-style: none; padding-left: 0; counter-reset: toc; }
+  .toc > ol > li { counter-increment: toc; font-weight: bold; color: var(--navy); margin: 10px 0 6px; font-size: 11.5pt; }
+  .toc > ol > li::before { content: counter(toc) ". "; }
+  .toc ol ol { counter-reset: none; margin: 4px 0 4px 18px; }
+  .toc ol ol li { counter-increment: none; font-weight: normal; color: var(--ink); font-size: 10pt; margin: 2px 0; }
+  .toc ol ol li::before { content: "– "; color: var(--muted); }
+
+  /* ---------- Figures ---------- */
+  figure { margin: 12px 0 16px; page-break-inside: avoid; text-align: center; }
+  figure img {
+    max-width: 100%;
+    max-height: 150mm;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    box-shadow: 0 1px 4px rgba(22,39,107,.12);
+  }
+  figure.tall img { max-height: 200mm; }
+  figure.small img { max-height: 95mm; }
+  figcaption { font-size: 8.5pt; color: var(--muted); margin-top: 5px; font-style: italic; }
+
+  /* ---------- Callouts & tables ---------- */
+  .tip, .note {
+    border-left: 4px solid var(--blue);
+    background: var(--light);
+    padding: 8px 12px;
+    border-radius: 0 4px 4px 0;
+    margin: 10px 0;
+    font-size: 9.5pt;
+    page-break-inside: avoid;
+  }
+  .tip::before { content: "Tip — "; font-weight: bold; color: var(--navy); }
+  .note::before { content: "Note — "; font-weight: bold; color: var(--navy); }
+
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 14px; font-size: 9.5pt; page-break-inside: avoid; }
+  th { background: var(--navy); color: #fff; text-align: left; padding: 6px 9px; font-size: 9pt; text-transform: uppercase; letter-spacing: .4px; }
+  td { border: 1px solid var(--border); padding: 6px 9px; vertical-align: top; }
+  tr:nth-child(even) td { background: #f6f8ff; }
+
+  .part-banner {
+    background: var(--navy);
+    color: #fff;
+    border-radius: 6px;
+    padding: 16mm 14mm;
+    margin-bottom: 10mm;
+  }
+  .part-banner .kicker { text-transform: uppercase; letter-spacing: 3px; font-size: 9pt; color: #9db4f7; margin: 0 0 3mm; }
+  .part-banner h2 { color: #fff; border: none; margin: 0; padding: 0; font-size: 20pt; }
+  .part-banner p { color: #c7d4ff; margin: 4mm 0 0; }
+
+  .pipeline { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; }
+  .pipeline span {
+    background: var(--light); border: 1px solid var(--border); color: var(--navy);
+    border-radius: 20px; padding: 3px 11px; font-size: 8.5pt; font-weight: bold; white-space: nowrap;
+  }
+  .pipeline span::after { content: " →"; color: var(--muted); font-weight: normal; }
+  .pipeline span:last-child::after { content: ""; }
+
+  .two-col { display: flex; gap: 12px; align-items: flex-start; }
+  .two-col figure { flex: 1; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ COVER -->
+<div class="page">
+  <div class="cover">
+    <div>
+      <div class="logo-box"><img src="../../prdf_logo.png" alt="PRDF logo"></div>
+      <p class="kicker">People's Republic Development Fund</p>
+      <h1>PRDF Loan Management System<br>User Manual</h1>
+      <p class="subtitle">Client Portal &amp; Admin Console — a complete guide for applicants and PRDF staff</p>
+    </div>
+    <div class="meta">
+      <div><strong>Document:</strong> PRDF LMS User Manual</div>
+      <div><strong>Version:</strong> 1.0</div>
+      <div><strong>Date:</strong> 3 July 2026</div>
+      <div><strong>Audience:</strong> Loan applicants (clients) and PRDF internal staff</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ TOC -->
+<div class="page toc">
+  <h2>Contents</h2>
+  <ol>
+    <li>Introduction — What is the PRDF LMS?
+      <ol>
+        <li>About PRDF</li>
+        <li>The two applications: Client Portal and Admin Console</li>
+        <li>Who should read this manual</li>
+      </ol>
+    </li>
+    <li>Technology Overview
+      <ol>
+        <li>What the system is built with</li>
+        <li>Security, privacy and compliance</li>
+        <li>What you need to use it</li>
+      </ol>
+    </li>
+    <li>Part 1 — The Client Portal (for applicants)
+      <ol>
+        <li>The public landing page and instant loan calculator</li>
+        <li>Checking your eligibility</li>
+        <li>Creating an account and signing in</li>
+        <li>Your home dashboard</li>
+        <li>Applying for funding — the five-step wizard</li>
+        <li>Saving a draft and finishing later</li>
+        <li>Consent and submitting your application</li>
+        <li>Tracking your application status</li>
+        <li>Managing your documents</li>
+        <li>My Loans</li>
+      </ol>
+    </li>
+    <li>Part 2 — The Admin Console (for PRDF staff)
+      <ol>
+        <li>Signing in and the Admin Dashboard</li>
+        <li>The Applications workspace</li>
+        <li>Reviewing a case — Details tab</li>
+        <li>Verifying documents</li>
+        <li>The audit history</li>
+        <li>Moving a case forward — status, assignment and requests</li>
+        <li>The Portfolio dashboard</li>
+        <li>Reports &amp; analytics</li>
+        <li>User access and roles</li>
+      </ol>
+    </li>
+    <li>Appendix
+      <ol>
+        <li>Application status glossary</li>
+        <li>Required documents checklist</li>
+        <li>Frequently asked questions</li>
+      </ol>
+    </li>
+  </ol>
+</div>
+
+<!-- ============================================================ 1. INTRODUCTION -->
+<div class="page">
+  <h2>1. Introduction — What is the PRDF LMS?</h2>
+
+  <h3>1.1 About PRDF</h3>
+  <p>The <strong>People's Republic Development Fund (PRDF)</strong> is a developmental finance
+  institution that gives South African small and medium enterprises (SMEs) access to affordable
+  business loans — from <strong>R10,000 up to R10 million</strong> — for qualifying businesses.
+  Beyond funding, PRDF offers non-financial support services such as business health assessments,
+  compliance support, skills training, funding-readiness webinars, marketing &amp; branding
+  assistance and SARS support.</p>
+
+  <p>The <strong>PRDF Loan Management System (LMS)</strong> is the online platform that runs this
+  entire lending journey. It replaces paper forms, branch visits and email back-and-forth with a
+  fast, transparent, fully online process: a business owner can check whether they qualify, apply
+  for funding, upload supporting documents, give the legally required consent and then track their
+  application step by step — while PRDF staff triage, review, verify and approve those applications
+  from a single workspace.</p>
+
+  <h3>1.2 The two applications</h3>
+  <table>
+    <tr><th>Application</th><th>Who uses it</th><th>What it does</th></tr>
+    <tr>
+      <td><strong>Client Portal</strong></td>
+      <td>Business owners applying for funding</td>
+      <td>Public landing page and loan calculator, eligibility self-assessment, account
+      registration, a five-step application wizard, document uploads, POPIA consent capture,
+      a live status tracker, and a view of disbursed loans.</td>
+    </tr>
+    <tr>
+      <td><strong>Admin Console</strong></td>
+      <td>PRDF internal staff (interns, originators, loan officers, administrators)</td>
+      <td>A role-aware workspace with a pipeline dashboard, application review and document
+      verification, a full audit history, status and assignment management, portfolio monitoring,
+      reports &amp; analytics, and user access (role) management.</td>
+    </tr>
+  </table>
+
+  <h3>1.3 Who should read this manual</h3>
+  <ul>
+    <li><strong>Part 1</strong> is written for <strong>clients</strong> — business owners who want
+    to apply for PRDF funding and track their application.</li>
+    <li><strong>Part 2</strong> is written for <strong>PRDF staff</strong> who process
+    applications in the Admin Console.</li>
+    <li>The <strong>Appendix</strong> contains a status glossary, the required-documents checklist
+    and answers to common questions — useful to both audiences.</li>
+  </ul>
+
+  <div class="note">Screens shown in this manual were captured from the live system. Names,
+  amounts and businesses shown are demonstration data.</div>
+</div>
+
+<!-- ============================================================ 2. TECHNOLOGY -->
+<div class="page">
+  <h2>2. Technology Overview</h2>
+
+  <h3>2.1 What the system is built with</h3>
+  <p>The PRDF LMS is a modern web application. You do not need to install anything — both the
+  Client Portal and the Admin Console run in an ordinary web browser. Under the hood, the platform
+  is built from the following components:</p>
+
+  <table>
+    <tr><th>Layer</th><th>Technology</th><th>In plain terms</th></tr>
+    <tr>
+      <td><strong>User interfaces</strong></td>
+      <td>React 18 + TypeScript, built with Vite</td>
+      <td>The screens you interact with. Two separate applications are built on the same
+      foundation: the client-facing portal and the staff-facing admin console. Both are fast,
+      responsive and work on desktop, laptop and mobile browsers.</td>
+    </tr>
+    <tr>
+      <td><strong>Data, sign-in &amp; files</strong></td>
+      <td>Supabase (PostgreSQL database, Auth, Storage)</td>
+      <td>A secure cloud platform that stores all application data in a PostgreSQL database,
+      manages user accounts and passwords, and holds uploaded documents in protected file
+      storage.</td>
+    </tr>
+    <tr>
+      <td><strong>Application API</strong></td>
+      <td>ASP.NET Core (.NET 9), Clean Architecture</td>
+      <td>A Microsoft .NET server application that exposes the system's business logic
+      (health checks, profiles, notifications, reporting). The platform can be switched between
+      talking to Supabase directly or through this API.</td>
+    </tr>
+    <tr>
+      <td><strong>Automation &amp; operations</strong></td>
+      <td>GitHub Actions CI/CD, uptime monitoring</td>
+      <td>Every change to the software is automatically built, tested and deployed, and the
+      running system is monitored so outages are detected quickly.</td>
+    </tr>
+    <tr>
+      <td><strong>Notifications</strong></td>
+      <td>SendGrid (email), Twilio (SMS) — optional providers</td>
+      <td>Channels through which the system can notify applicants and staff of important
+      events.</td>
+    </tr>
+  </table>
+
+  <h3>2.2 Security, privacy and compliance</h3>
+  <ul>
+    <li><strong>POPIA-compliant consent</strong> — before any application is submitted, the client
+    must explicitly acknowledge each data-privacy and policy item. Every answer is recorded
+    individually against the application.</li>
+    <li><strong>Role-based access control (RBAC)</strong> — staff see only what their role allows
+    (Intern, Originator, Loan Officer, Admin), and only a Super Admin can manage other
+    administrators.</li>
+    <li><strong>Row-level security (RLS)</strong> — database rules ensure clients can only ever
+    read their own applications, documents and loans.</li>
+    <li><strong>Authenticated sessions</strong> — sign-in is handled by Supabase Auth using
+    industry-standard JSON Web Tokens (JWT); passwords are never stored in plain text.</li>
+    <li><strong>Full audit trail</strong> — every status change on an application records who made
+    it and when. Nothing happens off the record.</li>
+  </ul>
+
+  <h3>2.3 What you need to use it</h3>
+  <ul>
+    <li>A modern web browser (Chrome, Edge, Firefox or Safari) on any device.</li>
+    <li>An internet connection.</li>
+    <li>For clients: an email address to register, and digital copies (PDF, JPG or PNG) of your
+    supporting documents.</li>
+    <li>For staff: an account provisioned by a PRDF administrator with the appropriate role.</li>
+  </ul>
+</div>
+
+<!-- ============================================================ PART 1 BANNER -->
+<div class="page">
+  <div class="part-banner">
+    <p class="kicker">Part 1</p>
+    <h2>The Client Portal</h2>
+    <p>For business owners: from discovering PRDF and checking eligibility, to applying,
+    submitting documents, giving consent and tracking your application.</p>
+  </div>
+
+  <h3>3.1 The public landing page and instant loan calculator</h3>
+  <p>Your journey starts on the PRDF homepage. It tells the whole story at a glance — who PRDF
+  is, who qualifies for funding, how the process works, the non-financial support services on
+  offer, and exactly which documents you will need, so there are no surprises later.</p>
+
+  <p>In the top-right corner of the hero you will find the <strong>instant loan calculator</strong>:</p>
+  <ol>
+    <li>Drag the <strong>"How much do you need?"</strong> slider to the amount you want to borrow —
+    PRDF loans range from <strong>R250&nbsp;000 to R5&nbsp;million</strong>.</li>
+    <li>Drag the <strong>"Over how many months?"</strong> slider to your preferred repayment term.</li>
+    <li>The <strong>estimated monthly repayment</strong>, <strong>total repayment</strong> and
+    <strong>total fees</strong> update instantly as you move the sliders.</li>
+    <li>When you are happy with the numbers, click <strong>Apply Now</strong> — your chosen amount
+    and term are carried into the application.</li>
+  </ol>
+
+  <figure>
+    <img src="../../demo/screenshots/01-landing-hero.png" alt="PRDF landing page">
+    <figcaption>Figure 1 — The PRDF landing page: hero with instant loan calculator, followed by About,
+    eligibility criteria, the path to funding, support services and the documents you will need.</figcaption>
+  </figure>
+</div>
+
+<div class="page">
+  <h3>3.2 Checking your eligibility</h3>
+  <p>Before applying, run the two-minute <strong>eligibility self-assessment</strong>. Click
+  <strong>Check Eligibility</strong> on the homepage. The assessment lists PRDF's criteria in
+  three groups — tick every box that applies to your business:</p>
+  <ul>
+    <li><strong>Ownership &amp; Structure</strong> — e.g. the enterprise is &gt;50.1% black women
+    owned, 90% South African nationals control operations, directors are permanent SA residents.</li>
+    <li><strong>Registration &amp; Compliance</strong> — e.g. registered with the CIPC and SARS,
+    valid tax clearance, directors are not un-rehabilitated insolvents or under debt review.</li>
+    <li><strong>Business Viability &amp; Impact</strong> — e.g. demonstrates developmental impact,
+    targets employment creation, has the capacity to repay the loan.</li>
+  </ul>
+  <p>The counter at the bottom shows how many of the 15 criteria you have confirmed. When all
+  criteria are ticked, click <strong>Check My Eligibility</strong>.</p>
+
+  <div class="two-col">
+    <figure class="small">
+      <img src="../../demo/screenshots/04-eligibility-empty.png" alt="Eligibility form">
+      <figcaption>Figure 2 — The eligibility self-assessment. The left panel also lists the documents
+      you will need.</figcaption>
+    </figure>
+    <figure class="small">
+      <img src="../../demo/screenshots/05-eligibility-filled.png" alt="Eligibility form completed">
+      <figcaption>Figure 3 — All 15 of 15 criteria confirmed, ready to check.</figcaption>
+    </figure>
+  </div>
+
+  <p>If your business meets the requirements you will see an immediate <strong>"You qualify for
+  PRDF funding"</strong> result, with a summary of each category and a single call to action:
+  <strong>Create Account &amp; Apply</strong>.</p>
+
+  <figure class="small">
+    <img src="../../demo/screenshots/06-eligibility-result.png" alt="Eligibility result">
+    <figcaption>Figure 4 — The eligibility result. This is a preliminary assessment; final approval is
+    subject to document verification and credit checks.</figcaption>
+  </figure>
+</div>
+
+<div class="page">
+  <h3>3.3 Creating an account and signing in</h3>
+  <p><strong>Registration takes less than two minutes.</strong> Fill in your first name, last
+  name, phone number, email address and a password, then click <strong>Create Account &amp;
+  Apply</strong>. If you arrived from the loan calculator, the panel on the left confirms the
+  amount and term you are applying for.</p>
+
+  <figure class="small">
+    <img src="../../demo/screenshots/07-register.png" alt="Registration page">
+    <figcaption>Figure 5 — Creating your PRDF account.</figcaption>
+  </figure>
+
+  <p><strong>Returning clients</strong> simply sign in with their email address and password to
+  pick up where they left off. Use <strong>Forgot your password?</strong> on the sign-in page if
+  you need to reset it.</p>
+
+  <figure class="small">
+    <img src="../../demo/screenshots/08-login.png" alt="Login page">
+    <figcaption>Figure 6 — Signing in to the Client Portal.</figcaption>
+  </figure>
+</div>
+
+<div class="page">
+  <h3>3.4 Your home dashboard</h3>
+  <p>Once signed in, the portal greets you by name. The sidebar on the left is your main
+  navigation: <strong>Home</strong>, <strong>Applications</strong> (the application wizard),
+  <strong>Documents</strong>, <strong>My Loans</strong> and <strong>Status</strong>.</p>
+  <p>The Home dashboard summarises everything that matters:</p>
+  <ul>
+    <li><strong>Active application</strong> — your current application and its status
+    (e.g. <em>Under Review</em>).</li>
+    <li><strong>Counters</strong> — applications submitted, active loans and amount outstanding.</li>
+    <li><strong>Recent activity</strong> — a feed of the latest updates on your applications.</li>
+  </ul>
+
+  <figure>
+    <img src="../../demo/screenshots/18-home.png" alt="Client home dashboard">
+    <figcaption>Figure 7 — The client home dashboard after signing in.</figcaption>
+  </figure>
+</div>
+
+<div class="page">
+  <h3>3.5 Applying for funding — the five-step wizard</h3>
+  <p>Click <strong>Applications</strong> in the sidebar (or <strong>Apply Now</strong>) to start.
+  The application is a guided wizard in five steps, shown in the progress bar at the top:
+  <strong>Business Profile → Financials → Loan Details → Documents → Review</strong>.
+  Throughout the wizard, the <strong>Debt Breakdown</strong> panel on the right keeps your chosen
+  loan amount, term, monthly payment, total payable and fees in view — click <em>Edit loan
+  details</em> at any time to adjust them.</p>
+
+  <h4>Step 1 — Business &amp; Compliance Profile</h4>
+  <p>Capture your business's basic details (name, industry, address, city, province), the
+  demographic information PRDF reports on as a developmental funder (primary director gender,
+  % South African ownership, where the business operates, ownership flags), and your compliance
+  and registration details (CIPC registration number, SARS tax PIN and compliance declarations).
+  Click <strong>Continue</strong> when done.</p>
+
+  <figure class="tall">
+    <img src="../../demo/screenshots/09-apply-step1-empty.png" alt="Apply step 1 - business profile">
+    <figcaption>Figure 8 — Step 1: Business &amp; Compliance Profile, with the Debt Breakdown panel on
+    the right.</figcaption>
+  </figure>
+</div>
+
+<div class="page">
+  <h4>Step 2 — Financial Information</h4>
+  <p>Help PRDF understand the financial health of your business: average monthly revenue, years in
+  operation, number of employees and your business bank.</p>
+  <figure class="small">
+    <img src="../../demo/screenshots/11-apply-step2-financials.png" alt="Apply step 2 - financials">
+    <figcaption>Figure 9 — Step 2: Financial Information.</figcaption>
+  </figure>
+
+  <h4>Step 3 — Loan Details</h4>
+  <p>Set your preferred loan using the two sliders — <strong>how much you need</strong> (R10,000 to
+  R10,000,000) and <strong>over how many months</strong> (1 to 60). The live calculation shows your
+  monthly repayment, total repayment and total fees. Then choose a <strong>loan purpose
+  category</strong> (e.g. Working Capital) and describe how you will use the funds.</p>
+  <figure class="small">
+    <img src="../../demo/screenshots/12-apply-step3-loan.png" alt="Apply step 3 - loan details">
+    <figcaption>Figure 10 — Step 3: Loan Details with the live repayment calculation.</figcaption>
+  </figure>
+</div>
+
+<div class="page">
+  <h4>Step 4 — Documents</h4>
+  <p>Upload the six required supporting documents. For each one, click the upload box (or drag and
+  drop the file). Accepted formats are <strong>PDF, JPG and PNG</strong>.</p>
+  <ol>
+    <li><strong>ID Document</strong> — certified copy of the director's / applicant's identity document</li>
+    <li><strong>Proof of Address</strong> — recent proof of business or director address</li>
+    <li><strong>Company Registration (CIPC)</strong> — CIPC company registration certificate</li>
+    <li><strong>Tax Clearance</strong> — SARS tax clearance or tax compliance status document</li>
+    <li><strong>Bank Statements</strong> — the last 3 months of business bank statements</li>
+    <li><strong>Financial Statements</strong> — latest annual financials or management accounts</li>
+  </ol>
+  <figure>
+    <img src="../../demo/screenshots/13-apply-step4-documents.png" alt="Apply step 4 - documents">
+    <figcaption>Figure 11 — Step 4: uploading the required documents.</figcaption>
+  </figure>
+</div>
+
+<div class="page">
+  <h4>Step 5 — Review</h4>
+  <p>The final step shows everything you have entered — business profile, financial information,
+  loan details, the documents you attached and the full cost breakdown. Use <strong>Back</strong>
+  to correct anything. When you are satisfied, click <strong>Submit Application</strong>.</p>
+  <figure>
+    <img src="../../demo/screenshots/14-apply-step5-review.png" alt="Apply step 5 - review">
+    <figcaption>Figure 12 — Step 5: reviewing your application before submission.</figcaption>
+  </figure>
+
+  <h3>3.6 Saving a draft and finishing later</h3>
+  <p>You do not have to complete the application in one sitting. Click <strong>Save &amp; finish
+  later</strong> on any step of the wizard — your progress is saved as a <strong>draft</strong> and
+  a confirmation appears. When you sign in again, the draft is shown on the <strong>Status</strong>
+  page with a <strong>Resume your draft</strong> button that returns you to exactly where you
+  stopped, with all your answers preserved.</p>
+  <div class="two-col">
+    <figure class="small">
+      <img src="../../demo/screenshots/draft-01-saved-status.png" alt="Draft saved on status page">
+      <figcaption>Figure 13 — A saved draft on the Status page, with "Resume your draft".</figcaption>
+    </figure>
+    <figure class="small">
+      <img src="../../demo/screenshots/draft-02-resumed.png" alt="Draft resumed in the wizard">
+      <figcaption>Figure 14 — Resuming the draft returns you to the wizard with your data intact.</figcaption>
+    </figure>
+  </div>
+</div>
+
+<div class="page">
+  <h3>3.7 Consent and submitting your application</h3>
+  <p>When you click <strong>Submit Application</strong>, PRDF must first capture your explicit,
+  <strong>POPIA-compliant consent</strong>. A consent form appears with two groups of items, each
+  answered individually with <strong>YES</strong> or <strong>NO</strong>:</p>
+  <ul>
+    <li><strong>Data Privacy (POPIA)</strong> — consent for PRDF to collect, process and store your
+    information for this application; to verify your information with credit bureaus and assess
+    your credit worthiness; and acknowledgement that PRDF retains information for the periods
+    required by law and that you may request access to or correction of it.</li>
+    <li><strong>Policy Acknowledgements</strong> — that you understand the documentation you must
+    submit; that submitting does not mean the application is approved; that if unsuccessful PRDF
+    will issue a letter with the reason; and that you understand the meaning of each clause in any
+    agreement you sign.</li>
+  </ul>
+  <p>Answer every item, then click <strong>Proceed</strong>. Your application, its documents and
+  the consent record are all saved together, and you are taken straight to the status tracker
+  where the new application appears as <strong>Submitted</strong>.</p>
+
+  <div class="two-col">
+    <figure class="small">
+      <img src="../../demo/screenshots/15-apply-consent-modal.png" alt="Consent modal">
+      <figcaption>Figure 15 — The POPIA consent form.</figcaption>
+    </figure>
+    <figure class="small">
+      <img src="../../demo/screenshots/16-apply-consent-filled.png" alt="Consent modal completed">
+      <figcaption>Figure 16 — All items acknowledged; Proceed submits the application.</figcaption>
+    </figure>
+  </div>
+</div>
+
+<div class="page">
+  <h3>3.8 Tracking your application status</h3>
+  <p>Open <strong>Status</strong> in the sidebar at any time. Each application is shown with a
+  step-by-step tracker that makes an otherwise opaque process completely transparent. Each
+  application moves through the following stages:</p>
+  <div class="pipeline">
+    <span>Application Submitted</span><span>Under Review</span><span>Approved</span>
+    <span>Funds Disbursed</span><span>In Repayment</span><span>Loan Closed</span>
+  </div>
+  <p>Completed stages show a green tick, the current stage is highlighted in blue, and each card
+  shows the application reference, purpose and when it was last updated. Use <strong>New
+  Application</strong> in the top-right corner to start another application.</p>
+  <figure class="small">
+    <img src="../../demo/screenshots/19-status.png" alt="Application status tracker">
+    <figcaption>Figure 17 — The status tracker: this application is Under Review; a separate draft below
+    is waiting to be completed.</figcaption>
+  </figure>
+</div>
+
+<div class="page">
+  <h3>3.9 Managing your documents</h3>
+  <p>The <strong>Documents</strong> page lets you upload and track documents outside the wizard —
+  useful when PRDF requests additional or corrected files.</p>
+  <ol>
+    <li>Choose the application from the <strong>Select application</strong> dropdown.</li>
+    <li>The <strong>Required Documents</strong> checklist shows each document and whether it is
+    still <strong>MISSING</strong>.</li>
+    <li>Click <strong>Upload</strong> next to a document, drop the file into the upload panel, and
+    click <strong>Upload Document</strong>.</li>
+    <li>Files you have submitted appear under <strong>Uploaded Files</strong>.</li>
+  </ol>
+  <figure class="small">
+    <img src="../../demo/screenshots/20-documents.png" alt="Documents page">
+    <figcaption>Figure 18 — The Documents page: required-documents checklist on the left, uploader on the
+    right.</figcaption>
+  </figure>
+
+  <h3>3.10 My Loans</h3>
+  <p>Once an application is approved and the funds are disbursed, the loan — with its repayment
+  schedule and outstanding balance — appears under <strong>My Loans</strong>. Until then the page
+  shows an empty state.</p>
+  <figure class="small">
+    <img src="../../demo/screenshots/21-loans.png" alt="My Loans page">
+    <figcaption>Figure 19 — My Loans before any loan has been disbursed.</figcaption>
+  </figure>
+</div>
+
+<!-- ============================================================ PART 2 -->
+<div class="page">
+  <div class="part-banner">
+    <p class="kicker">Part 2</p>
+    <h2>The Admin Console</h2>
+    <p>For PRDF staff: triaging applications, verifying documents, moving cases through the
+    pipeline, monitoring the portfolio, reading analytics and managing user access.</p>
+  </div>
+
+  <h3>4.1 Signing in and the Admin Dashboard</h3>
+  <p>Staff sign in to the Admin Console with their PRDF account. The console is
+  <strong>role-aware</strong>: the pages and actions you see depend on your role (Intern,
+  Originator, Loan Officer or Admin). The sidebar gives access to <strong>Dashboard</strong>,
+  <strong>Applications</strong>, <strong>Loans</strong>, <strong>Portfolio</strong>,
+  <strong>Reports</strong> and — for administrators — <strong>User Access</strong>.</p>
+  <p>The dashboard is a snapshot of your pipeline:</p>
+  <ul>
+    <li><strong>Pipeline Cases</strong> — total open cases in the pipeline.</li>
+    <li><strong>Under Review</strong> — cases currently being reviewed.</li>
+    <li><strong>Overdue Tasks</strong> — tasks past their due date.</li>
+    <li><strong>SLA Breached</strong> — flagged in amber: applications that have waited longer
+    than the service-level agreement allows.</li>
+    <li><strong>Assigned Queue</strong> — your work queue, newest first, each entry showing its
+    reference, last update and current status.</li>
+  </ul>
+  <figure>
+    <img src="../../demo/admin/screenshots/01-dashboard.png" alt="Admin dashboard">
+    <figcaption>Figure 20 — The Admin Dashboard: pipeline tiles, SLA warnings and the assigned queue.</figcaption>
+  </figure>
+</div>
+
+<div class="page">
+  <h3>4.2 The Applications workspace</h3>
+  <p>The heart of the console is <strong>Applications</strong> — a searchable, filterable list of
+  every case, with a tabbed case-file workspace alongside it.</p>
+  <ul>
+    <li><strong>Search</strong> by application ID or purpose.</li>
+    <li><strong>Filter</strong> by status (e.g. <em>Submitted</em> to surface brand-new
+    applications at the top of the funnel).</li>
+    <li>Each row shows the purpose, <strong>amount</strong>, <strong>status</strong>,
+    <strong>assignee</strong> and <strong>last update</strong> — with a red
+    <strong>SLA&nbsp;Breached</strong> badge where applicable.</li>
+    <li>Click <strong>Review</strong> to open the case in the detail workspace.</li>
+  </ul>
+  <figure class="tall">
+    <img src="../../demo/admin/screenshots/02-applications.png" alt="Applications workspace">
+    <figcaption>Figure 21 — The Applications workspace: filterable case list with the tabbed detail
+    workspace below.</figcaption>
+  </figure>
+</div>
+
+<div class="page">
+  <h3>4.3 Reviewing a case — Details tab</h3>
+  <p>Opening a case loads the detail workspace on the <strong>Details</strong> tab, giving the
+  full picture: client name and contact details, business name, registration number and address,
+  the requested amount, purpose and term, the developmental-impact demographics PRDF reports on,
+  plus when the case was created and submitted and who it is assigned to. The other tabs —
+  <strong>Documents</strong>, <strong>History</strong>, <strong>Tasks</strong>,
+  <strong>Notes</strong> and <strong>Advisory&nbsp;(NFS)</strong> — cover the rest of the case
+  file, including non-financial support advisory notes.</p>
+  <figure class="tall">
+    <img src="../../demo/admin/screenshots/06-app-detail-details.png" alt="Case details tab">
+    <figcaption>Figure 22 — A case open on the Details tab.</figcaption>
+  </figure>
+</div>
+
+<div class="page">
+  <h3>4.4 Verifying documents</h3>
+  <p>The <strong>Documents</strong> tab is a verification checklist. Every file the applicant
+  submitted — ID, proof of address, CIPC registration, tax clearance, three months of bank
+  statements and financial statements — is listed with its upload date. For each file you can:</p>
+  <ul>
+    <li><strong>View / Download</strong> — open the file to inspect it.</li>
+    <li><strong>Verify</strong> — mark the document as checked and acceptable.</li>
+    <li><strong>Reject</strong> — mark it as unacceptable so the client can be asked to re-submit.</li>
+  </ul>
+  <p>Staff can also upload a document on the client's behalf: choose the document type, drag the
+  file in, and click <strong>Upload Document</strong>.</p>
+  <figure class="tall">
+    <img src="../../demo/admin/screenshots/07-app-detail-documents.png" alt="Documents verification tab">
+    <figcaption>Figure 23 — The Documents tab: every uploaded file with View/Download, Verify and Reject
+    controls.</figcaption>
+  </figure>
+</div>
+
+<div class="page">
+  <h3>4.5 The audit history</h3>
+  <p>The <strong>History</strong> tab is the full audit trail of the case — every status
+  transition, who made it and exactly when. Nothing happens to an application off the record,
+  which supports both internal governance and regulatory reporting.</p>
+  <figure>
+    <img src="../../demo/admin/screenshots/08-app-detail-history.png" alt="History tab">
+    <figcaption>Figure 24 — The History tab showing the case's status transitions.</figcaption>
+  </figure>
+</div>
+
+<div class="page">
+  <h3>4.6 Moving a case forward — status, assignment and requests</h3>
+  <p>The <strong>Internal Actions</strong> panel on the Details tab is where you act on a case:</p>
+  <ul>
+    <li><strong>Assign to user</strong> — pick a colleague and click <strong>Save
+    Assignment</strong> to route the case to them.</li>
+    <li><strong>Change status</strong> — select the next status (e.g. <em>Under Review</em>),
+    optionally add a status note, and click <strong>Update Status</strong>. The status badge
+    updates instantly and the transition is logged in History.</li>
+    <li><strong>Request info</strong> — describe what is missing and click <strong>Request More
+    Info</strong> to ask the applicant for it.</li>
+  </ul>
+  <figure class="tall">
+    <img src="../../demo/admin/screenshots/09-app-status-updated.png" alt="Status updated">
+    <figcaption>Figure 25 — A case moved from Submitted to Under Review; the change appears immediately
+    in the status badge and the History tab.</figcaption>
+  </figure>
+</div>
+
+<div class="page">
+  <h3>4.7 The Portfolio dashboard</h3>
+  <p>Once loans are disbursed, <strong>Portfolio</strong> tracks the health and exposure of the
+  loan book: <strong>total loans</strong>, <strong>active loans</strong>, the
+  <strong>outstanding</strong> balance, and an <strong>Arrears</strong> panel listing any overdue
+  installments. Click <strong>Export CSV</strong> for a one-click download of the data.</p>
+  <figure class="small">
+    <img src="../../demo/admin/screenshots/03-portfolio.png" alt="Portfolio dashboard">
+    <figcaption>Figure 26 — The Portfolio dashboard (shown here before any loans have been
+    disbursed).</figcaption>
+  </figure>
+</div>
+
+<div class="page">
+  <h3>4.8 Reports &amp; analytics</h3>
+  <p>The <strong>Reports</strong> workspace turns the loan book into insight, with a time-range
+  filter at the top. It includes:</p>
+  <ul>
+    <li><strong>Pipeline Status Summary</strong> — how many applications sit at each stage.</li>
+    <li><strong>Origination Volume Trend</strong> — amounts disbursed over time.</li>
+    <li><strong>Pipeline Conversion</strong> and <strong>Staff Productivity</strong> metrics.</li>
+    <li><strong>Audit Log</strong> — system-wide activity for the selected period.</li>
+    <li><strong>Demographic Breakdown</strong> — client composition for NCR / BEE compliance
+    reporting (gender, black women-owned, HDP, disability, rural).</li>
+    <li><strong>Debtors Book Age Analysis</strong> — outstanding installments aged by days overdue.</li>
+    <li><strong>Province Breakdown</strong> and <strong>Spatial Classification</strong>
+    (rural / township / city) — the geographic reporting PRDF provides as a developmental funder.</li>
+    <li><strong>Export Center</strong> — every dataset downloadable as CSV for board and regulatory
+    reporting.</li>
+  </ul>
+  <figure class="tall">
+    <img src="../../demo/admin/screenshots/04-reports.png" alt="Reports and analytics">
+    <figcaption>Figure 27 — Reports &amp; Analytics: pipeline charts, compliance breakdowns, debtors
+    ageing and the Export Center.</figcaption>
+  </figure>
+</div>
+
+<div class="page">
+  <h3>4.9 User access and roles</h3>
+  <p><strong>User Access</strong> (visible to administrators only) is where internal roles are
+  granted and revoked. The tiles summarise visible users, admins and super admins; the list can be
+  searched by name or email and filtered by user type or role. To grant a role, pick it in the
+  <strong>Assign Role</strong> dropdown next to the user and click <strong>Assign</strong>.</p>
+  <table>
+    <tr><th>Role</th><th>Typical use</th></tr>
+    <tr><td><strong>Client</strong></td><td>An applicant using the Client Portal.</td></tr>
+    <tr><td><strong>Intern</strong></td><td>Limited internal access for support work.</td></tr>
+    <tr><td><strong>Originator</strong></td><td>Brings in and captures new applications.</td></tr>
+    <tr><td><strong>Loan Officer</strong></td><td>Reviews cases, verifies documents, moves applications through the pipeline.</td></tr>
+    <tr><td><strong>Admin</strong></td><td>Full console access, including user access management.</td></tr>
+    <tr><td><strong>Super Admin</strong></td><td>The only role that can grant or revoke Admin access.</td></tr>
+  </table>
+  <p>Access is <strong>least-privilege</strong>: each role sees only the pages and actions it
+  needs.</p>
+  <figure class="small">
+    <img src="../../demo/admin/screenshots/05-user-access.png" alt="User access page">
+    <figcaption>Figure 28 — User Access: role badges per user and the assign-role controls.</figcaption>
+  </figure>
+</div>
+
+<!-- ============================================================ APPENDIX -->
+<div class="page">
+  <h2>5. Appendix</h2>
+
+  <h3>5.1 Application status glossary</h3>
+  <table>
+    <tr><th>Status</th><th>Meaning</th></tr>
+    <tr><td><strong>Draft</strong></td><td>You started an application and saved it to finish later. It has not been sent to PRDF yet.</td></tr>
+    <tr><td><strong>Submitted</strong></td><td>Your application has been received and is awaiting assignment to a reviewer.</td></tr>
+    <tr><td><strong>Under Review</strong></td><td>The PRDF team is reviewing your application and documents.</td></tr>
+    <tr><td><strong>Approved</strong></td><td>Your application has passed review and has been approved for funding.</td></tr>
+    <tr><td><strong>Funds Disbursed</strong></td><td>The loan amount has been paid out to your business.</td></tr>
+    <tr><td><strong>In Repayment</strong></td><td>You are repaying the loan according to your repayment schedule.</td></tr>
+    <tr><td><strong>Loan Closed</strong></td><td>The loan has been fully repaid and the account closed.</td></tr>
+  </table>
+
+  <h3>5.2 Required documents checklist</h3>
+  <table>
+    <tr><th>Document</th><th>What to provide</th></tr>
+    <tr><td>ID Document</td><td>Certified copy of the director's / applicant's identity document.</td></tr>
+    <tr><td>Proof of Address</td><td>Recent proof of business or director address.</td></tr>
+    <tr><td>Company Registration</td><td>CIPC company registration certificate.</td></tr>
+    <tr><td>Tax Clearance</td><td>SARS tax clearance certificate or tax compliance status document.</td></tr>
+    <tr><td>Bank Statements</td><td>The last 3 months of business bank statements.</td></tr>
+    <tr><td>Financial Statements</td><td>Latest annual financial statements or management accounts.</td></tr>
+  </table>
+  <div class="tip">Have all six documents ready as PDF, JPG or PNG files before you start the
+  application — you can then complete the whole wizard in one sitting.</div>
+
+  <h3>5.3 Frequently asked questions</h3>
+  <p><strong>How much can I borrow, and over what period?</strong><br>
+  PRDF loans range from <strong>R250&nbsp;000 to R5&nbsp;million</strong>, repayable over
+  <strong>1 to 60 months</strong>. The lending rate is Prime+, up to P+10, based on the quality
+  of the transaction — any instalment shown in the calculator is indicative until your final
+  rate is confirmed.</p>
+  <p><strong>Do I need to finish my application in one go?</strong><br>
+  No. Click <em>Save &amp; finish later</em> on any step. Your draft appears on the Status page
+  with a <em>Resume your draft</em> button.</p>
+  <p><strong>How do I know where my application is in the process?</strong><br>
+  Open <em>Status</em> in the Client Portal. The tracker shows exactly which stage your
+  application has reached, from Submitted through to Loan Closed.</p>
+  <p><strong>What happens after I submit?</strong><br>
+  Your application is assigned to a PRDF reviewer, who verifies your documents and moves the case
+  to <em>Under Review</em>. If anything is missing, PRDF will request more information. If the
+  application is unsuccessful, PRDF issues a letter with the reason.</p>
+  <p><strong>Is my information safe?</strong><br>
+  Yes. Your data is processed only with your recorded POPIA consent, stored in a secured cloud
+  database with row-level security, and documents are held in protected storage that only you and
+  authorised PRDF staff can access.</p>
+  <p><strong>Can I apply for more than one loan?</strong><br>
+  Yes — use <em>New Application</em> on the Status page to start another application at any
+  time.</p>
+</div>
+
+</body>
+</html>

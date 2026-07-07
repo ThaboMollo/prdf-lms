@@ -34,6 +34,9 @@ export type ApplicationSummary = {
 
 export type ApplicationDetails = ApplicationSummary & {
   loanId?: string | null
+  // Draft resume fields (present on Draft rows saved by the apply wizard).
+  currentStep?: number | null
+  draftState?: Record<string, unknown> | null
 }
 
 export type StatusHistoryItem = {
@@ -98,6 +101,14 @@ export type CreateApplicationInput = {
   insolventOrDebtReview?: boolean
   assignedToUserId?: string
   consent?: ApplicationConsentInput
+  // Step-2 financials (persisted for resumable drafts).
+  monthlyRevenue?: number
+  yearsInOperation?: number
+  numberOfEmployees?: number
+  bankName?: string
+  // Draft resume metadata (hybrid storage).
+  currentStep?: number
+  draftState?: Record<string, unknown> | null
 }
 
 export type ApplicationConsentItem = {

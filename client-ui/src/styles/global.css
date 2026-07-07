@@ -2099,6 +2099,68 @@ input[type="range"]::-moz-range-thumb {
   }
 }
 
+.wizard-header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.wizard-header-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+  flex: none;
+}
+
+.save-status {
+  font-size: 0.85rem;
+  color: var(--muted, #64748b);
+}
+
+.save-status--ok {
+  color: var(--success, #16a34a);
+  font-weight: 600;
+}
+
+.save-discard {
+  font-size: 0.85rem;
+  color: var(--danger, #dc2626);
+}
+
+.doc-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.doc-uploaded-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  background: var(--bg, #f4f6f8);
+  border: 1px solid var(--border-light, #e5e7eb);
+  border-radius: 10px;
+}
+
+.doc-uploaded-name {
+  font-size: 0.85rem;
+  color: var(--success, #16a34a);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doc-uploaded-actions {
+  display: inline-flex;
+  gap: 0.5rem;
+  flex: none;
+}
+
 /* ----------------------------------------------------------------
    File Dropzone (new style)
    ---------------------------------------------------------------- */
@@ -4333,11 +4395,16 @@ html {
    ---------------------------------------------------------------- */
 .consent-card {
   width: min(760px, 100%);
-  max-height: 88vh;
+  max-height: 85vh;
+  /* As a grid item in .modal-backdrop, the default min-height:auto refuses to
+     shrink below content height, defeating max-height. Force it to shrink so
+     the card is capped and .consent-body scrolls instead of overflowing. */
+  min-height: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
   gap: 0;
+  overflow: hidden;
 }
 
 .consent-header {

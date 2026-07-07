@@ -62,7 +62,14 @@ create table if not exists public.loan_applications (
   status text not null default 'Draft',
   submitted_at timestamptz,
   assigned_to_user_id uuid references auth.users(id) on delete set null,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- PRDF product limits (R250 000 – R5m, 1 – 60 months). Drafts are exempt:
+  -- the apply wizard autosaves partial rows; the checks bite on submit when the
+  -- row leaves Draft. Keep in sync with client-ui/src/lib/loanLimits.ts.
+  constraint loan_applications_requested_amount_range
+    check (status = 'Draft' or (requested_amount >= 250000 and requested_amount <= 5000000)),
+  constraint loan_applications_term_months_range
+    check (status = 'Draft' or (term_months >= 1 and term_months <= 60))
 );
 
 create table if not exists public.application_consents (

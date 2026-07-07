@@ -9,6 +9,12 @@
 
 - `POST /api/applications`
 - `PUT /api/applications/{id}`
+
+Validation (create/update): `requestedAmount` must be between **250000 and
+5000000** (R250 000 – R5m) and `termMonths` between **1 and 60**. Out-of-range
+values are rejected by both backends and by the database range constraints
+(`phase12_loan_limits.sql`).
+
 - `POST /api/applications/{id}/submit`
 - `GET /api/applications`
 - `GET /api/applications/{id}`

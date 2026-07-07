@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useCalculator } from '../contexts/CalculatorContext'
 import { formatRand } from '../lib/loanCalc'
+import { LOAN_AMOUNT_MIN, LOAN_AMOUNT_RANGE_LABEL } from '../lib/loanLimits'
 
 export function RegisterPage() {
   const navigate = useNavigate()
@@ -15,7 +16,7 @@ export function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const hasCalcState = amount !== 50000 || term !== 6
+  const hasCalcState = amount !== LOAN_AMOUNT_MIN || term !== 6
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -57,9 +58,9 @@ export function RegisterPage() {
         </div>
         <ul className="auth-brand-bullets">
           <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> 100% online — no branch visits</li>
-          <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> Loans from R10,000 to R10 million</li>
+          <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> {LOAN_AMOUNT_RANGE_LABEL}</li>
           <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> Repayment terms up to 60 months</li>
-          <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> NCR-registered and fully compliant</li>
+          <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> NCR-registered</li>
         </ul>
         {hasCalcState && (
           <div className="auth-loan-preview">

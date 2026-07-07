@@ -1,9 +1,11 @@
-import { useMemo, useReducer, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Session } from '@supabase/supabase-js'
-import type { MeResponse } from '../lib/api'
+import type { ApplicationDocument, CreateApplicationInput, MeResponse } from '../lib/api'
 import { useCalculator } from '../contexts/CalculatorContext'
+import { useToast } from '../components/shared/ToastProvider'
+import { CardSkeleton } from '../components/shared/Skeletons'
 import { WizardProgress } from '../components/shared/WizardProgress'
 import { FileDropzone } from '../components/shared/FileDropzone'
 import { FieldError } from '../components/shared/FieldError'
@@ -11,15 +13,14 @@ import { LoanCalculator } from '../components/shared/LoanCalculator'
 import { AddressFields, type AddressValue } from '../components/shared/AddressFields'
 import { WizardCostCard } from '../components/shared/WizardCostCard'
 import { formatRand, calculateMonthlyInstalment, calculateTotalFees, calculateTotalRepayment } from '../lib/loanCalc'
+import { LENDING_RATE_LABEL } from '../lib/loanLimits'
 import {
   step1Schema,
   step2Schema,
   step3Schema,
-  step4Schema,
   type Step1Data,
   type Step2Data,
   type Step3Data,
-  type Step4Data,
   type WizardFormState,
 } from '../features/applications/validation'
 import { createApplicationsUseCases } from '../logic/usecases/applications'
@@ -45,6 +46,43 @@ const LOAN_PURPOSES = [
   'Staff Hiring', 'Marketing', 'Renovations', 'Other',
 ]
 
+// Step 4 document slots. `type` is the stored doc_type (matches admin/back office).
+const DOC_SLOTS: { type: string; label: string; hint: string; multiple?: boolean }[] = [
+  { type: 'IDDocument', label: 'ID Document *', hint: 'Certified copy of the director or applicant identity document' },
+  { type: 'ProofOfAddress', label: 'Proof of Address *', hint: 'Recent proof of business or director address' },
+  { type: 'BusinessRegistration', label: 'Company Registration (CIPC) *', hint: 'CIPC company registration certificate' },
+  { type: 'TaxClearance', label: 'Tax Clearance *', hint: 'SARS tax clearance or tax compliance status document' },
+  { type: 'BankStatement', label: 'Bank Statements (last 3 months) *', hint: 'Upload 3 months of business bank statements', multiple: true },
+  { type: 'Financials', label: 'Financial Statements *', hint: 'Latest annual financials or management accounts' },
+]
+const REQUIRED_DOC_TYPES = DOC_SLOTS.map((s) => s.type)
+
+// Strip the "applications/<id>/<uuid>-" prefix to show the original filename.
+function docFileName(storagePath: string): string {
+  const last = storagePath.split('/').pop() ?? storagePath
+  return last.replace(/^[0-9a-fA-F-]{36}-/, '')
+}
+
+function missingDocTypes(documents: ApplicationDocument[]): string[] {
+  return REQUIRED_DOC_TYPES.filter((t) => !documents.some((d) => d.docType === t))
+}
+
+// Whether the wizard holds enough to be worth persisting as a draft — avoids
+// creating junk draft rows for users who land on the wizard and leave.
+function hasMeaningfulData(data: WizardFormState): boolean {
+  const { step1: s1, step2: s2, step3: s3 } = data
+  return Boolean(
+    s1?.businessName?.trim() ||
+      s1?.registrationNo?.trim() ||
+      s1?.industry ||
+      s1?.addressLine1?.trim() ||
+      s1?.sarsTaxPin?.trim() ||
+      (s2 && (s2.monthlyRevenue || s2.numberOfEmployees || s2.bankName)) ||
+      s3?.purpose?.trim() ||
+      s3?.loanPurposeCategory
+  )
+}
+
 
 // ----------------------------------------------------------------
 // Wizard state / reducer
@@ -60,11 +98,13 @@ type WizardAction =
   | { type: 'SET_STEP1'; payload: Step1Data }
   | { type: 'SET_STEP2'; payload: Step2Data }
   | { type: 'SET_STEP3'; payload: Step3Data }
-  | { type: 'SET_STEP4'; payload: Step4Data }
   | { type: 'GOTO_STEP'; step: number }
+  | { type: 'HYDRATE'; payload: { data: WizardFormState; currentStep: number } }
 
 function wizardReducer(state: WizardState, action: WizardAction): WizardState {
   switch (action.type) {
+    case 'HYDRATE':
+      return { currentStep: action.payload.currentStep, data: action.payload.data }
     case 'NEXT':
       return { ...state, currentStep: Math.min(state.currentStep + 1, 5) }
     case 'PREV':
@@ -75,8 +115,6 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
       return { ...state, data: { ...state.data, step2: action.payload } }
     case 'SET_STEP3':
       return { ...state, data: { ...state.data, step3: action.payload } }
-    case 'SET_STEP4':
-      return { ...state, data: { ...state.data, step4: action.payload } }
     case 'GOTO_STEP':
       return { ...state, currentStep: Math.max(1, Math.min(action.step, 5)) }
     default:
@@ -95,7 +133,9 @@ type ApplyPageProps = {
 export function ApplyPage({ session }: ApplyPageProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { amount, term } = useCalculator()
+  const toast = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { amount, term, setCalculator } = useCalculator()
 
   const applicationsUseCases = useMemo(
     () => createApplicationsUseCases(session.access_token),
@@ -125,17 +165,270 @@ export function ApplyPage({ session }: ApplyPageProps) {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [consentOpen, setConsentOpen] = useState(false)
 
-  async function handleFinalSubmit(consent: ConsentPayload) {
-    const { step1, step2, step3, step4 } = state.data
+  // ---- Draft persistence (save & resume) ----
+  const draftParam = searchParams.get('draft')
+  const [draftId, setDraftId] = useState<string | null>(draftParam)
+  const [hydrating, setHydrating] = useState(true)
+  const [savingDraft, setSavingDraft] = useState(false)
+  const [savedTick, setSavedTick] = useState(false)
+  const [docBusy, setDocBusy] = useState(false)
+  const [discarding, setDiscarding] = useState(false)
+  // Serialize saves so rapid autosaves never race the "one active draft" index:
+  // each save waits for the previous and reuses the id it established.
+  const draftIdRef = useRef<string | null>(draftParam)
+  const saveChain = useRef<Promise<string | null>>(Promise.resolve(draftParam))
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-    if (!step1 || !step2 || !step3 || !step4) {
+  // Persisted documents for the current draft (uploaded as they're added).
+  const documentsQuery = useQuery({
+    queryKey: ['draft-documents', draftId],
+    queryFn: () => documentsUseCases.getDocuments(draftId as string),
+    enabled: Boolean(draftId),
+  })
+  const documents = documentsQuery.data ?? []
+
+  // On mount, resume from an explicit ?draft=<id> or the client's single open draft.
+  useEffect(() => {
+    let cancelled = false
+    async function init() {
+      try {
+        let id = draftParam
+        if (!id) {
+          const mine = await applicationsUseCases.getMyDraft()
+          id = mine?.id ?? null
+        }
+        if (!id) return
+        const detail = await applicationsUseCases.getApplication(id)
+        if (cancelled) return
+        const ds = (detail.draftState ?? {}) as Partial<WizardFormState> & { currentStep?: number }
+        const step3 = (ds.step3 as Step3Data | undefined) ?? {
+          requestedAmount: detail.requestedAmount,
+          termMonths: detail.termMonths,
+          purpose: '',
+          loanPurposeCategory: '',
+        }
+        const data: WizardFormState = {
+          step1: (ds.step1 as Step1Data) ?? null,
+          step2: (ds.step2 as Step2Data) ?? null,
+          step3,
+          step4: null, // documents are re-collected on resume (Phase 1)
+          step5: { termsAccepted: false },
+        }
+        const savedStep = ds.currentStep ?? detail.currentStep ?? 1
+        const resumeStep = Math.min(Math.max(savedStep, 1), 5)
+        setCalculator(step3.requestedAmount ?? amount, step3.termMonths ?? term)
+        dispatch({ type: 'HYDRATE', payload: { data, currentStep: resumeStep } })
+        draftIdRef.current = id
+        setDraftId(id)
+        saveChain.current = Promise.resolve(id)
+        if (draftParam !== id) {
+          const next = new URLSearchParams(searchParams)
+          next.set('draft', id)
+          setSearchParams(next, { replace: true })
+        }
+      } catch {
+        // Fall back to a blank wizard.
+      } finally {
+        if (!cancelled) setHydrating(false)
+      }
+    }
+    void init()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function buildDraftPayload(data: WizardFormState, currentStep: number): CreateApplicationInput {
+    const s1 = data.step1
+    const s2 = data.step2
+    const s3 = data.step3
+    return {
+      requestedAmount: s3?.requestedAmount ?? amount,
+      termMonths: s3?.termMonths ?? term,
+      purpose: s3 && (s3.loanPurposeCategory || s3.purpose) ? `${s3.loanPurposeCategory}: ${s3.purpose}` : '',
+      businessName: s1?.businessName,
+      registrationNo: s1?.registrationNo,
+      address: s1
+        ? [s1.addressLine1, s1.addressLine2, s1.city, s1.province, s1.country].filter(Boolean).join(', ')
+        : undefined,
+      province: s1?.province,
+      spatialType: s1?.spatialType,
+      industry: s1?.industry,
+      gender: s1?.gender,
+      isDisabled: s1?.isDisabled,
+      isHdp: s1?.isHdp,
+      isRural: s1?.isRural,
+      isBlackWomenOwned: s1?.isBlackWomenOwned,
+      saCitizenshipPercentage: s1?.saCitizenshipPercentage,
+      isDirectorOperational: s1?.isDirectorOperational,
+      cipcRegistered: s1?.cipcRegistered,
+      sarsTaxPin: s1?.sarsTaxPin,
+      insolventOrDebtReview: s1?.insolventOrDebtReview,
+      monthlyRevenue: s2?.monthlyRevenue,
+      yearsInOperation: s2?.yearsInOperation,
+      numberOfEmployees: s2?.numberOfEmployees,
+      bankName: s2?.bankName,
+      currentStep,
+      draftState: { step1: s1, step2: s2, step3: s3, currentStep },
+    }
+  }
+
+  async function saveProgress(
+    data: WizardFormState,
+    currentStep: number,
+    opts: { exit?: boolean; silent?: boolean } = {}
+  ): Promise<string | null> {
+    // Don't create a junk draft when nothing meaningful has been entered yet.
+    if (!draftIdRef.current && !hasMeaningfulData(data) && !documents.length) {
+      if (!opts.silent) toast.push('Add a few details before saving.', 'info')
+      return null
+    }
+    setSavingDraft(true)
+    // Chain onto the previous save so concurrent autosaves run one-at-a-time and
+    // the second reuses the id the first established (no duplicate-draft race).
+    const run = saveChain.current.then(async () => {
+      try {
+        const saved = await applicationsUseCases.saveDraft(draftIdRef.current, buildDraftPayload(data, currentStep))
+        if (saved.id !== draftIdRef.current) {
+          draftIdRef.current = saved.id
+          setDraftId(saved.id)
+          const next = new URLSearchParams(searchParams)
+          next.set('draft', saved.id)
+          setSearchParams(next, { replace: true })
+        }
+        setSavedTick(true)
+        if (opts.exit) {
+          toast.push('Draft saved — resume any time from your dashboard.', 'success')
+          queryClient.invalidateQueries({ queryKey: ['home-applications'] })
+          queryClient.invalidateQueries({ queryKey: ['status-applications'] })
+          queryClient.invalidateQueries({ queryKey: ['progress-applications'] })
+          navigate('/status')
+        } else if (!opts.silent) {
+          toast.push('Progress saved.', 'info')
+        }
+        return saved.id
+      } catch (err) {
+        // Autosaves fail quietly; only surface errors for explicit saves.
+        if (!opts.silent) {
+          toast.push(err instanceof Error ? err.message : 'Could not save your draft.', 'error')
+        } else {
+          console.warn('Draft autosave failed:', err)
+        }
+        return draftIdRef.current
+      }
+    })
+    saveChain.current = run.catch(() => draftIdRef.current)
+    const result = await run
+    setSavingDraft(false)
+    return result
+  }
+
+  // "Save & finish later" from a step: merge that step's current values, persist,
+  // and leave for the dashboard.
+  function saveAndExitFromStep(stepNum: number, stepData?: Step1Data | Step2Data | Step3Data) {
+    const merged: WizardFormState = { ...state.data }
+    if (stepNum === 1 && stepData) merged.step1 = stepData as Step1Data
+    else if (stepNum === 2 && stepData) merged.step2 = stepData as Step2Data
+    else if (stepNum === 3 && stepData) merged.step3 = stepData as Step3Data
+    void saveProgress(merged, stepNum, { exit: true })
+  }
+
+  // Documents are uploaded straight onto the draft, so ensure one exists first.
+  async function ensureDraft(): Promise<string | null> {
+    return draftIdRef.current ?? (await saveProgress(state.data, state.currentStep, { silent: true }))
+  }
+
+  async function handleUploadDoc(docType: string, file: File) {
+    setDocBusy(true)
+    try {
+      const id = await ensureDraft()
+      if (!id) throw new Error('Could not start your draft — please try again.')
+      await documentsUseCases.uploadDocumentFlow(id, docType, file)
+      await queryClient.invalidateQueries({ queryKey: ['draft-documents', id] })
+    } catch (err) {
+      toast.push(err instanceof Error ? err.message : 'Upload failed.', 'error')
+    } finally {
+      setDocBusy(false)
+    }
+  }
+
+  async function handleRemoveDoc(doc: ApplicationDocument) {
+    setDocBusy(true)
+    try {
+      await documentsUseCases.deleteDocument(doc.applicationId, doc.id, doc.storagePath)
+      await queryClient.invalidateQueries({ queryKey: ['draft-documents', doc.applicationId] })
+    } catch (err) {
+      toast.push(err instanceof Error ? err.message : 'Could not remove the document.', 'error')
+    } finally {
+      setDocBusy(false)
+    }
+  }
+
+  async function handleViewDoc(doc: ApplicationDocument) {
+    try {
+      const url = await documentsUseCases.createSignedUrl(doc.storagePath)
+      window.open(url, '_blank', 'noopener')
+    } catch (err) {
+      toast.push(err instanceof Error ? err.message : 'Could not open the document.', 'error')
+    }
+  }
+
+  // Debounced field-level autosave: persist ~1.4s after the user stops editing.
+  function scheduleAutosave(stepNum: number, snapshot: Step1Data | Step2Data | Step3Data) {
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
+    const merged: WizardFormState = { ...state.data }
+    if (stepNum === 1) merged.step1 = snapshot as Step1Data
+    else if (stepNum === 2) merged.step2 = snapshot as Step2Data
+    else if (stepNum === 3) merged.step3 = snapshot as Step3Data
+    setSavedTick(false)
+    autosaveTimer.current = setTimeout(() => {
+      void saveProgress(merged, stepNum, { silent: true })
+    }, 1400)
+  }
+
+  // Clear any pending autosave on unmount.
+  useEffect(() => () => { if (autosaveTimer.current) clearTimeout(autosaveTimer.current) }, [])
+
+  async function discardDraft() {
+    const id = draftIdRef.current
+    if (!id) {
+      navigate('/status')
+      return
+    }
+    if (!window.confirm('Discard this draft application? This cannot be undone.')) return
+    setDiscarding(true)
+    try {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
+      await saveChain.current.catch(() => null)
+      // Remove uploaded files (storage + rows) before deleting the draft row.
+      for (const doc of documents) {
+        await documentsUseCases.deleteDocument(doc.applicationId, doc.id, doc.storagePath).catch(() => {})
+      }
+      await applicationsUseCases.deleteApplication(id)
+      draftIdRef.current = null
+      queryClient.invalidateQueries({ queryKey: ['home-applications'] })
+      queryClient.invalidateQueries({ queryKey: ['status-applications'] })
+      queryClient.invalidateQueries({ queryKey: ['progress-applications'] })
+      toast.push('Draft discarded.', 'info')
+      navigate('/status')
+    } catch (err) {
+      toast.push(err instanceof Error ? err.message : 'Could not discard the draft.', 'error')
+      setDiscarding(false)
+    }
+  }
+
+  async function handleFinalSubmit(consent: ConsentPayload) {
+    const { step1, step2, step3 } = state.data
+
+    if (!step1 || !step2 || !step3) {
       setConsentOpen(false)
       setSubmitError('Please complete all steps before submitting.')
       return
     }
 
-    const step4Result = step4Schema.safeParse(step4)
-    if (!step4Result.success) {
+    // Documents are already uploaded onto the draft; just confirm the set is complete.
+    if (missingDocTypes(documents).length) {
       setConsentOpen(false)
       setSubmitError('Please upload all required documents before submitting.')
       return
@@ -145,45 +438,20 @@ export function ApplyPage({ session }: ApplyPageProps) {
     setSubmitError(null)
 
     try {
-      const draft = await applicationsUseCases.createDraft({
-        consent,
-        requestedAmount: step3.requestedAmount,
-        termMonths: step3.termMonths,
-        purpose: `${step3.loanPurposeCategory}: ${step3.purpose}`,
-        businessName: step1.businessName,
-        registrationNo: step1.registrationNo,
-        address: [step1.addressLine1, step1.addressLine2, step1.city, step1.province, step1.country]
-          .filter(Boolean)
-          .join(', '),
-        province: step1.province,
-        spatialType: step1.spatialType,
-        industry: step1.industry,
-        gender: step1.gender,
-        isDisabled: step1.isDisabled,
-        isHdp: step1.isHdp,
-        isRural: step1.isRural,
-        isBlackWomenOwned: step1.isBlackWomenOwned,
-        saCitizenshipPercentage: step1.saCitizenshipPercentage,
-        isDirectorOperational: step1.isDirectorOperational,
-        cipcRegistered: step1.cipcRegistered,
-        sarsTaxPin: step1.sarsTaxPin,
-        insolventOrDebtReview: step1.insolventOrDebtReview
-      })
+      // Persist the latest wizard data onto the client's draft (create if the user
+      // never explicitly saved), then attach consent — resuming a draft submits the
+      // same row rather than creating a duplicate. Let any in-flight autosave settle
+      // first so we submit the same row it created.
+      await saveChain.current.catch(() => null)
+      const saved = await applicationsUseCases.saveDraft(
+        draftIdRef.current,
+        buildDraftPayload({ ...state.data, step1, step2, step3 }, 5)
+      )
+      const appId = saved.id
+      draftIdRef.current = appId
+      setDraftId(appId)
 
-      const appId = draft.id
-
-      // Upload documents
-      await documentsUseCases.uploadDocumentFlow(appId, 'IDDocument', step4Result.data.idDocument)
-      await documentsUseCases.uploadDocumentFlow(appId, 'ProofOfAddress', step4Result.data.proofOfAddress)
-      await documentsUseCases.uploadDocumentFlow(appId, 'BusinessRegistration', step4Result.data.cipcCert)
-      await documentsUseCases.uploadDocumentFlow(appId, 'TaxClearance', step4Result.data.taxClearance)
-
-      for (const file of step4Result.data.bankStatements) {
-        await documentsUseCases.uploadDocumentFlow(appId, 'BankStatement', file)
-      }
-
-      await documentsUseCases.uploadDocumentFlow(appId, 'Financials', step4Result.data.financials)
-
+      await applicationsUseCases.recordConsent(appId, consent)
       await applicationsUseCases.submitApplication(appId)
 
       queryClient.invalidateQueries({ queryKey: ['applications'] })
@@ -198,11 +466,37 @@ export function ApplyPage({ session }: ApplyPageProps) {
     }
   }
 
+  if (hydrating) {
+    return (
+      <main className="auth-wrap">
+        <div className="auth-card">
+          <CardSkeleton />
+        </div>
+      </main>
+    )
+  }
+
   return (
     <div className="wizard-shell">
       <div className="wizard-header">
-        <h1>Apply for Funding</h1>
-        <p>Step {state.currentStep} of {STEPS.length} - {STEPS[state.currentStep - 1]}</p>
+        <div className="wizard-header-top">
+          <div>
+            <h1>Apply for Funding</h1>
+            <p>Step {state.currentStep} of {STEPS.length} - {STEPS[state.currentStep - 1]}</p>
+          </div>
+          <div className="wizard-header-meta">
+            {savingDraft ? (
+              <span className="save-status">Saving…</span>
+            ) : savedTick ? (
+              <span className="save-status save-status--ok">✓ All changes saved</span>
+            ) : null}
+            {draftId ? (
+              <button type="button" className="link-btn save-discard" onClick={discardDraft} disabled={discarding}>
+                {discarding ? 'Discarding…' : 'Discard draft'}
+              </button>
+            ) : null}
+          </div>
+        </div>
         <WizardProgress steps={STEPS} currentStep={state.currentStep} />
       </div>
 
@@ -211,18 +505,26 @@ export function ApplyPage({ session }: ApplyPageProps) {
           {state.currentStep === 1 && (
             <Step1
               initial={state.data.step1}
+              savingDraft={savingDraft}
+              onSaveDraft={(data) => saveAndExitFromStep(1, data)}
+              onAutosave={(data) => scheduleAutosave(1, data)}
               onNext={(data) => {
                 dispatch({ type: 'SET_STEP1', payload: data })
                 dispatch({ type: 'NEXT' })
+                void saveProgress({ ...state.data, step1: data }, 2, { silent: true })
               }}
             />
           )}
           {state.currentStep === 2 && (
             <Step2
               initial={state.data.step2}
+              savingDraft={savingDraft}
+              onSaveDraft={(data) => saveAndExitFromStep(2, data)}
+              onAutosave={(data) => scheduleAutosave(2, data)}
               onNext={(data) => {
                 dispatch({ type: 'SET_STEP2', payload: data })
                 dispatch({ type: 'NEXT' })
+                void saveProgress({ ...state.data, step2: data }, 3, { silent: true })
               }}
               onBack={() => dispatch({ type: 'PREV' })}
             />
@@ -230,19 +532,29 @@ export function ApplyPage({ session }: ApplyPageProps) {
           {state.currentStep === 3 && (
             <Step3
               initial={state.data.step3}
+              savingDraft={savingDraft}
+              onSaveDraft={(data) => saveAndExitFromStep(3, data)}
+              onAutosave={(data) => scheduleAutosave(3, data)}
               onNext={(data) => {
                 dispatch({ type: 'SET_STEP3', payload: data })
                 dispatch({ type: 'NEXT' })
+                void saveProgress({ ...state.data, step3: data }, 4, { silent: true })
               }}
               onBack={() => dispatch({ type: 'PREV' })}
             />
           )}
           {state.currentStep === 4 && (
             <Step4
-              initial={state.data.step4}
-              onNext={(data) => {
-                dispatch({ type: 'SET_STEP4', payload: data })
+              documents={documents}
+              uploading={docBusy}
+              onUpload={handleUploadDoc}
+              onRemove={handleRemoveDoc}
+              onView={handleViewDoc}
+              savingDraft={savingDraft}
+              onSaveDraft={() => void saveProgress(state.data, 4, { exit: true })}
+              onNext={() => {
                 dispatch({ type: 'NEXT' })
+                void saveProgress(state.data, 5, { silent: true })
               }}
               onBack={() => dispatch({ type: 'PREV' })}
             />
@@ -250,6 +562,7 @@ export function ApplyPage({ session }: ApplyPageProps) {
           {state.currentStep === 5 && (
             <Step5
               data={state.data}
+              documents={documents}
               submitting={submitting}
               submitError={submitError}
               onBack={() => dispatch({ type: 'PREV' })}
@@ -286,7 +599,27 @@ export function ApplyPage({ session }: ApplyPageProps) {
 // ----------------------------------------------------------------
 // Step 1 — Business Profile
 // ----------------------------------------------------------------
-function Step1({ initial, onNext }: { initial: Step1Data | null; onNext: (d: Step1Data) => void }) {
+function SaveDraftButton({ onClick, saving }: { onClick: () => void; saving: boolean }) {
+  return (
+    <button type="button" className="btn btn-ghost" onClick={onClick} disabled={saving}>
+      {saving ? 'Saving…' : 'Save & finish later'}
+    </button>
+  )
+}
+
+function Step1({
+  initial,
+  onNext,
+  onSaveDraft,
+  onAutosave,
+  savingDraft,
+}: {
+  initial: Step1Data | null
+  onNext: (d: Step1Data) => void
+  onSaveDraft: (d: Step1Data) => void
+  onAutosave: (d: Step1Data) => void
+  savingDraft: boolean
+}) {
   const [form, setForm] = useState({
     businessName: initial?.businessName ?? '',
     registrationNo: initial?.registrationNo ?? '',
@@ -312,8 +645,8 @@ function Step1({ initial, onNext }: { initial: Step1Data | null; onNext: (d: Ste
   })
   const [errors, setErrors] = useState<Partial<Record<keyof Step1Data, string>>>({})
 
-  function handleNext() {
-    const flat = {
+  function buildFlat(): Step1Data {
+    return {
       businessName: form.businessName,
       registrationNo: form.registrationNo,
       industry: form.industry,
@@ -322,8 +655,8 @@ function Step1({ initial, onNext }: { initial: Step1Data | null; onNext: (d: Ste
       city: form.address.city,
       province: form.address.province,
       country: form.address.country,
-      gender: form.gender,
-      spatialType: form.spatialType,
+      gender: form.gender as Step1Data['gender'],
+      spatialType: form.spatialType as Step1Data['spatialType'],
       // Keep the legacy is_rural flag in sync with the spatial classification.
       isRural: form.spatialType === 'Rural',
       isDisabled: form.isDisabled,
@@ -335,7 +668,21 @@ function Step1({ initial, onNext }: { initial: Step1Data | null; onNext: (d: Ste
       sarsTaxPin: form.sarsTaxPin,
       insolventOrDebtReview: form.insolventOrDebtReview
     }
-    const result = step1Schema.safeParse(flat)
+  }
+
+  // Debounced autosave on any edit (skips the initial hydrate render).
+  const firstRender = useRef(true)
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false
+      return
+    }
+    onAutosave(buildFlat())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form])
+
+  function handleNext() {
+    const result = step1Schema.safeParse(buildFlat())
     if (!result.success) {
       const fieldErrors: Partial<Record<keyof Step1Data, string>> = {}
       for (const issue of result.error.issues) {
@@ -459,7 +806,7 @@ function Step1({ initial, onNext }: { initial: Step1Data | null; onNext: (d: Ste
       </div>
 
       <div className="wizard-nav">
-        <span />
+        <SaveDraftButton onClick={() => onSaveDraft(buildFlat())} saving={savingDraft} />
         <button type="button" className="btn btn-primary" onClick={handleNext}>
           Continue →
         </button>
@@ -475,10 +822,16 @@ function Step2({
   initial,
   onNext,
   onBack,
+  onSaveDraft,
+  onAutosave,
+  savingDraft,
 }: {
   initial: Step2Data | null
   onNext: (d: Step2Data) => void
   onBack: () => void
+  onSaveDraft: (d: Step2Data) => void
+  onAutosave: (d: Step2Data) => void
+  savingDraft: boolean
 }) {
   const [form, setForm] = useState({
     monthlyRevenue: initial?.monthlyRevenue?.toString() ?? '',
@@ -487,6 +840,25 @@ function Step2({
     bankName: initial?.bankName ?? '',
   })
   const [errors, setErrors] = useState<Partial<Record<keyof Step2Data, string>>>({})
+
+  function buildSnapshot(): Step2Data {
+    return {
+      monthlyRevenue: Number(form.monthlyRevenue) || 0,
+      yearsInOperation: Number(form.yearsInOperation) || 0,
+      numberOfEmployees: Number(form.numberOfEmployees) || 0,
+      bankName: form.bankName,
+    }
+  }
+
+  const firstRender = useRef(true)
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false
+      return
+    }
+    onAutosave(buildSnapshot())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form])
 
   function handleNext() {
     const result = step2Schema.safeParse(form)
@@ -547,6 +919,7 @@ function Step2({
 
       <div className="wizard-nav">
         <button type="button" className="btn btn-ghost" onClick={onBack}>← Back</button>
+        <SaveDraftButton onClick={() => onSaveDraft(buildSnapshot())} saving={savingDraft} />
         <button type="button" className="btn btn-primary" onClick={handleNext}>Continue →</button>
       </div>
     </div>
@@ -560,10 +933,16 @@ function Step3({
   initial,
   onNext,
   onBack,
+  onSaveDraft,
+  onAutosave,
+  savingDraft,
 }: {
   initial: Step3Data | null
   onNext: (d: Step3Data) => void
   onBack: () => void
+  onSaveDraft: (d: Step3Data) => void
+  onAutosave: (d: Step3Data) => void
+  savingDraft: boolean
 }) {
   const { setCalculator } = useCalculator()
   const [purpose, setPurpose] = useState(initial?.purpose ?? '')
@@ -572,6 +951,16 @@ function Step3({
 
   // Keep in sync with calculator context — slider changes go through context
   const { amount, term } = useCalculator()
+
+  const firstRender = useRef(true)
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false
+      return
+    }
+    onAutosave({ requestedAmount: amount, termMonths: term, purpose, loanPurposeCategory })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [purpose, loanPurposeCategory, amount, term])
 
   function handleAmountChange(v: number) { setCalculator(v, term) }
   function handleTermChange(v: number) { setCalculator(amount, v) }
@@ -594,7 +983,7 @@ function Step3({
   return (
     <div className="wizard-body">
       <h2>Loan Details</h2>
-      <p>Adjust the sliders to set your preferred loan amount and repayment term.</p>
+      <p>Adjust the sliders to set your preferred loan amount and repayment term. Lending rate: {LENDING_RATE_LABEL}.</p>
 
       <LoanCalculator
         compact
@@ -629,6 +1018,10 @@ function Step3({
 
       <div className="wizard-nav">
         <button type="button" className="btn btn-ghost" onClick={onBack}>← Back</button>
+        <SaveDraftButton
+          onClick={() => onSaveDraft({ requestedAmount: amount, termMonths: term, purpose, loanPurposeCategory })}
+          saving={savingDraft}
+        />
         <button type="button" className="btn btn-primary" onClick={handleNext}>Continue →</button>
       </div>
     </div>
@@ -639,108 +1032,78 @@ function Step3({
 // Step 4 — Documents
 // ----------------------------------------------------------------
 function Step4({
-  initial,
+  documents,
+  uploading,
+  onUpload,
+  onRemove,
+  onView,
   onNext,
   onBack,
+  onSaveDraft,
+  savingDraft,
 }: {
-  initial: Step4Data | null
-  onNext: (d: Step4Data) => void
+  documents: ApplicationDocument[]
+  uploading: boolean
+  onUpload: (docType: string, file: File) => void
+  onRemove: (doc: ApplicationDocument) => void
+  onView: (doc: ApplicationDocument) => void
+  onNext: () => void
   onBack: () => void
+  onSaveDraft: () => void
+  savingDraft: boolean
 }) {
-  const [idDocument, setIdDocument] = useState<File | null>(initial?.idDocument ?? null)
-  const [proofOfAddress, setProofOfAddress] = useState<File | null>(initial?.proofOfAddress ?? null)
-  const [cipcCert, setCipcCert] = useState<File | null>(initial?.cipcCert ?? null)
-  const [taxClearance, setTaxClearance] = useState<File | null>(initial?.taxClearance ?? null)
-  const [bankStatements, setBankStatements] = useState<File[]>(initial?.bankStatements ?? [])
-  const [financials, setFinancials] = useState<File | null>(initial?.financials ?? null)
-  const [errors, setErrors] = useState<Partial<Record<keyof Step4Data, string>>>({})
+  const [error, setError] = useState<string | null>(null)
 
   function handleNext() {
-    const result = step4Schema.safeParse({
-      idDocument,
-      proofOfAddress,
-      cipcCert,
-      taxClearance,
-      bankStatements,
-      financials,
-    })
-    if (!result.success) {
-      const fieldErrors: Partial<Record<keyof Step4Data, string>> = {}
-      for (const issue of result.error.issues) {
-        const key = issue.path[0] as keyof Step4Data
-        fieldErrors[key] = issue.message
-      }
-      setErrors(fieldErrors)
+    if (missingDocTypes(documents).length) {
+      setError('Please upload all required documents before continuing.')
       return
     }
-    setErrors({})
-    onNext(result.data)
+    setError(null)
+    onNext()
   }
 
   return (
     <div className="wizard-body">
       <h2>Documents</h2>
-      <p>Upload all required documents. Accepted formats: PDF, JPG, PNG.</p>
+      <p>Upload all required documents. Accepted formats: PDF, JPG, PNG. Files are saved to your draft as you add them.</p>
 
       <div className="document-upload-grid">
-        <FileDropzone
-          label="ID Document *"
-          accept=".pdf,.jpg,.jpeg,.png"
-          files={idDocument ? [idDocument] : []}
-          onFilesChange={(files) => setIdDocument(files[0] ?? null)}
-          error={errors.idDocument}
-          hint="Certified copy of the director or applicant identity document"
-        />
-
-        <FileDropzone
-          label="Proof of Address *"
-          accept=".pdf,.jpg,.jpeg,.png"
-          files={proofOfAddress ? [proofOfAddress] : []}
-          onFilesChange={(files) => setProofOfAddress(files[0] ?? null)}
-          error={errors.proofOfAddress}
-          hint="Recent proof of business or director address"
-        />
-
-        <FileDropzone
-          label="Company Registration (CIPC) *"
-          accept=".pdf,.jpg,.jpeg,.png"
-          files={cipcCert ? [cipcCert] : []}
-          onFilesChange={(files) => setCipcCert(files[0] ?? null)}
-          error={errors.cipcCert}
-          hint="CIPC company registration certificate"
-        />
-
-        <FileDropzone
-          label="Tax Clearance *"
-          accept=".pdf,.jpg,.jpeg,.png"
-          files={taxClearance ? [taxClearance] : []}
-          onFilesChange={(files) => setTaxClearance(files[0] ?? null)}
-          error={errors.taxClearance}
-          hint="SARS tax clearance or tax compliance status document"
-        />
-
-        <FileDropzone
-          label="Bank Statements (last 3 months) *"
-          accept=".pdf,.jpg,.jpeg,.png"
-          multiple
-          files={bankStatements}
-          onFilesChange={setBankStatements}
-          error={errors.bankStatements}
-          hint="Upload 3 months of business bank statements"
-        />
-
-        <FileDropzone
-          label="Financial Statements *"
-          accept=".pdf,.jpg,.jpeg,.png"
-          files={financials ? [financials] : []}
-          onFilesChange={(files) => setFinancials(files[0] ?? null)}
-          error={errors.financials}
-          hint="Latest annual financials or management accounts"
-        />
+        {DOC_SLOTS.map((slot) => {
+          const existing = documents.filter((d) => d.docType === slot.type)
+          return (
+            <div key={slot.type} className="doc-slot">
+              <label style={{ fontWeight: 600, fontSize: '0.9rem' }}>{slot.label}</label>
+              {existing.map((doc) => (
+                <div key={doc.id} className="doc-uploaded-row">
+                  <span className="doc-uploaded-name">✓ {docFileName(doc.storagePath)}</span>
+                  <span className="doc-uploaded-actions">
+                    <button type="button" className="link-btn" onClick={() => onView(doc)}>View</button>
+                    <button type="button" className="link-btn" onClick={() => onRemove(doc)} disabled={uploading}>Remove</button>
+                  </span>
+                </div>
+              ))}
+              {(slot.multiple || existing.length === 0) && (
+                <FileDropzone
+                  label={existing.length ? 'Add another file' : ''}
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  multiple={slot.multiple}
+                  files={[]}
+                  onFilesChange={(files) => files.forEach((f) => onUpload(slot.type, f))}
+                  hint={slot.hint}
+                />
+              )}
+            </div>
+          )
+        })}
       </div>
+
+      {error ? <p className="text-error" role="alert" style={{ marginTop: '0.5rem' }}>{error}</p> : null}
+      {uploading ? <p className="muted-text" style={{ fontSize: '0.85rem' }}>Uploading…</p> : null}
 
       <div className="wizard-nav">
         <button type="button" className="btn btn-ghost" onClick={onBack}>← Back</button>
+        <SaveDraftButton onClick={onSaveDraft} saving={savingDraft} />
         <button type="button" className="btn btn-primary" onClick={handleNext}>Review Application →</button>
       </div>
     </div>
@@ -752,23 +1115,26 @@ function Step4({
 // ----------------------------------------------------------------
 function Step5({
   data,
+  documents,
   submitting,
   submitError,
   onBack,
   onOpenConsent,
 }: {
   data: WizardFormState
+  documents: ApplicationDocument[]
   submitting: boolean
   submitError: string | null
   onBack: () => void
   onOpenConsent: () => void
 }) {
-  const { step1, step2, step3, step4 } = data
+  const { step1, step2, step3 } = data
   const amount = step3?.requestedAmount ?? 0
   const term = step3?.termMonths ?? 0
   const monthly = calculateMonthlyInstalment(amount, term)
   const total = calculateTotalRepayment(amount, term)
   const fees = calculateTotalFees(amount, term)
+  const missingDocuments = missingDocTypes(documents)
 
   return (
     <div className="wizard-body">
@@ -812,27 +1178,36 @@ function Step5({
           </div>
         )}
 
-        {step4 && (
-          <div className="review-section">
-            <h3>Documents</h3>
-            <dl className="review-dl">
-              <div className="review-row"><dt>ID Document</dt><dd>{step4.idDocument?.name ?? '-'}</dd></div>
-              <div className="review-row"><dt>Proof of Address</dt><dd>{step4.proofOfAddress?.name ?? '-'}</dd></div>
-              <div className="review-row"><dt>Company Registration</dt><dd>{step4.cipcCert?.name ?? '-'}</dd></div>
-              <div className="review-row"><dt>Tax Clearance</dt><dd>{step4.taxClearance?.name ?? '-'}</dd></div>
-              <div className="review-row"><dt>Bank stmts</dt><dd>{step4.bankStatements.length} file{step4.bankStatements.length !== 1 ? 's' : ''}</dd></div>
-              <div className="review-row"><dt>Financials</dt><dd>{step4.financials?.name ?? '-'}</dd></div>
-            </dl>
-          </div>
-        )}
+        <div className="review-section">
+          <h3>Documents</h3>
+          <dl className="review-dl">
+            {DOC_SLOTS.map((slot) => {
+              const files = documents.filter((d) => d.docType === slot.type)
+              const label = slot.label.replace(' *', '')
+              return (
+                <div key={slot.type} className="review-row">
+                  <dt>{label}</dt>
+                  <dd>
+                    {files.length === 0
+                      ? 'Missing'
+                      : slot.multiple
+                        ? `${files.length} file${files.length !== 1 ? 's' : ''}`
+                        : docFileName(files[0].storagePath)}
+                  </dd>
+                </div>
+              )
+            })}
+          </dl>
+        </div>
       </div>
 
       <div className="fee-breakdown">
-        <h3>Cost Breakdown</h3>
+        <h3>Indicative Cost Breakdown</h3>
         <dl className="review-dl">
-          <div className="review-row"><dt>Monthly instalment</dt><dd style={{ color: 'var(--brand)', fontWeight: 700 }}>{formatRand(monthly)}</dd></div>
-          <div className="review-row"><dt>Total repayment</dt><dd>{formatRand(total)}</dd></div>
-          <div className="review-row"><dt>Total fees</dt><dd>{formatRand(fees)}</dd></div>
+          <div className="review-row"><dt>Indicative monthly instalment</dt><dd style={{ color: 'var(--brand)', fontWeight: 700 }}>{formatRand(monthly)}</dd></div>
+          <div className="review-row"><dt>Indicative total repayment</dt><dd>{formatRand(total)}</dd></div>
+          <div className="review-row"><dt>Estimated finance charge</dt><dd>{formatRand(fees)}</dd></div>
+          <div className="review-row"><dt>Lending rate</dt><dd>{LENDING_RATE_LABEL}</dd></div>
         </dl>
       </div>
 
@@ -841,6 +1216,11 @@ function Step5({
         data privacy (POPIA) consent, policy acknowledgements, and Terms &amp; Conditions.
       </p>
       {submitError && <p className="text-error" role="alert" style={{ marginTop: '0.5rem' }}>{submitError}</p>}
+      {missingDocuments.length > 0 && (
+        <p className="text-error" role="alert" style={{ marginTop: '0.5rem' }}>
+          Upload all required documents before submitting.
+        </p>
+      )}
 
       <div className="wizard-nav">
         <button type="button" className="btn btn-ghost" onClick={onBack} disabled={submitting}>← Back</button>
@@ -848,7 +1228,7 @@ function Step5({
           type="button"
           className={`btn btn-primary${submitting ? ' btn-loading' : ''}`}
           onClick={onOpenConsent}
-          disabled={submitting}
+          disabled={submitting || missingDocuments.length > 0}
         >
           {submitting ? '' : 'Submit Application'}
         </button>

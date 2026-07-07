@@ -21,6 +21,18 @@ Seed source: `infra/supabase/seed.sql`
 - Intern/Originator constrained to assigned applications/tasks.
 - LoanOfficer/Admin have broad access for review/decision/reporting.
 
+## Business Constraints
+
+- Loan limits on `loan_applications` (see `phase12_loan_limits.sql`):
+  - `requested_amount` between **R250 000 and R5 000 000**
+  - `term_months` between **1 and 60**
+  - Rows with `status = 'Draft'` are exempt — the apply wizard autosaves partial
+    drafts; the checks are enforced when the row leaves Draft (on submit).
+  - Added `NOT VALID`, so pre-existing rows outside the range are tolerated;
+    all new inserts/updates are enforced.
+  - Same limits live in `client-ui/src/lib/loanLimits.ts` and both backend
+    validators — keep all in sync.
+
 ## Immutable Controls
 
 - `loan_documents` immutable fields enforced by trigger:

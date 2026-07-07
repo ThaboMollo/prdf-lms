@@ -14,6 +14,14 @@ export function createApiDocumentsAdapter(accessToken: string): DocumentsReposit
     confirmUpload: (applicationId: string, docType: string, storagePath: string, status?: string) =>
       confirmUpload(accessToken, applicationId, docType, storagePath, status),
     verifyDocument: (applicationId: string, documentId: string, status: DocumentVerificationStatus, note?: string) =>
-      verifyDocument(accessToken, applicationId, documentId, status, note)
+      verifyDocument(accessToken, applicationId, documentId, status, note),
+    // Draft document management is a Supabase-provider feature; the REST provider
+    // isn't used by the client UI runtime.
+    deleteDocument: async () => {
+      throw new Error('deleteDocument is not supported by the REST provider.')
+    },
+    createSignedUrl: async () => {
+      throw new Error('createSignedUrl is not supported by the REST provider.')
+    }
   }
 }

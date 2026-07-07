@@ -39,8 +39,8 @@ export const step2Schema = z.object({
 export const step3Schema = z.object({
   requestedAmount: z.coerce
     .number()
-    .min(LOAN_AMOUNT_MIN, 'Minimum loan amount is R10,000')
-    .max(LOAN_AMOUNT_MAX, 'Maximum loan amount is R10 million'),
+    .min(LOAN_AMOUNT_MIN, 'Minimum loan amount is R250 000')
+    .max(LOAN_AMOUNT_MAX, 'Maximum loan amount is R5 million'),
   termMonths: z.coerce
     .number()
     .int()

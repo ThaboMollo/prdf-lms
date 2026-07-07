@@ -141,14 +141,18 @@ async function run() {
   await page.getByRole('button', { name: /Review Application/i }).click()
   await wait(1800)
 
-  // Show review + consent modal (do not submit — consent table not provisioned)
+  // Review -> consent modal -> answer YES to all -> Proceed -> submit end-to-end
   await page.getByRole('button', { name: /Submit Application|Submit/i }).last().click()
   await page.locator('.consent-card').waitFor({ state: 'visible', timeout: 8000 }).catch(() => {})
   await wait(1200)
   const yes = page.locator('.consent-radio--yes input[type="radio"]')
   const ny = await yes.count()
-  for (let i = 0; i < ny; i++) { await yes.nth(i).check({ force: true }); await wait(120) }
-  await wait(1800)
+  for (let i = 0; i < ny; i++) { await yes.nth(i).check({ force: true }); await wait(150) }
+  await wait(1200)
+  await page.getByRole('button', { name: /^Proceed$/i }).click()
+  // On success the app navigates to the status tracker.
+  await page.waitForURL('**/status', { timeout: 25000 }).catch(() => {})
+  await wait(3500)
 
   await context.close()
   await browser.close()

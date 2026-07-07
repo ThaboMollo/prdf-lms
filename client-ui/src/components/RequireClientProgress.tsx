@@ -2,24 +2,12 @@ import { Navigate, Outlet } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import type { LoanApplicationStatus } from '../lib/api'
 import { createApplicationsUseCases } from '../logic/usecases/applications'
- 
+
 
 type RequireClientProgressProps = {
   session: Session
 }
-
-const submittedStatuses: LoanApplicationStatus[] = [
-  'Submitted',
-  'UnderReview',
-  'InfoRequested',
-  'Approved',
-  'Rejected',
-  'Disbursed',
-  'InRepayment',
-  'Closed'
-]
 
 export function RequireClientProgress({ session }: RequireClientProgressProps) {
   const accessToken = session.access_token
@@ -34,9 +22,10 @@ export function RequireClientProgress({ session }: RequireClientProgressProps) {
   }
 
   const apps = appsQuery.data ?? []
-  const hasSubmitted = apps.some((app) => submittedStatuses.includes(app.status))
-
-  if (!hasSubmitted) {
+  // Any application — including a saved draft — counts as progress, so draft-only
+  // clients can reach the dashboard/status pages to resume it. Only brand-new
+  // clients (no applications at all) are routed straight into the apply wizard.
+  if (apps.length === 0) {
     return <Navigate to="/apply" replace />
   }
 

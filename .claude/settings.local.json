@@ -12,7 +12,9 @@
       "WebFetch(domain:www.kasihustle.com)",
       "WebFetch(domain:finanso.com)",
       "Bash(npx tsc:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(curl -s 'https://kjhibiawvvmzhdjbqhpq.supabase.co/rest/v1/loan_applications?select=id,draft_state,current_step,monthly_revenue,years_in_operation,number_of_employees,bank_name,last_saved_at&limit=1' -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtqaGliaWF3dnZtemhkamJxaHBxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODk0MjU0NCwiZXhwIjoyMDk0NTE4NTQ0fQ.8B6o-HF_6WyeYrh5FONbEmuNSlg8i8BRypFfGL-5LIg' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtqaGliaWF3dnZtemhkamJxaHBxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODk0MjU0NCwiZXhwIjoyMDk0NTE4NTQ0fQ.8B6o-HF_6WyeYrh5FONbEmuNSlg8i8BRypFfGL-5LIg')",
+      "Bash(curl -s 'https://kjhibiawvvmzhdjbqhpq.supabase.co/rest/v1/loan_applications?select=id,current_step&limit=1' -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtqaGliaWF3dnZtemhkamJxaHBxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODk0MjU0NCwiZXhwIjoyMDk0NTE4NTQ0fQ.8B6o-HF_6WyeYrh5FONbEmuNSlg8i8BRypFfGL-5LIg' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtqaGliaWF3dnZtemhkamJxaHBxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODk0MjU0NCwiZXhwIjoyMDk0NTE4NTQ0fQ.8B6o-HF_6WyeYrh5FONbEmuNSlg8i8BRypFfGL-5LIg')"
     ]
   }
 }

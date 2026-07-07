@@ -96,15 +96,24 @@ an eligibility summary.
 > submitting."
 
 ### Scene 10 — Consent & submit  ·  `15-apply-consent-modal`, `16-apply-consent-filled`
-**Action:** Click *Submit Application*. The POPIA consent modal appears; answer
-YES to each acknowledgement.
+**Action:** Click *Submit Application*. The POPIA consent modal appears; scroll
+through and answer YES to each acknowledgement, then click *Proceed*.
 
 > "Before anything is submitted, PRDF captures explicit, POPIA‑compliant consent —
 > data processing, credit checks, and policy acknowledgements — each recorded
 > individually. Only once every item is acknowledged can the application be
 > submitted for review."
 
-### Scene 11 — Close  ·  `01-landing-hero` (or logo)
+### Scene 11 — Submitted  ·  `19-status`
+**Action:** On *Proceed*, documents upload, consent is recorded, and the app
+lands on the status tracker with the new application marked *Submitted*.
+
+> "With consent captured, the application, its documents, and the consent record
+> are all saved — and Thabo is taken straight to the status tracker, where his new
+> application now sits at 'Submitted', awaiting assignment. The whole journey, done
+> online in minutes."
+
+### Scene 12 — Close  ·  `01-landing-hero` (or logo)
 > "From first click to submitted application, PRDF gives South African business
 > owners a fast, transparent, fully online path to funding — and the tools to
 > track every step of the journey. That's the PRDF client portal."
@@ -142,11 +151,13 @@ YES to each acknowledgement.
 
 - **Demo account:** `thabo@brightfields.co.za` / `DemoPassw0rd!` (a confirmed
   Supabase user seeded for this demo, with one application in *Under Review*).
-- **Submission is intentionally not completed on camera.** In the current hosted
-  Supabase project the `public.application_consents` table is missing, so a real
-  submit fails with *"Could not find the table 'public.application_consents'"*.
-  The walkthrough shows the consent step and stops there. Apply the consent
-  migration to that project to enable an end‑to‑end submit on camera.
+- **Submission now works end‑to‑end.** The `phase8_5_consent.sql` migration has
+  been applied to the hosted project, so *Proceed* saves the application, uploads
+  all documents to Storage, records the POPIA consent, and navigates to the status
+  tracker. The recording runs through a real, successful submission.
+- **Consent modal fix:** the modal now renders via a portal to `document.body`
+  and its body scrolls within the viewport — so on any screen size the header and
+  the *Proceed* button stay reachable (previously it could overflow the page).
 - **My Loans** shows an empty state for this client because no loan has been
   disbursed (and the `loans` table's row‑level security blocks a client from
   reading loan rows directly). Populating it end‑to‑end needs a disbursed loan

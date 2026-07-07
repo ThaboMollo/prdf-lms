@@ -13,6 +13,7 @@ import {
   LOAN_AMOUNT_STEP,
   LOAN_TERM_MAX,
   LOAN_TERM_MIN,
+  LENDING_RATE_LABEL,
 } from '../../lib/loanLimits'
 
 
@@ -74,7 +75,7 @@ export function LoanCalculator({
 
   return (
     <div className={compact ? '' : 'calculator-card'}>
-      {!compact && <h2>Get an instant estimate</h2>}
+      {!compact && <h2>Get an indicative estimate</h2>}
 
       <div className="calc-field">
         <label>
@@ -158,15 +159,19 @@ export function LoanCalculator({
 
       <div className="calc-display">
         <div className="calc-metric calc-metric--highlight">
-          <span className="calc-metric-label">Monthly repayment</span>
+          <span className="calc-metric-label">Indicative monthly repayment</span>
           <span className="calc-metric-value">{formatRand(monthly)}</span>
         </div>
         <div className="calc-metric">
-          <span className="calc-metric-label">Total repayment</span>
+          <span className="calc-metric-label">Indicative total repayment</span>
           <span className="calc-metric-value">{formatRand(total)}</span>
         </div>
         <div className="calc-metric">
-          <span className="calc-metric-label">Total fees</span>
+          <span className="calc-metric-label">Lending rate</span>
+          <span className="calc-metric-value">{LENDING_RATE_LABEL}</span>
+        </div>
+        <div className="calc-metric">
+          <span className="calc-metric-label">Estimated finance charge</span>
           <span className="calc-metric-value">{formatRand(fees)}</span>
         </div>
       </div>

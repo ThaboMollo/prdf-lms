@@ -1,4 +1,5 @@
 using FluentValidation;
+using PRDF.Lms.Domain;
 using PRDF.Lms.Domain.Enums;
 
 namespace PRDF.Lms.Application.Applications.Validators;
@@ -8,12 +9,12 @@ public sealed class CreateLoanApplicationRequestValidator : AbstractValidator<Cr
     public CreateLoanApplicationRequestValidator()
     {
         RuleFor(x => x.RequestedAmount)
-            .GreaterThan(0)
-            .WithMessage("Requested amount must be greater than 0.");
+            .InclusiveBetween(LoanLimits.AmountMin, LoanLimits.AmountMax)
+            .WithMessage("Requested amount must be between R250 000 and R5 000 000.");
 
         RuleFor(x => x.TermMonths)
-            .GreaterThan(0)
-            .WithMessage("Term months must be greater than 0.");
+            .InclusiveBetween(LoanLimits.TermMonthsMin, LoanLimits.TermMonthsMax)
+            .WithMessage("Term months must be between 1 and 60.");
 
         RuleFor(x => x.Purpose)
             .NotEmpty()
@@ -39,12 +40,12 @@ public sealed class UpdateLoanApplicationRequestValidator : AbstractValidator<Up
     public UpdateLoanApplicationRequestValidator()
     {
         RuleFor(x => x.RequestedAmount)
-            .GreaterThan(0)
-            .WithMessage("Requested amount must be greater than 0.");
+            .InclusiveBetween(LoanLimits.AmountMin, LoanLimits.AmountMax)
+            .WithMessage("Requested amount must be between R250 000 and R5 000 000.");
 
         RuleFor(x => x.TermMonths)
-            .GreaterThan(0)
-            .WithMessage("Term months must be greater than 0.");
+            .InclusiveBetween(LoanLimits.TermMonthsMin, LoanLimits.TermMonthsMax)
+            .WithMessage("Term months must be between 1 and 60.");
 
         RuleFor(x => x.Purpose)
             .NotEmpty()

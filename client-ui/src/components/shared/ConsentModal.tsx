@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   CONSENT_ITEMS,
   CONSENT_SECTIONS,
@@ -59,7 +60,7 @@ export function ConsentModal({ open, submitting = false, onClose, onProceed }: C
     })
   }
 
-  return (
+  return createPortal(
     <div className="modal-backdrop consent-backdrop" role="presentation">
       <section
         className="modal-card consent-card"
@@ -148,6 +149,7 @@ export function ConsentModal({ open, submitting = false, onClose, onProceed }: C
           </button>
         </footer>
       </section>
-    </div>
+    </div>,
+    document.body,
   )
 }
