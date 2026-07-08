@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { useCalculator } from '../../contexts/CalculatorContext'
 import {
   calculateMonthlyInstalment,
-  calculateTotalFees,
+  calculateTotalInterest,
   calculateTotalRepayment,
   formatRand,
+  DEFAULT_RATE_LABEL,
 } from '../../lib/loanCalc'
 import {
   LOAN_AMOUNT_MAX,
@@ -13,7 +14,6 @@ import {
   LOAN_AMOUNT_STEP,
   LOAN_TERM_MAX,
   LOAN_TERM_MIN,
-  LENDING_RATE_LABEL,
 } from '../../lib/loanLimits'
 
 
@@ -51,7 +51,7 @@ export function LoanCalculator({
 
   const monthly = calculateMonthlyInstalment(amount, term)
   const total = calculateTotalRepayment(amount, term)
-  const fees = calculateTotalFees(amount, term)
+  const interest = calculateTotalInterest(amount, term)
 
   function commitAmount(v: number) {
     const clamped = clamp(Math.round(v), LOAN_AMOUNT_MIN, LOAN_AMOUNT_MAX)
@@ -159,7 +159,7 @@ export function LoanCalculator({
 
       <div className="calc-display">
         <div className="calc-metric calc-metric--highlight">
-          <span className="calc-metric-label">Indicative monthly repayment</span>
+          <span className="calc-metric-label">Indicative first instalment</span>
           <span className="calc-metric-value">{formatRand(monthly)}</span>
         </div>
         <div className="calc-metric">
@@ -168,11 +168,11 @@ export function LoanCalculator({
         </div>
         <div className="calc-metric">
           <span className="calc-metric-label">Lending rate</span>
-          <span className="calc-metric-value">{LENDING_RATE_LABEL}</span>
+          <span className="calc-metric-value">{DEFAULT_RATE_LABEL}</span>
         </div>
         <div className="calc-metric">
-          <span className="calc-metric-label">Estimated finance charge</span>
-          <span className="calc-metric-value">{formatRand(fees)}</span>
+          <span className="calc-metric-label">Estimated total interest</span>
+          <span className="calc-metric-value">{formatRand(interest)}</span>
         </div>
       </div>
 

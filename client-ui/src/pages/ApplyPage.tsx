@@ -12,7 +12,7 @@ import { FieldError } from '../components/shared/FieldError'
 import { LoanCalculator } from '../components/shared/LoanCalculator'
 import { AddressFields, type AddressValue } from '../components/shared/AddressFields'
 import { WizardCostCard } from '../components/shared/WizardCostCard'
-import { formatRand, calculateMonthlyInstalment, calculateTotalFees, calculateTotalRepayment } from '../lib/loanCalc'
+import { formatRand, calculateMonthlyInstalment, calculateTotalInterest, calculateTotalRepayment, DEFAULT_RATE_LABEL } from '../lib/loanCalc'
 import { LENDING_RATE_LABEL } from '../lib/loanLimits'
 import {
   step1Schema,
@@ -159,7 +159,7 @@ export function ApplyPage({ session }: ApplyPageProps) {
 
   const monthly = calculateMonthlyInstalment(amount, term)
   const total = calculateTotalRepayment(amount, term)
-  const fees = calculateTotalFees(amount, term)
+  const fees = calculateTotalInterest(amount, term)
 
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -1133,7 +1133,7 @@ function Step5({
   const term = step3?.termMonths ?? 0
   const monthly = calculateMonthlyInstalment(amount, term)
   const total = calculateTotalRepayment(amount, term)
-  const fees = calculateTotalFees(amount, term)
+  const fees = calculateTotalInterest(amount, term)
   const missingDocuments = missingDocTypes(documents)
 
   return (
@@ -1204,10 +1204,10 @@ function Step5({
       <div className="fee-breakdown">
         <h3>Indicative Cost Breakdown</h3>
         <dl className="review-dl">
-          <div className="review-row"><dt>Indicative monthly instalment</dt><dd style={{ color: 'var(--brand)', fontWeight: 700 }}>{formatRand(monthly)}</dd></div>
+          <div className="review-row"><dt>Indicative first instalment</dt><dd style={{ color: 'var(--brand)', fontWeight: 700 }}>{formatRand(monthly)}</dd></div>
           <div className="review-row"><dt>Indicative total repayment</dt><dd>{formatRand(total)}</dd></div>
-          <div className="review-row"><dt>Estimated finance charge</dt><dd>{formatRand(fees)}</dd></div>
-          <div className="review-row"><dt>Lending rate</dt><dd>{LENDING_RATE_LABEL}</dd></div>
+          <div className="review-row"><dt>Estimated total interest</dt><dd>{formatRand(fees)}</dd></div>
+          <div className="review-row"><dt>Lending rate</dt><dd>{DEFAULT_RATE_LABEL}</dd></div>
         </dl>
       </div>
 

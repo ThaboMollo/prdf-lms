@@ -3,6 +3,7 @@ import { DatabaseService } from '../database/database.service';
 import { CurrentUser, isStaff, hasAnyRole, hasRole, STAFF_ROLES, ASSIGNED_ROLES } from '../auth/roles.helper';
 import { randomUUID } from 'crypto';
 import { PoolClient } from 'pg';
+import { DEFAULT_ANNUAL_RATE_PA, monthlyInterest, roundCents } from '../common/interest';
 
 @Injectable()
 export class LoansService {
@@ -141,21 +142,23 @@ export class LoansService {
   private async buildRepaymentSchedule(client: PoolClient, loan: any) {
     const principal = parseFloat(loan.principal_amount);
     const termMonths = parseInt(loan.term_months);
-    const interestRate = parseFloat(loan.interest_rate);
-    const installmentPrincipal = Math.round((principal / termMonths) * 100) / 100;
+    // interest_rate is the annual percentage (prime + margin); each month
+    // charges annual/12 on the outstanding balance at the start of the month.
+    const annualRatePct = parseFloat(loan.interest_rate) || DEFAULT_ANNUAL_RATE_PA;
+    const installmentPrincipal = roundCents(principal / termMonths);
     let remainingPrincipal = principal;
     const baseDate = new Date();
 
     for (let i = 1; i <= termMonths; i++) {
       const p = i === termMonths ? remainingPrincipal : installmentPrincipal;
-      remainingPrincipal = Math.round((remainingPrincipal - p) * 100) / 100;
-      const interest = Math.round(p * (interestRate / 100) * 100) / 100;
-      const total = Math.round((p + interest) * 100) / 100;
+      const interest = monthlyInterest(remainingPrincipal, annualRatePct);
+      remainingPrincipal = roundCents(remainingPrincipal - p);
+      const total = roundCents(p + interest);
       const dueDate = new Date(baseDate);
       dueDate.setMonth(dueDate.getMonth() + i);
       await client.query(
         `insert into public.repayment_schedule (id, loan_id, installment_no, due_date, due_principal, due_interest, due_total, paid_amount, status) values ($1,$2,$3,$4,$5,$6,$7,0,'Pending')`,
-        [randomUUID(), loan.id, i, dueDate, Math.round(p * 100) / 100, interest, total],
+        [randomUUID(), loan.id, i, dueDate, roundCents(p), interest, total],
       );
     }
   }

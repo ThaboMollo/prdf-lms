@@ -95,6 +95,12 @@ export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
             <article className="kpi-card"><p className="kpi-label">Scheduled Due</p><p className="kpi-value">{formatCurrency(totalDue)}</p></article>
           </div>
 
+          <div className="grid-three">
+            <article className="kpi-card"><p className="kpi-label">Principal</p><p className="kpi-value">{formatCurrency(loanQuery.data.principalAmount)}</p></article>
+            <article className="kpi-card"><p className="kpi-label">Interest Rate</p><p className="kpi-value">{Number(loanQuery.data.interestRate).toFixed(2)}% p.a.</p></article>
+            <article className="kpi-card"><p className="kpi-label">Term</p><p className="kpi-value">{loanQuery.data.termMonths} months</p></article>
+          </div>
+
           <div className="grid-two">
             <article className="card form-grid">
               <h2>Disburse Loan</h2>

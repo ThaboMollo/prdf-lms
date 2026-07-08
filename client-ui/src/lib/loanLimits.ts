@@ -5,4 +5,4 @@ export const LOAN_TERM_MIN = 1
 export const LOAN_TERM_MAX = 60
 
 export const LOAN_AMOUNT_RANGE_LABEL = 'Loans from R250 000 to R5m'
-export const LENDING_RATE_LABEL = 'Prime+, up to P+10 based on the quality of the transaction'
+export const LENDING_RATE_LABEL = 'Prime-linked, from Prime up to Prime + 10% per annum depending on the quality of the transaction'

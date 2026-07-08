@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { CurrentUser, hasRole, hasAnyRole, isStaff, STAFF_ROLES, ASSIGNED_ROLES } from '../auth/roles.helper';
 import { LOAN_AMOUNT_MIN, LOAN_AMOUNT_MAX, LOAN_TERM_MIN, LOAN_TERM_MAX } from '../common/loan-limits';
+import { DEFAULT_ANNUAL_RATE_PA } from '../common/interest';
 import { randomUUID } from 'crypto';
 import { PoolClient } from 'pg';
 import axios from 'axios';
@@ -118,8 +119,8 @@ export class ApplicationsService {
     if (!source) return;
 
     await this.db.execute(
-      `insert into public.loans (id, application_id, principal_amount, interest_rate, term_months, status, outstanding_principal, created_at) values ($1,$2,$3,0,$4,'PendingDisbursement',$3,now())`,
-      [randomUUID(), applicationId, source.requested_amount, source.term_months],
+      `insert into public.loans (id, application_id, principal_amount, interest_rate, term_months, status, outstanding_principal, created_at) values ($1,$2,$3,$4,$5,'PendingDisbursement',$3,now())`,
+      [randomUUID(), applicationId, source.requested_amount, DEFAULT_ANNUAL_RATE_PA, source.term_months],
     );
   }
 

@@ -1,5 +1,4 @@
-import { formatRand } from '../../lib/loanCalc'
-import { LENDING_RATE_LABEL } from '../../lib/loanLimits'
+import { formatRand, DEFAULT_RATE_LABEL } from '../../lib/loanCalc'
 
 type WizardCostCardProps = {
   amount: number
@@ -31,7 +30,7 @@ export function WizardCostCard({ amount, term, monthly, total, fees, onEdit }: W
         <div className="wizard-cost-card__divider" />
 
         <div className="wizard-cost-card__row wizard-cost-card__row--monthly">
-          <span className="wizard-cost-card__label">Indicative Monthly Payment</span>
+          <span className="wizard-cost-card__label">Indicative First Instalment</span>
           <span className="wizard-cost-card__monthly">{formatRand(monthly)}</span>
         </div>
 
@@ -41,13 +40,13 @@ export function WizardCostCard({ amount, term, monthly, total, fees, onEdit }: W
         </div>
 
         <div className="wizard-cost-card__row">
-          <span className="wizard-cost-card__label">Estimated Finance Charge</span>
+          <span className="wizard-cost-card__label">Estimated Total Interest</span>
           <span className="wizard-cost-card__value">{formatRand(fees)}</span>
         </div>
 
         <div className="wizard-cost-card__row">
           <span className="wizard-cost-card__label">Lending Rate</span>
-          <span className="wizard-cost-card__value">{LENDING_RATE_LABEL}</span>
+          <span className="wizard-cost-card__value">{DEFAULT_RATE_LABEL}</span>
         </div>
       </div>
 

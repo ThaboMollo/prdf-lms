@@ -3240,6 +3240,10 @@ input[type="range"]::-moz-range-thumb {
   border-radius: 0;
   margin-bottom: 0;
   overflow: visible;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
 }
 
 .landing-design-page .public-nav {
@@ -3249,9 +3253,9 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .landing-design-page .public-nav-inner {
-  max-width: 1180px;
+  max-width: none;
   min-height: 72px;
-  padding: 0.85rem 1.5rem;
+  padding: 0.85rem clamp(1.5rem, 5vw, 5rem);
 }
 
 .landing-design-page .public-nav-brand {
@@ -3279,14 +3283,17 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .landing-design-page .landing-main {
-  max-width: 1180px;
-  padding: 4.25rem 1.5rem 3.25rem;
+  max-width: none;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 2rem clamp(1.5rem, 5vw, 5rem);
 }
 
 .landing-design-page .landing-hero {
   grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
-  gap: 3.25rem;
-  min-height: 520px;
+  gap: clamp(3rem, 6vw, 6rem);
+  width: 100%;
 }
 
 .landing-copy-panel {

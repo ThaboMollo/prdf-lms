@@ -1,4 +1,5 @@
 import type { LoanDetails, LoanRepaymentItem, LoanScheduleItem } from '../../../api'
+import { buildInstallments, roundCents } from '../../../loanCalc'
 import { createSupabaseDataClient } from '../../../supabase/client'
 import type { LoansRepository } from '../../repositories/loans.repo'
 
@@ -138,34 +139,112 @@ export function createSupabaseLoansAdapter(accessToken: string): LoansRepository
         .from('loans')
         .update({ status: 'Disbursed', disbursed_at: nowIso })
         .eq('id', loanId)
+        .select('id, principal_amount, interest_rate, term_months')
+        .single()
       if (update.error) {
         throw new Error(`Supabase loan disburse update failed: ${update.error.message}`)
+      }
+
+      const existing = await client
+        .from('repayment_schedule')
+        .select('id', { count: 'exact', head: true })
+        .eq('loan_id', loanId)
+      if (!existing.error && (existing.count ?? 0) === 0) {
+        const loan = update.data as Pick<LoanRow, 'principal_amount' | 'interest_rate' | 'term_months'>
+        const base = new Date()
+        const rows = buildInstallments(
+          Number(loan.principal_amount),
+          Number(loan.term_months),
+          Number(loan.interest_rate) || undefined
+        ).map((item) => {
+          const due = new Date(base)
+          due.setMonth(due.getMonth() + item.installmentNo)
+          return {
+            loan_id: loanId,
+            installment_no: item.installmentNo,
+            due_date: due.toISOString().slice(0, 10),
+            due_principal: item.principal,
+            due_interest: item.interest,
+            due_total: item.total,
+            paid_amount: 0,
+            status: 'Pending'
+          }
+        })
+        if (rows.length > 0) {
+          const schedule = await client.from('repayment_schedule').insert(rows)
+          if (schedule.error) {
+            throw new Error(`Supabase repayment schedule insert failed: ${schedule.error.message}`)
+          }
+        }
       }
 
       return getLoanInternal(loanId)
     },
     async recordRepayment(loanId: string, amount: number, paymentReference?: string, paidAt?: string): Promise<LoanDetails> {
+      const current = await client
+        .from('loans')
+        .select('outstanding_principal, status')
+        .eq('id', loanId)
+        .single()
+      if (current.error) {
+        throw new Error(`Supabase get loan failed: ${current.error.message}`)
+      }
+      const loan = current.data as { outstanding_principal: number; status: string }
+      if (loan.status === 'Closed') {
+        throw new Error('Closed loan cannot accept repayments.')
+      }
+
+      const outstanding = Number(loan.outstanding_principal)
+      const principalComponent = Math.min(amount, outstanding)
+      const interestComponent = roundCents(amount - principalComponent)
+      const newOutstanding = Math.max(0, roundCents(outstanding - principalComponent))
+      const paidAtIso = paidAt ?? new Date().toISOString()
+
       const insert = await client.from('repayments').insert({
         loan_id: loanId,
         amount,
-        principal_component: amount,
-        interest_component: 0,
+        principal_component: principalComponent,
+        interest_component: interestComponent,
         payment_reference: paymentReference ?? null,
-        paid_at: paidAt ?? new Date().toISOString(),
+        paid_at: paidAtIso,
         recorded_by: userId || null
       })
       if (insert.error) {
         throw new Error(`Supabase repayment insert failed: ${insert.error.message}`)
       }
 
-      const current = await client
+      const update = await client
         .from('loans')
-        .select('outstanding_principal')
+        .update({ outstanding_principal: newOutstanding, status: newOutstanding === 0 ? 'Closed' : 'InRepayment' })
         .eq('id', loanId)
-        .single()
-      if (!current.error && current.data) {
-        const outstanding = Math.max(0, Number((current.data as { outstanding_principal: number }).outstanding_principal) - amount)
-        await client.from('loans').update({ outstanding_principal: outstanding }).eq('id', loanId)
+      if (update.error) {
+        throw new Error(`Supabase loan repayment update failed: ${update.error.message}`)
+      }
+
+      // Apply the payment to the earliest unpaid installments.
+      const pending = await client
+        .from('repayment_schedule')
+        .select('id, due_total, paid_amount')
+        .eq('loan_id', loanId)
+        .order('installment_no', { ascending: true })
+      if (!pending.error && pending.data) {
+        let remaining = amount
+        for (const row of pending.data as { id: string; due_total: number; paid_amount: number }[]) {
+          if (remaining <= 0) break
+          const dueRemaining = roundCents(Number(row.due_total) - Number(row.paid_amount))
+          if (dueRemaining <= 0) continue
+          const applied = Math.min(remaining, dueRemaining)
+          remaining = roundCents(remaining - applied)
+          const newPaid = roundCents(Number(row.paid_amount) + applied)
+          const isPaid = newPaid >= Number(row.due_total)
+          const scheduleUpdate = await client
+            .from('repayment_schedule')
+            .update({ paid_amount: newPaid, status: isPaid ? 'Paid' : 'Pending', ...(isPaid ? { paid_at: paidAtIso } : {}) })
+            .eq('id', row.id)
+          if (scheduleUpdate.error) {
+            throw new Error(`Supabase schedule update failed: ${scheduleUpdate.error.message}`)
+          }
+        }
       }
 
       return getLoanInternal(loanId)

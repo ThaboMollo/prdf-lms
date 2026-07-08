@@ -6,6 +6,7 @@ import type {
   StatusHistoryItem,
   UpdateApplicationInput
 } from '../../../api'
+import { DEFAULT_ANNUAL_RATE_PA } from '../../../loanCalc'
 import { createSupabaseDataClient } from '../../../supabase/client'
 import type { ApplicationsRepository } from '../../repositories/applications.repo'
 
@@ -229,6 +230,27 @@ export function createSupabaseApplicationsAdapter(accessToken: string): Applicat
         changed_by: actorUserId,
         note: note ?? null
       })
+    }
+
+    if (toStatus === 'Approved') {
+      const row = update.data as ApplicationRow
+      const existing = await client
+        .from('loans')
+        .select('id', { count: 'exact', head: true })
+        .eq('application_id', applicationId)
+      if (!existing.error && (existing.count ?? 0) === 0) {
+        const loan = await client.from('loans').insert({
+          application_id: applicationId,
+          principal_amount: row.requested_amount,
+          outstanding_principal: row.requested_amount,
+          interest_rate: DEFAULT_ANNUAL_RATE_PA,
+          term_months: row.term_months,
+          status: 'PendingDisbursement'
+        })
+        if (loan.error) {
+          throw new Error(`Supabase loan creation failed: ${loan.error.message}`)
+        }
+      }
     }
 
     return mapApplicationRow(update.data as ApplicationRow)

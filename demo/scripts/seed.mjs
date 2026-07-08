@@ -65,13 +65,17 @@ if (action === 'seed') {
   await fetch(`${SUPABASE_URL}/rest/v1/loan_applications?id=eq.${app.id}`, { method: 'PATCH', headers: H, body: JSON.stringify({ status: 'Disbursed' }) })
   const principal = 250000
   const term = 24
-  const rate = 0.185
-  const monthly = Math.round((principal * (rate / 12)) / (1 - Math.pow(1 + rate / 12, -term)))
+// Annual percentage rate (Prime 10.50 + 10 margin); each month charges
+  // rate/12 on the outstanding balance, principal split equally over the term.
+  const rate = 20.5
+  const round2 = (v) => Math.round(v * 100) / 100
+  const principalPortion = round2(principal / term)
+  const paidMonths = 3
   const disbursedAt = new Date(Date.now() - 90 * 86400000).toISOString()
   const [loan] = await post('loans', {
     application_id: app.id,
     principal_amount: principal,
-    outstanding_principal: principal - monthly * 3 * 0.7,
+    outstanding_principal: round2(principal - principalPortion * paidMonths),
     interest_rate: rate,
     term_months: term,
     status: 'InRepayment',
@@ -79,23 +83,27 @@ if (action === 'seed') {
   })
   console.log('created loan', loan.id)
   const rows = []
+  let balance = principal
   for (let i = 1; i <= term; i++) {
-    const due = new Date(Date.now() + (i - 3) * 30 * 86400000)
-    const interest = Math.round(principal * (rate / 12))
+    const due = new Date(Date.now() + (i - paidMonths) * 30 * 86400000)
+    const p = i === term ? balance : principalPortion
+    const interest = round2(balance * (rate / 100 / 12))
+    const total = round2(p + interest)
+    balance = round2(balance - p)
     rows.push({
       loan_id: loan.id,
       installment_no: i,
       due_date: due.toISOString().slice(0, 10),
-      due_principal: monthly - interest,
+      due_principal: p,
       due_interest: interest,
-      due_total: monthly,
-      paid_amount: i <= 3 ? monthly : 0,
-      status: i <= 3 ? 'Paid' : 'Pending',
-      paid_at: i <= 3 ? new Date(due.getTime()).toISOString() : null,
+      due_total: total,
+      paid_amount: i <= paidMonths ? total : 0,
+      status: i <= paidMonths ? 'Paid' : 'Pending',
+      paid_at: i <= paidMonths ? new Date(due.getTime()).toISOString() : null,
     })
   }
   await post('repayment_schedule', rows)
-  console.log('created schedule rows', rows.length, 'monthly', monthly)
+  console.log('created schedule rows', rows.length, 'first instalment', rows[0].due_total)
   console.log('APP_ID', app.id)
 } else if (action === 'loan-off') {
   const appId = process.argv[3]
