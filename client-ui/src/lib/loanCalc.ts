@@ -1,14 +1,14 @@
 /**
  * Loan calculation utilities.
  *
- * PRDF pricing is Prime-linked: annual rate = prime + margin, up to P+10
+ * PRDF pricing is Prime-linked: annual rate = prime + margin, up to P+8
  * based on the quality of the transaction; final pricing is confirmed during
  * assessment. Interest is simple monthly interest on the outstanding
  * principal: monthly rate = annual rate / 12.
  *
- * Example — R1 000 000 over 1 month at P+10 (prime 10.50%):
- *   annual 20.50% -> monthly 1.708333% -> interest R17 083.33,
- *   total repayment R1 017 083.33.
+ * Example — R1 000 000 over 1 month at P+8 (prime 10.50%):
+ *   annual 18.50% -> monthly 1.541667% -> interest R15 416.67,
+ *   total repayment R1 015 416.67.
  *
  * Keep in sync with backend-node/src/common/interest.ts and
  * admin-ui/src/lib/loanCalc.ts.
@@ -18,15 +18,15 @@
 export const PRIME_RATE_PA = 10.5
 
 /** Default pricing margin over prime (% per annum). */
-export const DEFAULT_MARGIN_PA = 10
+export const DEFAULT_MARGIN_PA = 8
 
-/** Default annual lending rate (% per annum): Prime + 10 = 20.50%. */
+/** Default annual lending rate (% per annum): Prime + 8 = 18.50%. */
 export const DEFAULT_ANNUAL_RATE_PA = PRIME_RATE_PA + DEFAULT_MARGIN_PA
 
-/** Human-readable default rate, e.g. "Up to 20.50% p.a. (Prime + 10%)" */
+/** Human-readable default rate, e.g. "Up to 18.50% p.a. (Prime + 8%)" */
 export const DEFAULT_RATE_LABEL = `Up to ${DEFAULT_ANNUAL_RATE_PA.toFixed(2)}% p.a. (Prime + ${DEFAULT_MARGIN_PA}%)`
 
-/** Monthly rate as a fraction, e.g. 20.5 -> 0.0170833. */
+/** Monthly rate as a fraction, e.g. 18.5 -> 0.0154167. */
 export function monthlyRate(annualRatePct: number = DEFAULT_ANNUAL_RATE_PA): number {
   return annualRatePct / 100 / 12
 }

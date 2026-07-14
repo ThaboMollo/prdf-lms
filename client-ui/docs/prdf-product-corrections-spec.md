@@ -15,7 +15,7 @@ The required changes are:
 - Currency must be South African Rand everywhere, displayed with the `R` symbol.
 - Loan amounts must be limited to **R250 000 minimum** and **R5 million maximum**.
 - Applicants must be able to save work in progress and resume later.
-- Lending rate language must be **Prime+, up to P+10 based on the quality of the transaction**.
+- Lending rate language must be **Prime+, up to P+8 based on the quality of the transaction**.
 - Uploaded/downloaded documents must be saved as system records and reflected in the final document checklist.
 - Eligibility criteria must match the approved PRDF criteria listed in this spec.
 
@@ -40,7 +40,7 @@ The required changes are:
 |------|-------------------|---------------------|
 | Currency | `formatRand` and `formatCurrency` already use ZAR in some places, but every amount display must be checked. | All monetary values show `R`, use `en-ZA` grouping, and avoid `$`, USD, or generic currency text. |
 | Loan limits | **Done.** `client-ui/src/lib/loanLimits.ts` sets min `250000` / max `5000000`; enforced in both backends (`LoanLimits.cs`, `common/loan-limits.ts`) and the database (`phase12_loan_limits.sql`). | Set min to `250000`, max to `5000000`, and update all UI copy/tests. |
-| Calculator/rate | `loanCalc.ts` currently uses a flat-fee model: 3% origination + 2% monthly service fee. | Replace user-facing lending-rate language with Prime+, up to P+10. Any calculated instalment must be labelled as indicative until Prime and spread are confirmed. |
+| Calculator/rate | `loanCalc.ts` currently uses a flat-fee model: 3% origination + 2% monthly service fee. | Replace user-facing lending-rate language with Prime+, up to P+8. Any calculated instalment must be labelled as indicative until Prime and spread are confirmed. |
 | Draft saving | Draft persistence exists or is in progress, with `phase9_draft_applications.sql` and save-draft code paths. | Verify all wizard steps can save and resume without losing data. |
 | Draft documents | `phase10_draft_documents.sql` and `documents.supabase.ts` support client draft document management. | Uploaded files must create storage objects and `loan_documents` rows immediately, then reload into the wizard checklist. |
 | Review checklist | Step 5 must depend on persisted `loan_documents` records for the application draft. | The checklist must mark uploaded documents as uploaded after refresh/resume and at final review. |
@@ -73,7 +73,7 @@ The required changes are:
 ### 5.3 Lending Rate
 
 - Public/client-facing wording:
-  - **Lending rate: Prime+, up to P+10 based on the quality of the transaction.**
+  - **Lending rate: Prime+, up to P+8 based on the quality of the transaction.**
 - Do not promise a fixed rate in the calculator.
 - If an instalment estimate is shown before underwriting, label it as indicative and explain that the final rate depends on Prime and transaction quality.
 - Persisted loan/application data should be ready for a future `primeSpreadBps` or `interestRate` value, but this spec does not require automated pricing.
@@ -174,7 +174,7 @@ Eligibility behaviour:
 
 1. A user cannot select or submit a loan amount below R250 000 or above R5 million.
 2. All loan amount displays use the `R` symbol and South African number formatting.
-3. User-facing lending-rate text reads: "Prime+, up to P+10 based on the quality of the transaction."
+3. User-facing lending-rate text reads: "Prime+, up to P+8 based on the quality of the transaction."
 4. A user can complete part of the application, save it, leave the flow, return later, and resume the same draft.
 5. Documents uploaded during a draft remain visible after refresh and after signing back in.
 6. The final review checklist marks a required document as uploaded only when a persisted `loan_documents` row exists for the application.

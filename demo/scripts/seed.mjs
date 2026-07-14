@@ -65,9 +65,9 @@ if (action === 'seed') {
   await fetch(`${SUPABASE_URL}/rest/v1/loan_applications?id=eq.${app.id}`, { method: 'PATCH', headers: H, body: JSON.stringify({ status: 'Disbursed' }) })
   const principal = 250000
   const term = 24
-// Annual percentage rate (Prime 10.50 + 10 margin); each month charges
+// Annual percentage rate (Prime 10.50 + 8 margin); each month charges
   // rate/12 on the outstanding balance, principal split equally over the term.
-  const rate = 20.5
+  const rate = 18.5
   const round2 = (v) => Math.round(v * 100) / 100
   const principalPortion = round2(principal / term)
   const paidMonths = 3
