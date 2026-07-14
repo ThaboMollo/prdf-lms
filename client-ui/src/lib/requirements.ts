@@ -31,10 +31,35 @@ export const requiredDocuments = [
   }
 ] as const
 
+export const optionalDocuments = [
+  {
+    type: 'VendorQuotation',
+    label: 'Vendor Quotations (3x)',
+    description: 'Three vendor quotations for the goods or services to be funded.'
+  },
+  {
+    type: 'RfqSupplierSpec',
+    label: 'RFQ / Supplier Specification',
+    description: 'Request for quotation or supplier specification document.'
+  },
+  {
+    type: 'PurchaseOrder',
+    label: 'Purchase Order',
+    description: 'The purchase order itself, including validity details.'
+  },
+  {
+    type: 'TradeReference',
+    label: 'Trade Reference',
+    description: 'Reference from a business organisation or trade reference.'
+  }
+] as const
+
+export const allDocuments = [...requiredDocuments, ...optionalDocuments] as const
+
 export type RequiredDocumentType = typeof requiredDocuments[number]['type']
 
 export const requiredDocumentTypes = requiredDocuments.map((doc) => doc.type)
 
 export function getDocumentLabel(docType: string) {
-  return requiredDocuments.find((doc) => doc.type === docType)?.label ?? docType
+  return allDocuments.find((doc) => doc.type === docType)?.label ?? docType
 }

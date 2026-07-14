@@ -47,15 +47,19 @@ const LOAN_PURPOSES = [
 ]
 
 // Step 4 document slots. `type` is the stored doc_type (matches admin/back office).
-const DOC_SLOTS: { type: string; label: string; hint: string; multiple?: boolean }[] = [
+const DOC_SLOTS: { type: string; label: string; hint: string; multiple?: boolean; optional?: boolean }[] = [
   { type: 'IDDocument', label: 'ID Document *', hint: 'Certified copy of the director or applicant identity document' },
   { type: 'ProofOfAddress', label: 'Proof of Address *', hint: 'Recent proof of business or director address' },
   { type: 'BusinessRegistration', label: 'Company Registration (CIPC) *', hint: 'CIPC company registration certificate' },
   { type: 'TaxClearance', label: 'Tax Clearance *', hint: 'SARS tax clearance or tax compliance status document' },
   { type: 'BankStatement', label: 'Bank Statements (last 3 months) *', hint: 'Upload 3 months of business bank statements', multiple: true },
   { type: 'Financials', label: 'Financial Statements *', hint: 'Latest annual financials or management accounts' },
+  { type: 'VendorQuotation', label: 'Vendor Quotations (3x)', hint: 'Three vendor quotations for the goods or services to be funded', multiple: true, optional: true },
+  { type: 'RfqSupplierSpec', label: 'RFQ / Supplier Specification', hint: 'Request for quotation or supplier specification document', optional: true },
+  { type: 'PurchaseOrder', label: 'Purchase Order', hint: 'The purchase order itself, including validity details', optional: true },
+  { type: 'TradeReference', label: 'Trade Reference', hint: 'Reference from a business organisation or trade reference', optional: true },
 ]
-const REQUIRED_DOC_TYPES = DOC_SLOTS.map((s) => s.type)
+const REQUIRED_DOC_TYPES = DOC_SLOTS.filter((s) => !s.optional).map((s) => s.type)
 
 // Strip the "applications/<id>/<uuid>-" prefix to show the original filename.
 function docFileName(storagePath: string): string {
@@ -1066,14 +1070,21 @@ function Step4({
   return (
     <div className="wizard-body">
       <h2>Documents</h2>
-      <p>Upload all required documents. Accepted formats: PDF, JPG, PNG. Files are saved to your draft as you add them.</p>
+      <p>
+        Upload all required documents. Supporting procurement documents (quotations, RFQ, purchase order, trade
+        reference) are optional but help speed up review. Accepted formats: PDF, JPG, PNG. Files are saved to your
+        draft as you add them.
+      </p>
 
       <div className="document-upload-grid">
         {DOC_SLOTS.map((slot) => {
           const existing = documents.filter((d) => d.docType === slot.type)
           return (
             <div key={slot.type} className="doc-slot">
-              <label style={{ fontWeight: 600, fontSize: '0.9rem' }}>{slot.label}</label>
+              <label style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                {slot.label}
+                {slot.optional ? <span className="muted-text" style={{ fontWeight: 400 }}> (optional)</span> : null}
+              </label>
               {existing.map((doc) => (
                 <div key={doc.id} className="doc-uploaded-row">
                   <span className="doc-uploaded-name">✓ {docFileName(doc.storagePath)}</span>
@@ -1189,7 +1200,7 @@ function Step5({
                   <dt>{label}</dt>
                   <dd>
                     {files.length === 0
-                      ? 'Missing'
+                      ? slot.optional ? 'Not provided' : 'Missing'
                       : slot.multiple
                         ? `${files.length} file${files.length !== 1 ? 's' : ''}`
                         : docFileName(files[0].storagePath)}
