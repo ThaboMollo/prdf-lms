@@ -17,7 +17,8 @@ export const PRIME_RATE_PA = 10.5
 export const DEFAULT_MARGIN_PA = 8
 export const DEFAULT_ANNUAL_RATE_PA = PRIME_RATE_PA + DEFAULT_MARGIN_PA
 
-export const DEFAULT_RATE_LABEL = `Up to ${DEFAULT_ANNUAL_RATE_PA.toFixed(2)}% p.a. (Prime + ${DEFAULT_MARGIN_PA}%)`
+// export const DEFAULT_RATE_LABEL = `Up to ${DEFAULT_ANNUAL_RATE_PA.toFixed(2)}% p.a. (Prime + ${DEFAULT_MARGIN_PA}%)`
+export const DEFAULT_RATE_LABEL = 'Prime+, & up to 8%'
 
 export function roundCents(value: number): number {
   return Math.round(value * 100) / 100

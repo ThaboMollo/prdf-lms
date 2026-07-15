@@ -24,7 +24,8 @@ export const DEFAULT_MARGIN_PA = 8
 export const DEFAULT_ANNUAL_RATE_PA = PRIME_RATE_PA + DEFAULT_MARGIN_PA
 
 /** Human-readable default rate, e.g. "Up to 18.50% p.a. (Prime + 8%)" */
-export const DEFAULT_RATE_LABEL = `Up to ${DEFAULT_ANNUAL_RATE_PA.toFixed(2)}% p.a. (Prime + ${DEFAULT_MARGIN_PA}%)`
+// export const DEFAULT_RATE_LABEL = `Up to ${DEFAULT_ANNUAL_RATE_PA.toFixed(2)}% p.a. (Prime + ${DEFAULT_MARGIN_PA}%)`
+export const DEFAULT_RATE_LABEL = "Prime+, & up to 8%"
 
 /** Monthly rate as a fraction, e.g. 18.5 -> 0.0154167. */
 export function monthlyRate(annualRatePct: number = DEFAULT_ANNUAL_RATE_PA): number {
