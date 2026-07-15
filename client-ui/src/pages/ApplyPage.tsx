@@ -31,8 +31,15 @@ import type { ConsentPayload } from '../features/consent/consentItems'
 const STEPS = ['Business Profile', 'Financials', 'Loan Details', 'Documents', 'Review']
 
 const INDUSTRIES = [
-  'Retail', 'Manufacturing', 'Construction', 'Agriculture', 'Technology',
-  'Healthcare', 'Education', 'Transport & Logistics', 'Hospitality', 'Other',
+  'Marine Tourism',
+  'Marine Transport, logistics and Shipping',
+  'Marine Biotechnology & Pharmaceuticals',
+  'Seafood and Aquaculture',
+  'Coastal and Port Infrastructure',
+  'Shipbuilding and Repairs',
+  'Clean Energy',
+  'Sustainable Technologies',
+  'All purchase orders outside these industries'
 ]
 
 const SA_BANKS = [
@@ -77,13 +84,13 @@ function hasMeaningfulData(data: WizardFormState): boolean {
   const { step1: s1, step2: s2, step3: s3 } = data
   return Boolean(
     s1?.businessName?.trim() ||
-      s1?.registrationNo?.trim() ||
-      s1?.industry ||
-      s1?.addressLine1?.trim() ||
-      s1?.sarsTaxPin?.trim() ||
-      (s2 && (s2.monthlyRevenue || s2.numberOfEmployees || s2.bankName)) ||
-      s3?.purpose?.trim() ||
-      s3?.loanPurposeCategory
+    s1?.registrationNo?.trim() ||
+    s1?.industry ||
+    s1?.addressLine1?.trim() ||
+    s1?.sarsTaxPin?.trim() ||
+    (s2 && (s2.monthlyRevenue || s2.numberOfEmployees || s2.bankName)) ||
+    s3?.purpose?.trim() ||
+    s3?.loanPurposeCategory
   )
 }
 
@@ -407,7 +414,7 @@ export function ApplyPage({ session }: ApplyPageProps) {
       await saveChain.current.catch(() => null)
       // Remove uploaded files (storage + rows) before deleting the draft row.
       for (const doc of documents) {
-        await documentsUseCases.deleteDocument(doc.applicationId, doc.id, doc.storagePath).catch(() => {})
+        await documentsUseCases.deleteDocument(doc.applicationId, doc.id, doc.storagePath).catch(() => { })
       }
       await applicationsUseCases.deleteApplication(id)
       draftIdRef.current = null
