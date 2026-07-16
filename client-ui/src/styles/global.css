@@ -200,6 +200,15 @@ textarea {
   font-family: var(--font-body);
 }
 
+/* Native selects and text inputs compute different heights from the same
+   padding — pin a shared control height so form rows line up. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+select {
+  height: 44px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
 /* ----------------------------------------------------------------
    Phase 3A: Input Focus (inner glow)
    ---------------------------------------------------------------- */
@@ -2258,18 +2267,55 @@ input[type="range"]::-moz-range-thumb {
 .review-row {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
   gap: 1rem;
   font-size: 0.9rem;
 }
 
 .review-row dt {
   color: var(--muted);
+  flex-shrink: 0;
 }
 
 .review-row dd {
   font-weight: 600;
   color: var(--text);
   text-align: right;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Document rows on the review step: status icon + ellipsized filename */
+.review-doc {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.review-doc i {
+  color: var(--success, #16a34a);
+  font-size: 0.8rem;
+  flex: none;
+}
+
+.review-doc__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-doc--none .review-doc__text {
+  color: var(--muted);
+  font-weight: 400;
+  font-style: italic;
+}
+
+.review-doc--missing .review-doc__text {
+  color: var(--danger);
 }
 
 .fee-breakdown {
@@ -2685,7 +2731,8 @@ input[type="range"]::-moz-range-thumb {
 .wizard-cost-card__row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: baseline;
+  gap: 0.75rem;
 }
 
 .wizard-cost-card__label {
@@ -2697,6 +2744,9 @@ input[type="range"]::-moz-range-thumb {
   color: rgba(255, 255, 255, 0.8);
   font-size: 0.75rem;
   font-weight: 700;
+  white-space: nowrap;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .wizard-cost-card__row--monthly .wizard-cost-card__label {
@@ -2707,6 +2757,9 @@ input[type="range"]::-moz-range-thumb {
   color: #93c5fd;
   font-size: 0.875rem;
   font-weight: 900;
+  white-space: nowrap;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .wizard-cost-card__divider {

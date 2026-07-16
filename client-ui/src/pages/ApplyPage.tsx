@@ -49,8 +49,17 @@ const SA_BANKS = [
 ]
 
 const LOAN_PURPOSES = [
-  'Working Capital', 'Equipment Purchase', 'Expansion', 'Inventory',
-  'Staff Hiring', 'Marketing', 'Renovations', 'Other',
+  'Purchase Order',
+  'Transport (Trucking)',
+  'Exquipment purchase',
+  'Infrastructure',
+  'Working capital',
+  'Inventory (Stock)',
+  'Short contracts not greater than 3 years',
+  'Renovations',
+  'Expansion',
+  'Marine Transport',
+  'Other'
 ]
 
 // Step 4 document slots. `type` is the stored doc_type (matches admin/back office).
@@ -61,10 +70,10 @@ const DOC_SLOTS: { type: string; label: string; hint: string; multiple?: boolean
   { type: 'TaxClearance', label: 'Tax Clearance *', hint: 'SARS tax clearance or tax compliance status document' },
   { type: 'BankStatement', label: 'Bank Statements (last 3 months) *', hint: 'Upload 3 months of business bank statements', multiple: true },
   { type: 'Financials', label: 'Financial Statements *', hint: 'Latest annual financials or management accounts' },
-  { type: 'VendorQuotation', label: 'Vendor Quotations (3x)', hint: 'Three vendor quotations for the goods or services to be funded', multiple: true, optional: true },
-  { type: 'RfqSupplierSpec', label: 'RFQ / Supplier Specification', hint: 'Request for quotation or supplier specification document', optional: true },
-  { type: 'PurchaseOrder', label: 'Purchase Order', hint: 'The purchase order itself, including validity details', optional: true },
-  { type: 'TradeReference', label: 'Trade Reference', hint: 'Reference from a business organisation or trade reference', optional: true },
+  { type: 'VendorQuotation', label: 'Vendor Quotations (3x)', hint: 'Three vendor quotations for the goods or services to be funded', multiple: true },
+  { type: 'RfqSupplierSpec', label: 'Central Supplier Database (CSD) Reports', hint: 'Central Supplier Database (CSD) registration report', optional: true },
+  { type: 'PurchaseOrder', label: 'Purchase Order / Short Term Contracts (Not greater than 3 years)', hint: 'The purchase order itself, including validity details', optional: true },
+  { type: 'TradeReference', label: 'Trade Reference', hint: 'Reference from a business organisation or trade reference' },
 ]
 const REQUIRED_DOC_TYPES = DOC_SLOTS.filter((s) => !s.optional).map((s) => s.type)
 
@@ -1005,7 +1014,7 @@ function Step3({
 
       <div className="stack" style={{ marginTop: '1.5rem' }}>
         <div className="form-field">
-          <label htmlFor="loanPurposeCategory">Loan purpose category</label>
+          <label htmlFor="loanPurposeCategory">How do we fund you?</label>
           <select id="loanPurposeCategory" value={loanPurposeCategory} onChange={(e) => setLoanPurposeCategory(e.target.value)}>
             <option value="">Select a category…</option>
             {LOAN_PURPOSES.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -1078,9 +1087,9 @@ function Step4({
     <div className="wizard-body">
       <h2>Documents</h2>
       <p>
-        Upload all required documents. Supporting procurement documents (quotations, RFQ, purchase order, trade
-        reference) are optional but help speed up review. Accepted formats: PDF, JPG, PNG. Files are saved to your
-        draft as you add them.
+        Upload all required documents. Supporting procurement documents (quotations, CSD reports, purchase order,
+        trade reference) are optional but help speed up review. Accepted formats: PDF or Word (.doc, .docx) — images
+        are not accepted. Files are saved to your draft as you add them.
       </p>
 
       <div className="document-upload-grid">
@@ -1104,7 +1113,7 @@ function Step4({
               {(slot.multiple || existing.length === 0) && (
                 <FileDropzone
                   label={existing.length ? 'Add another file' : ''}
-                  accept=".pdf,.jpg,.jpeg,.png"
+                  accept=".pdf,.doc,.docx"
                   multiple={slot.multiple}
                   files={[]}
                   onFilesChange={(files) => files.forEach((f) => onUpload(slot.type, f))}
@@ -1202,15 +1211,21 @@ function Step5({
             {DOC_SLOTS.map((slot) => {
               const files = documents.filter((d) => d.docType === slot.type)
               const label = slot.label.replace(' *', '')
+              const provided = files.length > 0
+              const value = !provided
+                ? slot.optional ? 'Not provided' : 'Missing'
+                : slot.multiple
+                  ? `${files.length} file${files.length !== 1 ? 's' : ''}`
+                  : docFileName(files[0].storagePath)
               return (
                 <div key={slot.type} className="review-row">
                   <dt>{label}</dt>
-                  <dd>
-                    {files.length === 0
-                      ? slot.optional ? 'Not provided' : 'Missing'
-                      : slot.multiple
-                        ? `${files.length} file${files.length !== 1 ? 's' : ''}`
-                        : docFileName(files[0].storagePath)}
+                  <dd
+                    className={provided ? 'review-doc review-doc--ok' : slot.optional ? 'review-doc review-doc--none' : 'review-doc review-doc--missing'}
+                    title={provided ? files.map((f) => docFileName(f.storagePath)).join(', ') : undefined}
+                  >
+                    {provided ? <i className="fa-solid fa-circle-check" aria-hidden="true" /> : null}
+                    <span className="review-doc__text">{value}</span>
                   </dd>
                 </div>
               )

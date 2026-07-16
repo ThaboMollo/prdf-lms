@@ -3,7 +3,7 @@
 // DRAFT WORDING — pending PRDF legal / compliance review. Bump CONSENT_VERSION
 // whenever any prompt below changes so stored consent records stay traceable.
 
-export const CONSENT_VERSION = '2026-07-01'
+export const CONSENT_VERSION = '2026-07-16'
 
 export type ConsentSection = 'POPIA' | 'Policy' | 'Terms'
 
@@ -70,6 +70,12 @@ export const CONSENT_ITEMS: ConsentItem[] = [
     key: 'policy_direct_debit',
     section: 'Policy',
     prompt: 'I understand repayment of my loan will be collected via a direct debit order.',
+  },
+  {
+    key: 'policy_phahla_referral',
+    section: 'Policy',
+    prompt:
+      'Should the application get rejected, I consent to being referred to Phahla Consulting for assistance.',
   },
   // Terms & Conditions
   {

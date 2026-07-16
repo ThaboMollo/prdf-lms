@@ -39,8 +39,8 @@ export const optionalDocuments = [
   },
   {
     type: 'RfqSupplierSpec',
-    label: 'RFQ / Supplier Specification',
-    description: 'Request for quotation or supplier specification document.'
+    label: 'Central Supplier Database (CSD) Reports',
+    description: 'Central Supplier Database (CSD) registration report.'
   },
   {
     type: 'PurchaseOrder',

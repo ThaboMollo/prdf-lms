@@ -203,7 +203,7 @@ export function DocumentsPage({ session }: DocumentsPageProps) {
             <>
               <FileDropzone
                 label={selectedDocument?.label ?? 'Document'}
-                accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls"
+                accept=".pdf,.doc,.docx"
                 files={uploadFiles}
                 onFilesChange={setUploadFiles}
                 hint="Drop the selected document here, then upload it to your application."

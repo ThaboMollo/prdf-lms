@@ -21,20 +21,37 @@ export function FileDropzone({
 }: FileDropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [typeError, setTypeError] = useState<string | null>(null)
+
+  // The accept attribute only filters the picker dialog — drag-and-drop (and
+  // "All Files" in the dialog) can still hand us anything, so re-check here.
+  function filterAccepted(candidates: File[]): File[] {
+    if (!accept) return candidates
+    const allowed = accept.split(',').map((ext) => ext.trim().toLowerCase())
+    const ok = candidates.filter((f) => allowed.some((ext) => f.name.toLowerCase().endsWith(ext)))
+    setTypeError(
+      ok.length < candidates.length
+        ? `Only ${allowed.join(', ')} files are accepted.`
+        : null
+    )
+    return ok
+  }
 
   function handleDrop(event: React.DragEvent) {
     event.preventDefault()
     setIsDragging(false)
-    const dropped = Array.from(event.dataTransfer.files)
+    const dropped = filterAccepted(Array.from(event.dataTransfer.files))
+    if (!dropped.length) return
     const next = multiple ? [...files, ...dropped] : dropped.slice(0, 1)
     onFilesChange(next)
   }
 
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const selected = Array.from(event.target.files ?? [])
+    const selected = filterAccepted(Array.from(event.target.files ?? []))
+    event.target.value = ''
+    if (!selected.length) return
     const next = multiple ? [...files, ...selected] : selected.slice(0, 1)
     onFilesChange(next)
-    event.target.value = ''
   }
 
   function removeFile(index: number) {
@@ -91,6 +108,7 @@ export function FileDropzone({
           ))}
         </ul>
       )}
+      {typeError && <p className="field-error" role="alert">{typeError}</p>}
       {error && <p className="field-error" role="alert">{error}</p>}
     </div>
   )
