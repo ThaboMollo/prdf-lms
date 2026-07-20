@@ -71,8 +71,8 @@ const DOC_SLOTS: { type: string; label: string; hint: string; multiple?: boolean
   { type: 'BankStatement', label: 'Bank Statements (last 3 months) *', hint: 'Upload 3 months of business bank statements', multiple: true },
   { type: 'Financials', label: 'Financial Statements *', hint: 'Latest annual financials or management accounts' },
   { type: 'VendorQuotation', label: 'Vendor Quotations (3x)', hint: 'Three vendor quotations for the goods or services to be funded', multiple: true },
-  { type: 'RfqSupplierSpec', label: 'Central Supplier Database (CSD) Reports', hint: 'Central Supplier Database (CSD) registration report', optional: true },
-  { type: 'PurchaseOrder', label: 'Purchase Order / Short Term Contracts (Not greater than 3 years)', hint: 'The purchase order itself, including validity details', optional: true },
+  { type: 'RfqSupplierSpec', label: 'Central Supplier Database (CSD) Reports', hint: 'Central Supplier Database (CSD) registration report' },
+  { type: 'PurchaseOrder', label: 'Purchase Order / Short Term Contracts (Not greater than 3 years)', hint: 'The purchase order itself, including validity details' },
   { type: 'TradeReference', label: 'Trade Reference', hint: 'Reference from a business organisation or trade reference' },
 ]
 const REQUIRED_DOC_TYPES = DOC_SLOTS.filter((s) => !s.optional).map((s) => s.type)
