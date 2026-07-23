@@ -24,6 +24,7 @@ import { StatusBadge } from '../components/shared/StatusBadge'
 import { useToast } from '../components/shared/ToastProvider'
 import { formatCurrency, formatDate, formatDateTime } from '../lib/format'
 import { hasAnyRole, toAppRoles } from '../lib/rbac'
+import { getDocumentLabel, requiredDocumentTypes } from '../lib/requirements'
 
 type ApplicationsPageProps = {
   session: Session
@@ -42,8 +43,6 @@ const statuses: LoanApplicationStatus[] = [
   'InRepayment',
   'Closed'
 ]
-
-const requiredDocumentTypes = ['IDDocument', 'BankStatement', 'BusinessRegistration']
 
 type DetailTab = 'Details' | 'Documents' | 'History' | 'Tasks' | 'Notes'
 
@@ -363,14 +362,14 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
                     const found = docs.find((doc) => doc.docType === itemDocType)
                     return (
                       <li key={itemDocType} className="list-row">
-                        <span>{itemDocType}</span>
+                        <span>{getDocumentLabel(itemDocType)}</span>
                         {found ? <StatusBadge status={found.status} /> : <span className="status-badge status-alert">Missing</span>}
                       </li>
                     )
                   })}
                 </ul>
                 {missingDocs.length ? (
-                  <p className="muted-text">Missing: {missingDocs.join(', ')}</p>
+                  <p className="muted-text">Missing: {missingDocs.map(getDocumentLabel).join(', ')}</p>
                 ) : (
                   <p className="muted-text">All required documents attached.</p>
                 )}
@@ -393,7 +392,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
                     Document type
                     <select value={docType} onChange={(e) => setDocType(e.target.value)}>
                       {requiredDocumentTypes.map((item) => (
-                        <option key={item} value={item}>{item}</option>
+                        <option key={item} value={item}>{getDocumentLabel(item)}</option>
                       ))}
                       <option value="Other">Other</option>
                     </select>
@@ -792,7 +791,7 @@ function ApplicationDetail(props: ApplicationDetailProps) {
 
         <NextStepPanel
           status={props.application.status}
-          missingDocs={missingDocs}
+          missingDocs={missingDocs.map(getDocumentLabel)}
           onSubmitApp={props.onSubmitApp}
           onUploadTab={() => props.setTab('Documents')}
           submitting={props.submitting}
@@ -885,7 +884,7 @@ function DocumentsTab(props: ApplicationDetailProps) {
           const found = props.docs.find((doc) => doc.docType === itemDocType)
           return (
             <li key={itemDocType} className="list-row">
-              <span>{itemDocType}</span>
+              <span>{getDocumentLabel(itemDocType)}</span>
               {found ? <StatusBadge status={found.status} /> : <span className="status-badge status-alert">Missing</span>}
             </li>
           )

@@ -6,6 +6,7 @@ export declare class ApplicationsService {
     private getRoles;
     private getSecurityProjection;
     private ensureCanAccess;
+    private ensureWithinLoanLimits;
     private ensureTransitionAllowed;
     private getById;
     private insertStatusHistory;
@@ -30,6 +31,7 @@ export declare class ApplicationsService {
     }): Promise<any>;
     list(actor: CurrentUser): Promise<any[]>;
     getOne(actor: CurrentUser, applicationId: string): Promise<any>;
+    private ensureRequiredDocumentsPresent;
     submit(actor: CurrentUser, applicationId: string, note: string | null): Promise<any>;
     changeStatus(actor: CurrentUser, applicationId: string, toStatus: string, note: string | null): Promise<any>;
     private createInfoRequestedFollowUp;

@@ -14,6 +14,7 @@ const common_1 = require("@nestjs/common");
 const database_service_1 = require("../database/database.service");
 const roles_helper_1 = require("../auth/roles.helper");
 const crypto_1 = require("crypto");
+const interest_1 = require("../common/interest");
 let LoansService = class LoansService {
     db;
     constructor(db) {
@@ -103,18 +104,18 @@ let LoansService = class LoansService {
     async buildRepaymentSchedule(client, loan) {
         const principal = parseFloat(loan.principal_amount);
         const termMonths = parseInt(loan.term_months);
-        const interestRate = parseFloat(loan.interest_rate);
-        const installmentPrincipal = Math.round((principal / termMonths) * 100) / 100;
+        const annualRatePct = parseFloat(loan.interest_rate) || interest_1.DEFAULT_ANNUAL_RATE_PA;
+        const installmentPrincipal = (0, interest_1.roundCents)(principal / termMonths);
         let remainingPrincipal = principal;
         const baseDate = new Date();
         for (let i = 1; i <= termMonths; i++) {
             const p = i === termMonths ? remainingPrincipal : installmentPrincipal;
-            remainingPrincipal = Math.round((remainingPrincipal - p) * 100) / 100;
-            const interest = Math.round(p * (interestRate / 100) * 100) / 100;
-            const total = Math.round((p + interest) * 100) / 100;
+            const interest = (0, interest_1.monthlyInterest)(remainingPrincipal, annualRatePct);
+            remainingPrincipal = (0, interest_1.roundCents)(remainingPrincipal - p);
+            const total = (0, interest_1.roundCents)(p + interest);
             const dueDate = new Date(baseDate);
             dueDate.setMonth(dueDate.getMonth() + i);
-            await client.query(`insert into public.repayment_schedule (id, loan_id, installment_no, due_date, due_principal, due_interest, due_total, paid_amount, status) values ($1,$2,$3,$4,$5,$6,$7,0,'Pending')`, [(0, crypto_1.randomUUID)(), loan.id, i, dueDate, Math.round(p * 100) / 100, interest, total]);
+            await client.query(`insert into public.repayment_schedule (id, loan_id, installment_no, due_date, due_principal, due_interest, due_total, paid_amount, status) values ($1,$2,$3,$4,$5,$6,$7,0,'Pending')`, [(0, crypto_1.randomUUID)(), loan.id, i, dueDate, (0, interest_1.roundCents)(p), interest, total]);
         }
     }
     async applyRepaymentToSchedule(client, loanId, paymentAmount, paidAt) {

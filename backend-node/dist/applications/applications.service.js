@@ -13,8 +13,22 @@ exports.ApplicationsService = void 0;
 const common_1 = require("@nestjs/common");
 const database_service_1 = require("../database/database.service");
 const roles_helper_1 = require("../auth/roles.helper");
+const loan_limits_1 = require("../common/loan-limits");
+const interest_1 = require("../common/interest");
 const crypto_1 = require("crypto");
 const axios_1 = require("axios");
+const REQUIRED_DOCUMENT_TYPES = [
+    'IDDocument',
+    'ProofOfAddress',
+    'BusinessRegistration',
+    'TaxClearance',
+    'BankStatement',
+    'Financials',
+    'VendorQuotation',
+    'RfqSupplierSpec',
+    'PurchaseOrder',
+    'TradeReference',
+];
 const LOAN_STATUS_TRANSITIONS = {
     Draft: ['Submitted'],
     Submitted: ['UnderReview', 'InfoRequested', 'Approved', 'Rejected'],
@@ -46,6 +60,14 @@ let ApplicationsService = class ApplicationsService {
             return;
         throw new Error('User cannot access this application.');
     }
+    ensureWithinLoanLimits(requestedAmount, termMonths) {
+        if (!(requestedAmount >= loan_limits_1.LOAN_AMOUNT_MIN && requestedAmount <= loan_limits_1.LOAN_AMOUNT_MAX)) {
+            throw new Error('Requested amount must be between R250 000 and R5 000 000.');
+        }
+        if (!(termMonths >= loan_limits_1.LOAN_TERM_MIN && termMonths <= loan_limits_1.LOAN_TERM_MAX)) {
+            throw new Error('Term months must be between 1 and 60.');
+        }
+    }
     ensureTransitionAllowed(roles, fromStatus, toStatus) {
         if (fromStatus === toStatus)
             return;
@@ -61,8 +83,11 @@ let ApplicationsService = class ApplicationsService {
         return this.db.queryOne(`select la.id, la.client_id as "clientId", la.requested_amount as "requestedAmount",
               la.term_months as "termMonths", la.purpose, la.status,
               la.created_at as "createdAt", la.submitted_at as "submittedAt",
-              la.assigned_to_user_id as "assignedToUserId"
-       from public.loan_applications la where la.id = $1`, [applicationId]);
+              la.assigned_to_user_id as "assignedToUserId",
+              l.id as "loanId"
+       from public.loan_applications la
+       left join public.loans l on l.application_id = la.id
+       where la.id = $1`, [applicationId]);
     }
     async insertStatusHistory(applicationId, fromStatus, toStatus, changedBy, note) {
         await this.db.execute(`insert into public.application_status_history (id, application_id, from_status, to_status, changed_by, changed_at, note) values ($1,$2,$3,$4,$5,now(),$6)`, [(0, crypto_1.randomUUID)(), applicationId, fromStatus, toStatus, changedBy, note]);
@@ -87,10 +112,11 @@ let ApplicationsService = class ApplicationsService {
         const source = await this.db.queryOne(`select requested_amount, term_months from public.loan_applications where id = $1`, [applicationId]);
         if (!source)
             return;
-        await this.db.execute(`insert into public.loans (id, application_id, principal_amount, interest_rate, term_months, status, outstanding_principal, created_at) values ($1,$2,$3,0,$4,'PendingDisbursement',$3,now())`, [(0, crypto_1.randomUUID)(), applicationId, source.requested_amount, source.term_months]);
+        await this.db.execute(`insert into public.loans (id, application_id, principal_amount, interest_rate, term_months, status, outstanding_principal, created_at) values ($1,$2,$3,$4,$5,'PendingDisbursement',$3,now())`, [(0, crypto_1.randomUUID)(), applicationId, source.requested_amount, interest_1.DEFAULT_ANNUAL_RATE_PA, source.term_months]);
     }
     async create(actor, body) {
         const roles = await this.getRoles(actor.userId);
+        this.ensureWithinLoanLimits(body.requestedAmount, body.termMonths);
         let clientId = body.clientId ?? null;
         const assignedTo = body.assignedToUserId ?? null;
         if ((0, roles_helper_1.hasAnyRole)(roles, ...roles_helper_1.ASSIGNED_ROLES)) {
@@ -142,6 +168,7 @@ let ApplicationsService = class ApplicationsService {
             await this.insertAuditLog(applicationId, 'ReassignApplication', actor.userId, { assignedToUserId: body.assignedToUserId });
             return this.getById(applicationId);
         }
+        this.ensureWithinLoanLimits(body.requestedAmount, body.termMonths);
         await this.db.execute(`update public.loan_applications set requested_amount=$1, term_months=$2, purpose=$3, assigned_to_user_id=$4 where id=$5`, [body.requestedAmount, body.termMonths, body.purpose, body.assignedToUserId ?? null, applicationId]);
         await this.insertAuditLog(applicationId, 'UpdateDraftApplication', actor.userId, { requestedAmount: body.requestedAmount, termMonths: body.termMonths });
         return this.getById(applicationId);
@@ -174,6 +201,14 @@ let ApplicationsService = class ApplicationsService {
         this.ensureCanAccess(roles, actor.userId, proj);
         return this.getById(applicationId);
     }
+    async ensureRequiredDocumentsPresent(applicationId) {
+        const rows = await this.db.query(`select distinct doc_type from public.loan_documents where application_id = $1`, [applicationId]);
+        const uploaded = new Set(rows.map((r) => r.doc_type));
+        const missing = REQUIRED_DOCUMENT_TYPES.filter((t) => !uploaded.has(t));
+        if (missing.length) {
+            throw new Error(`Cannot submit: missing required document(s): ${missing.join(', ')}.`);
+        }
+    }
     async submit(actor, applicationId, note) {
         const roles = await this.getRoles(actor.userId);
         const proj = await this.getSecurityProjection(applicationId);
@@ -182,6 +217,7 @@ let ApplicationsService = class ApplicationsService {
         this.ensureCanAccess(roles, actor.userId, proj);
         if (proj.status !== 'Draft')
             throw new Error('Only Draft applications can be submitted.');
+        await this.ensureRequiredDocumentsPresent(applicationId);
         await this.db.execute(`update public.loan_applications set status='Submitted', submitted_at=now() where id=$1`, [applicationId]);
         await this.insertStatusHistory(applicationId, 'Draft', 'Submitted', actor.userId, note);
         await this.insertAuditLog(applicationId, 'SubmitApplication', actor.userId, { note });

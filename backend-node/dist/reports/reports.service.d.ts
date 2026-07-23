@@ -10,4 +10,6 @@ export declare class ReportsService {
     turnaround(actor: CurrentUser): Promise<any>;
     pipelineConversion(actor: CurrentUser): Promise<any[]>;
     productivity(actor: CurrentUser): Promise<any[]>;
+    pipelineSummary(actor: CurrentUser, startDate?: string, endDate?: string): Promise<any[]>;
+    originationTrends(actor: CurrentUser, startDate?: string, endDate?: string): Promise<any[]>;
 }

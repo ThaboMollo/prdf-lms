@@ -7,6 +7,19 @@ import { randomUUID } from 'crypto';
 import { PoolClient } from 'pg';
 import axios from 'axios';
 
+const REQUIRED_DOCUMENT_TYPES = [
+  'IDDocument',
+  'ProofOfAddress',
+  'BusinessRegistration',
+  'TaxClearance',
+  'BankStatement',
+  'Financials',
+  'VendorQuotation',
+  'RfqSupplierSpec',
+  'PurchaseOrder',
+  'TradeReference',
+];
+
 const LOAN_STATUS_TRANSITIONS: Record<string, string[]> = {
   Draft: ['Submitted'],
   Submitted: ['UnderReview', 'InfoRequested', 'Approved', 'Rejected'],
@@ -221,12 +234,25 @@ export class ApplicationsService {
     return this.getById(applicationId);
   }
 
+  private async ensureRequiredDocumentsPresent(applicationId: string) {
+    const rows = await this.db.query<{ doc_type: string }>(
+      `select distinct doc_type from public.loan_documents where application_id = $1`,
+      [applicationId],
+    );
+    const uploaded = new Set(rows.map((r) => r.doc_type));
+    const missing = REQUIRED_DOCUMENT_TYPES.filter((t) => !uploaded.has(t));
+    if (missing.length) {
+      throw new Error(`Cannot submit: missing required document(s): ${missing.join(', ')}.`);
+    }
+  }
+
   async submit(actor: CurrentUser, applicationId: string, note: string | null) {
     const roles = await this.getRoles(actor.userId);
     const proj = await this.getSecurityProjection(applicationId);
     if (!proj) return null;
     this.ensureCanAccess(roles, actor.userId, proj);
     if (proj.status !== 'Draft') throw new Error('Only Draft applications can be submitted.');
+    await this.ensureRequiredDocumentsPresent(applicationId);
 
     await this.db.execute(`update public.loan_applications set status='Submitted', submitted_at=now() where id=$1`, [applicationId]);
     await this.insertStatusHistory(applicationId, 'Draft', 'Submitted', actor.userId, note);

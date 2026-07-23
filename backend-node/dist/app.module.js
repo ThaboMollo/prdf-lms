@@ -22,6 +22,7 @@ const tasks_module_1 = require("./tasks/tasks.module");
 const documents_module_1 = require("./documents/documents.module");
 const notifications_module_1 = require("./notifications/notifications.module");
 const reports_module_1 = require("./reports/reports.module");
+const nfs_module_1 = require("./nfs/nfs.module");
 const notification_sweep_job_1 = require("./jobs/notification-sweep.job");
 let AppModule = class AppModule {
 };
@@ -41,6 +42,7 @@ exports.AppModule = AppModule = __decorate([
             documents_module_1.DocumentsModule,
             notifications_module_1.NotificationsModule,
             reports_module_1.ReportsModule,
+            nfs_module_1.NfsModule,
         ],
         controllers: [health_controller_1.HealthController, me_controller_1.MeController],
         providers: [notification_sweep_job_1.NotificationSweepJob],

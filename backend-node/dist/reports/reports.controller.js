@@ -28,6 +28,8 @@ let ReportsController = class ReportsController {
     turnaround(u) { return this.svc.turnaround(u); }
     pipelineConversion(u) { return this.svc.pipelineConversion(u); }
     productivity(u) { return this.svc.productivity(u); }
+    pipelineSummary(u, startDate, endDate) { return this.svc.pipelineSummary(u, startDate, endDate); }
+    originationTrends(u, startDate, endDate) { return this.svc.originationTrends(u, startDate, endDate); }
 };
 exports.ReportsController = ReportsController;
 __decorate([
@@ -75,6 +77,24 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], ReportsController.prototype, "productivity", null);
+__decorate([
+    (0, common_1.Get)('pipeline-summary'),
+    __param(0, (0, current_user_decorator_1.GetCurrentUser)()),
+    __param(1, (0, common_1.Query)('startDate')),
+    __param(2, (0, common_1.Query)('endDate')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", void 0)
+], ReportsController.prototype, "pipelineSummary", null);
+__decorate([
+    (0, common_1.Get)('origination-trends'),
+    __param(0, (0, current_user_decorator_1.GetCurrentUser)()),
+    __param(1, (0, common_1.Query)('startDate')),
+    __param(2, (0, common_1.Query)('endDate')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", void 0)
+], ReportsController.prototype, "originationTrends", null);
 exports.ReportsController = ReportsController = __decorate([
     (0, common_1.Controller)('api/reports'),
     (0, common_1.UseGuards)(supabase_auth_guard_1.SupabaseAuthGuard),

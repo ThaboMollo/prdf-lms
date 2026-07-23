@@ -28,10 +28,7 @@ export const requiredDocuments = [
     type: 'Financials',
     label: 'Financial Statements',
     description: 'Latest annual financials or management accounts.'
-  }
-] as const
-
-export const optionalDocuments = [
+  },
   {
     type: 'VendorQuotation',
     label: 'Vendor Quotations (3x)',
@@ -44,7 +41,7 @@ export const optionalDocuments = [
   },
   {
     type: 'PurchaseOrder',
-    label: 'Purchase Order',
+    label: 'Purchase Order / Short Term Contracts (Not greater than 3 years)',
     description: 'The purchase order itself, including validity details.'
   },
   {
@@ -54,7 +51,7 @@ export const optionalDocuments = [
   }
 ] as const
 
-export const allDocuments = [...requiredDocuments, ...optionalDocuments] as const
+export const allDocuments = requiredDocuments
 
 export type RequiredDocumentType = typeof requiredDocuments[number]['type']
 

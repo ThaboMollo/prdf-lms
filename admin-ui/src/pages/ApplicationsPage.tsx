@@ -70,7 +70,18 @@ function allowedNextStatuses(current: LoanApplicationStatus): LoanApplicationSta
   return STATUS_TRANSITIONS[current] ?? []
 }
 
-const requiredDocumentTypes = ['IDDocument', 'BankStatement', 'BusinessRegistration']
+const requiredDocumentTypes: { type: string; label: string }[] = [
+  { type: 'IDDocument', label: 'ID Document' },
+  { type: 'ProofOfAddress', label: 'Proof of Address' },
+  { type: 'BusinessRegistration', label: 'Company Registration (CIPC)' },
+  { type: 'TaxClearance', label: 'Tax Clearance' },
+  { type: 'BankStatement', label: 'Bank Statements (3 months)' },
+  { type: 'Financials', label: 'Financial Statements' },
+  { type: 'VendorQuotation', label: 'Vendor Quotations (3x)' },
+  { type: 'RfqSupplierSpec', label: 'Central Supplier Database (CSD) Reports' },
+  { type: 'PurchaseOrder', label: 'Purchase Order / Short Term Contracts (Not greater than 3 years)' },
+  { type: 'TradeReference', label: 'Trade Reference' },
+]
 const APPLICATIONS_PAGE_SIZE = 10
 
 type DetailTab = 'Details' | 'Documents' | 'History' | 'Tasks' | 'Notes' | 'Advisory (NFS)'
@@ -926,7 +937,7 @@ type ApplicationDetailProps = {
 }
 
 function ApplicationDetail(props: ApplicationDetailProps) {
-  const missingDocs = requiredDocumentTypes.filter((requiredDoc) => !props.docs.some((doc) => doc.docType === requiredDoc))
+  const missingDocs = requiredDocumentTypes.filter((requiredDoc) => !props.docs.some((doc) => doc.docType === requiredDoc.type))
 
   const isPendingStatus = ['Submitted', 'UnderReview', 'InfoRequested'].includes(props.application.status)
   const daysElapsed = calculateDaysElapsed(props.application.submittedAt)
@@ -955,7 +966,7 @@ function ApplicationDetail(props: ApplicationDetailProps) {
 
         <NextStepPanel
           status={props.application.status}
-          missingDocs={missingDocs}
+          missingDocs={missingDocs.map((doc) => doc.label)}
           onSubmitApp={props.onSubmitApp}
           onUploadTab={() => props.setTab('Documents')}
           submitting={props.submitting}
@@ -1087,11 +1098,11 @@ function DocumentsTab(props: ApplicationDetailProps) {
     <div className="stack-sm">
       <h3>Document Checklist</h3>
       <ul className="list-clean">
-        {requiredDocumentTypes.map((itemDocType) => {
-          const found = props.docs.find((doc) => doc.docType === itemDocType)
+        {requiredDocumentTypes.map((item) => {
+          const found = props.docs.find((doc) => doc.docType === item.type)
           return (
-            <li key={itemDocType} className="list-row">
-              <span>{itemDocType}</span>
+            <li key={item.type} className="list-row">
+              <span>{item.label}</span>
               {found ? <StatusBadge status={found.status} /> : <span className="status-badge status-alert">Missing</span>}
             </li>
           )

@@ -9,7 +9,7 @@ import { StatusBadge } from '../components/shared/StatusBadge'
 import { useToast } from '../components/shared/ToastProvider'
 import type { MeResponse } from '../lib/api'
 import { formatDateTime } from '../lib/format'
-import { allDocuments, getDocumentLabel, optionalDocuments, requiredDocuments } from '../lib/requirements'
+import { allDocuments, getDocumentLabel, requiredDocuments } from '../lib/requirements'
 import { createApplicationsUseCases } from '../logic/usecases/applications'
 import { createDocumentsUseCases } from '../logic/usecases/documents'
 
@@ -151,44 +151,6 @@ export function DocumentsPage({ session }: DocumentsPageProps) {
             })}
           </ul>
 
-          <div className="section-heading-row" style={{ marginTop: '1rem' }}>
-            <div>
-              <h2>Optional Documents</h2>
-              <p className="muted-text">Supporting procurement documents that help speed up review.</p>
-            </div>
-          </div>
-
-          <ul className="list-clean document-checklist">
-            {optionalDocuments.map((optionalDoc) => {
-              const found = documents.find((doc) => doc.docType === optionalDoc.type)
-              const isSelected = selectedDocType === optionalDoc.type
-
-              return (
-                <li key={optionalDoc.type} className={isSelected ? 'document-checklist-item document-checklist-item-active' : 'document-checklist-item'}>
-                  <div className="document-checklist-main">
-                    <i className={found ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle'} aria-hidden="true" />
-                    <div>
-                      <p className="list-title">{optionalDoc.label}</p>
-                      <small>{optionalDoc.description}</small>
-                    </div>
-                  </div>
-                  <div className="document-checklist-actions">
-                    {found ? <StatusBadge status={found.status} /> : <span className="status-badge">Optional</span>}
-                    <button
-                      type="button"
-                      className="link-btn"
-                      onClick={() => {
-                        setSelectedDocType(optionalDoc.type)
-                        setUploadFiles([])
-                      }}
-                    >
-                      {found ? 'Replace' : 'Upload'}
-                    </button>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
         </div>
 
         <div className="card soft-card document-upload-card">

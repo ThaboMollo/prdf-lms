@@ -2308,12 +2308,6 @@ input[type="range"]::-moz-range-thumb {
   white-space: nowrap;
 }
 
-.review-doc--none .review-doc__text {
-  color: var(--muted);
-  font-weight: 400;
-  font-style: italic;
-}
-
 .review-doc--missing .review-doc__text {
   color: var(--danger);
 }

@@ -9,4 +9,6 @@ export declare class ReportsController {
     turnaround(u: CurrentUser): Promise<any>;
     pipelineConversion(u: CurrentUser): Promise<any[]>;
     productivity(u: CurrentUser): Promise<any[]>;
+    pipelineSummary(u: CurrentUser, startDate?: string, endDate?: string): Promise<any[]>;
+    originationTrends(u: CurrentUser, startDate?: string, endDate?: string): Promise<any[]>;
 }
