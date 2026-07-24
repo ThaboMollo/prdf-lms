@@ -5,9 +5,30 @@ import {
   UnauthorizedException,
   Logger,
 } from '@nestjs/common';
-import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
+import type { createRemoteJWKSet, JWTPayload } from 'jose';
 import { DatabaseService } from '../database/database.service';
 import { CurrentUser, fetchUserRoles } from './roles.helper';
+
+// jose v6 ships ESM-only (no "require" export condition) — a static
+// `import ... from 'jose'` compiles to `require('jose')` under this
+// project's CommonJS output and throws ERR_REQUIRE_ESM in Vercel's function
+// runtime (it worked locally only because that Node build happens to support
+// synchronous require(esm)). A literal `await import('jose')` doesn't fix
+// this either — tsc downlevels dynamic import() to a require() wrapped in
+// Promise.resolve() when the target module is CommonJS, hitting the same
+// error. Routing through `new Function` hides the import() from tsc's
+// static transform entirely, so the emitted code calls Node's real
+// asynchronous ESM loader instead.
+const dynamicImport = new Function('specifier', 'return import(specifier)') as (
+  specifier: string,
+) => Promise<typeof import('jose')>;
+
+let joseModule: typeof import('jose') | null = null;
+
+async function getJose(): Promise<typeof import('jose')> {
+  if (!joseModule) joseModule = await dynamicImport('jose');
+  return joseModule;
+}
 
 // Module-scope, not per-guard-instance or per-request: jose fetches the JWKS
 // once and caches/auto-refreshes it internally. Constructing this inside the
@@ -17,10 +38,11 @@ import { CurrentUser, fetchUserRoles } from './roles.helper';
 // request.
 let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
 
-function getJwks(): ReturnType<typeof createRemoteJWKSet> {
+async function getJwks(): Promise<ReturnType<typeof createRemoteJWKSet>> {
   if (jwks) return jwks;
   const url = process.env.SUPABASE_URL;
   if (!url) throw new Error('SUPABASE_URL is required');
+  const { createRemoteJWKSet } = await getJose();
   jwks = createRemoteJWKSet(new URL(`${url.replace(/\/$/, '')}/auth/v1/.well-known/jwks.json`));
   return jwks;
 }
@@ -43,7 +65,8 @@ export class SupabaseAuthGuard implements CanActivate {
     let payload: JWTPayload;
     try {
       const audience = process.env.SUPABASE_JWT_AUDIENCE || 'authenticated';
-      const result = await jwtVerify(token, getJwks(), { audience });
+      const { jwtVerify } = await getJose();
+      const result = await jwtVerify(token, await getJwks(), { audience });
       payload = result.payload;
     } catch (err) {
       this.logger.warn(`JWT verification failed: ${err instanceof Error ? err.message : err}`);
