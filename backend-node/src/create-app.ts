@@ -1,17 +1,14 @@
 import { INestApplication } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/exception.filter';
 
 /**
- * Shared bootstrap logic (CORS, exception filter) for both local dev
- * (main.ts, which calls .listen()) and the Vercel serverless entry point
- * (api/index.ts, which never listens — Vercel owns the HTTP server).
- * Kept in one place so the two entry points can't drift.
+ * Shared CORS/exception-filter config for the app instance. The
+ * NestFactory.create() call itself stays inline in main.ts (not here) —
+ * Vercel's zero-config NestJS build statically scans the entrypoint file
+ * for a direct `@nestjs/core` import/NestFactory.create() call, and
+ * rejects entrypoints that only delegate to it transitively.
  */
-export async function createApp(): Promise<INestApplication> {
-  const app = await NestFactory.create(AppModule);
-
+export function configureApp(app: INestApplication): void {
   const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? 'http://localhost:5173,http://localhost:5174')
     .split(',')
     .map((o) => o.trim());
@@ -30,6 +27,4 @@ export async function createApp(): Promise<INestApplication> {
   });
 
   app.useGlobalFilters(new AllExceptionsFilter());
-
-  return app;
 }

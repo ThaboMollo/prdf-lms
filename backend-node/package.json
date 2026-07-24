@@ -24,7 +24,6 @@
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.7",
     "@types/pg": "^8.11.10",
-    "@vercel/node": "^5.8.26",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.7.3"
