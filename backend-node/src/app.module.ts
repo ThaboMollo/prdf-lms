@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
-import { ScheduleModule } from '@nestjs/schedule';
 import { DatabaseModule } from './database/database.module';
+import { RlsTransactionInterceptor } from './database/rls-transaction.interceptor';
 import { AuthModule } from './auth/auth.module';
 import { HealthController } from './health/health.controller';
 import { MeController } from './me/me.controller';
@@ -14,12 +15,11 @@ import { DocumentsModule } from './documents/documents.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ReportsModule } from './reports/reports.module';
 import { NfsModule } from './nfs/nfs.module';
-import { NotificationSweepJob } from './jobs/notification-sweep.job';
+import { CronModule } from './cron/cron.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    ScheduleModule.forRoot(),
     DatabaseModule,
     AuthModule,
     AdminModule,
@@ -31,8 +31,14 @@ import { NotificationSweepJob } from './jobs/notification-sweep.job';
     NotificationsModule,
     ReportsModule,
     NfsModule,
+    CronModule,
   ],
   controllers: [HealthController, MeController],
-  providers: [NotificationSweepJob],
+  providers: [
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: RlsTransactionInterceptor,
+    },
+  ],
 })
 export class AppModule {}

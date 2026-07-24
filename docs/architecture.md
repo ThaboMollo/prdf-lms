@@ -1,6 +1,8 @@
 # Architecture
 
-This document reflects the current state of the codebase after Phase 0, Phase 1, and Phase 2 of `platform-architecture-design.md` (repo root — the full 7-phase target-state spec and implementation roadmap; read that for anything not covered here). `docs/system-overview.md` remains the verified reference for pre-Phase-0 behaviour and is kept as historical record, not updated going forward.
+This document reflects the current state of the codebase after Phase 0, Phase 1, Phase 2, and Phase 3a of `platform-architecture-design.md` (repo root — the full 7-phase target-state spec and implementation roadmap; read that for anything not covered here). `docs/system-overview.md` remains the verified reference for pre-Phase-0 behaviour and is kept as historical record, not updated going forward.
+
+**Phase 3a note**: the full Phase 3 ("make the API the only data path") turned out to be 3–4x the size of Phase 2 once researched — both frontends still talk directly to Supabase today, unchanged. Phase 3a is the backend-internal subset that doesn't touch either frontend: local JWT validation, RLS-behind-API, Supavisor pooling, Vercel serverless deployment, and the notification-sweep cron port. Frontend repointing (35–45 files), OpenAPI/`packages/api-client` generation, and request validation remain unstarted, separately-scoped follow-up work.
 
 ## What this is
 
@@ -48,7 +50,7 @@ Key enforcement points, all in the database, not application code:
 
 ## Data access — current state, not yet the target state
 
-**This has not changed in Phase 0/1 and won't until Phase 3.** Both frontends still default to `VITE_DATA_PROVIDER=supabase`, talking directly to Supabase (PostgREST + Storage) with RLS as the authorization boundary. The target architecture — the API as the *only* data path, with RLS kept live behind it as a second independent layer — is Phase 3 scope, gated on open decisions that haven't been resolved yet (see `platform-architecture-design.md` §10).
+**This has not changed through Phase 3a.** Both frontends still default to `VITE_DATA_PROVIDER=supabase`, talking directly to Supabase (PostgREST + Storage) with RLS as the authorization boundary — Phase 3a hardened `backend-node` itself but didn't repoint either frontend to use it. The target architecture — the API as the *only* data path, with RLS kept live behind it as a second independent layer — needs the frontend-repointing work (still unstarted) before it's actually true end-to-end. `backend-node` is now capable of the target's security model (see below); nothing calls it yet in production.
 
 ## What Phase 0 + Phase 1 actually did
 
@@ -66,6 +68,19 @@ Key enforcement points, all in the database, not application code:
 - Wired two feature flags to actually gate rendering for the first time: the Non-Financial Support tab (`admin-ui`) and the BEE/impact demographic fields (`client-ui`'s application wizard) — previously always-on with no toggle at all.
 - Deliberately **not** done this pass: full copy-dictionary extraction (120+ strings in the application wizard alone) and making the wizard's step order genuinely data-driven (it's a hand-rolled reducer, not a data loop) — both flagged as separate, larger follow-up work rather than bundled in.
 
+## What Phase 3a actually did
+
+`backend-node` gained the security/deployment infrastructure it had none of before — all backend-internal, verified without touching either frontend:
+
+- **Local JWT validation**: `SupabaseAuthGuard` now verifies tokens locally via `jose` against Supabase's JWKS endpoint (cached at module scope), instead of a remote `supabase.auth.getUser()` round-trip on every request. Requires the Supabase project to use asymmetric JWT signing keys — confirmed true for this project before relying on it.
+- **RLS-behind-API**: a new `RlsTransactionInterceptor` opens a transaction per authenticated request, sets `request.jwt.claims`/`role authenticated` via `set_config`, and runs the request inside it (via `AsyncLocalStorage`, so every existing `this.db.query(...)` call in every service picked this up with zero changes to the services themselves). **Verified end-to-end against a real cross-tenant scenario**, not just reasoned about: a client requesting another client's application is now genuinely blocked by database-level RLS, not just application-code role checks — proven with real signed JWTs against a local test harness (mock JWKS server + scratch Postgres running the actual schema/RLS policies), including a concurrent-request test confirming no session-state leakage between simultaneous requests from different users.
+- **Supavisor pooling**: connection string moved to the transaction-mode pooler (documented in `.env.example`); `Pool` max reduced from 10 to 3 per instance, since the pooler — not this local pool — is what should absorb concurrent serverless instances.
+- **Vercel serverless deployment**: `backend-node/api/index.ts` exports the underlying Express instance directly (no adapter library needed for Vercel specifically — those exist mainly for AWS Lambda's proxy-integration format), cached across warm invocations. `vercel.json` added with a catch-all rewrite and the cron schedule.
+- **Cron**: `POST|GET /internal/cron/notification-sweep`, guarded by a `CRON_SECRET` bearer check (deliberately separate from `SupabaseAuthGuard`), replacing `@nestjs/schedule`'s in-process job (removed entirely, along with the `@nestjs/schedule`/`cron` dependencies). Accepts both HTTP methods since Vercel's own documentation is inconsistent about which one Cron actually sends. Verified the sweep's actual SQL logic still produces correct notifications with correct same-day deduplication, not just that the endpoint responds.
+- Found and fixed in passing: `backend-node/dist/` was mistakenly committed to git (unlike `client-ui`/`admin-ui`'s gitignored `dist/`) — untracked and added to `.gitignore`. Consolidated three duplicated role-derivation SQL queries into one shared `fetchUserRoles()` helper.
+
 ## What's still open
 
-Phases 3 through 6 (making the API the sole data path, extracting shared `packages/*` beyond `tenant-config`, provisioning client 2, operational readiness) are not started. Several are explicitly blocked on human decisions the implementing agent was told not to resolve unilaterally — see `platform-architecture-design.md` §10 for the current list.
+Phase 3's frontend-repointing work (35–45 files: 15 Supabase adapters to delete, 15 repos to simplify, 12 API adapters with stub methods to fill in, a `loans.api.ts` to build from scratch, 7 call sites that bypass the repo pattern entirely), OpenAPI generation and `packages/api-client` (blocked on DTOs — every controller currently takes `body: any`), request validation, and a committed test suite (none exists yet) are all unstarted. Phases 4 through 6 (extracting shared `packages/*` beyond `tenant-config`, provisioning client 2, operational readiness) haven't been touched. Several are explicitly blocked on human decisions the implementing agent was told not to resolve unilaterally — see `platform-architecture-design.md` §10 for the current list.
+
+**Manual verification still needed against the real project** (not done by the implementing agent — no access): the actual Supavisor pooler connection (only the transaction-local `set_config` mechanism was verified, against a local Postgres standing in for it), and a real Vercel deployment of `backend-node` (the serverless entry point was verified to build and type-check correctly, not deployed).

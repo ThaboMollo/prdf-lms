@@ -6,6 +6,7 @@ admin-ui/node_modules/
 # Frontend build
 client-ui/dist/
 admin-ui/dist/
+backend-node/dist/
 
 # .NET
 **/bin/

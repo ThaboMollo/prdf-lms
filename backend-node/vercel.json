@@ -1,0 +1,11 @@
+{
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/index" }
+  ],
+  "crons": [
+    {
+      "path": "/internal/cron/notification-sweep",
+      "schedule": "0 * * * *"
+    }
+  ]
+}

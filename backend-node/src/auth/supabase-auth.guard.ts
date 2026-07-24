@@ -5,23 +5,31 @@ import {
   UnauthorizedException,
   Logger,
 } from '@nestjs/common';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 import { DatabaseService } from '../database/database.service';
-import { CurrentUser } from './roles.helper';
+import { CurrentUser, fetchUserRoles } from './roles.helper';
+
+// Module-scope, not per-guard-instance or per-request: jose fetches the JWKS
+// once and caches/auto-refreshes it internally. Constructing this inside the
+// class (or per-request) would re-fetch the key set unnecessarily — on
+// serverless this matters more, not less, since a cold function paying an
+// extra network round trip on top of its cold start is a visibly slow first
+// request.
+let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
+
+function getJwks(): ReturnType<typeof createRemoteJWKSet> {
+  if (jwks) return jwks;
+  const url = process.env.SUPABASE_URL;
+  if (!url) throw new Error('SUPABASE_URL is required');
+  jwks = createRemoteJWKSet(new URL(`${url.replace(/\/$/, '')}/auth/v1/.well-known/jwks.json`));
+  return jwks;
+}
 
 @Injectable()
 export class SupabaseAuthGuard implements CanActivate {
   private readonly logger = new Logger(SupabaseAuthGuard.name);
-  private supabaseAdmin: SupabaseClient;
 
-  constructor(private readonly db: DatabaseService) {
-    const url = process.env.SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !serviceKey) throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required');
-    this.supabaseAdmin = createClient(url, serviceKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-  }
+  constructor(private readonly db: DatabaseService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -32,19 +40,27 @@ export class SupabaseAuthGuard implements CanActivate {
 
     const token = authHeader.slice(7);
 
-    const { data, error } = await this.supabaseAdmin.auth.getUser(token);
-    if (error || !data.user) {
+    let payload: JWTPayload;
+    try {
+      const audience = process.env.SUPABASE_JWT_AUDIENCE || 'authenticated';
+      const result = await jwtVerify(token, getJwks(), { audience });
+      payload = result.payload;
+    } catch (err) {
+      this.logger.warn(`JWT verification failed: ${err instanceof Error ? err.message : err}`);
       throw new UnauthorizedException('Invalid or expired token');
     }
 
-    const supabaseUser = data.user;
-    const userId = supabaseUser.id;
+    const userId = payload.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Token missing subject claim');
+    }
 
-    const roleRows = await this.db.query<{ name: string }>(
-      `select r.name from public.user_roles ur join public.roles r on r.id = ur.role_id where ur.user_id = $1`,
-      [userId],
-    );
-    const roles = [...new Set(roleRows.map((r) => r.name))];
+    // Stash the raw verified claims for the RLS-behind-API interceptor
+    // (set_config('request.jwt.claims', ...)) — needs the full payload, not
+    // just what CurrentUser carries.
+    request.jwtClaims = payload;
+
+    const roles = await fetchUserRoles(this.db, userId);
 
     const profileRow = await this.db.queryOne<{ full_name: string | null }>(
       `select full_name from public.profiles where user_id = $1`,
@@ -53,7 +69,7 @@ export class SupabaseAuthGuard implements CanActivate {
 
     const currentUser: CurrentUser = {
       userId,
-      email: supabaseUser.email ?? '',
+      email: (payload.email as string | undefined) ?? '',
       fullName: profileRow?.full_name ?? null,
       roles,
     };
