@@ -1,4 +1,4 @@
-import { formatRand, DEFAULT_RATE_LABEL } from '../../lib/loanCalc'
+import { formatRand } from '../../lib/loanCalc'
 
 type WizardCostCardProps = {
   amount: number
@@ -6,10 +6,11 @@ type WizardCostCardProps = {
   monthly: number
   total: number
   fees: number
+  rateLabel: string
   onEdit: () => void
 }
 
-export function WizardCostCard({ amount, term, monthly, total, fees, onEdit }: WizardCostCardProps) {
+export function WizardCostCard({ amount, term, monthly, total, fees, rateLabel, onEdit }: WizardCostCardProps) {
   return (
     <aside className="wizard-cost-card">
       <div className="wizard-cost-card__header">
@@ -46,7 +47,7 @@ export function WizardCostCard({ amount, term, monthly, total, fees, onEdit }: W
 
         <div className="wizard-cost-card__row">
           <span className="wizard-cost-card__label">Lending Rate</span>
-          <span className="wizard-cost-card__value">{DEFAULT_RATE_LABEL}</span>
+          <span className="wizard-cost-card__value">{rateLabel}</span>
         </div>
       </div>
 

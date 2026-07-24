@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { LOAN_AMOUNT_MAX, LOAN_AMOUNT_MIN, LOAN_TERM_MAX, LOAN_TERM_MIN } from '../../lib/loanLimits'
 
 // ----------------------------------------------------------------
 // Wizard step schemas (5-step application flow)
@@ -36,19 +35,33 @@ export const step2Schema = z.object({
   bankName: z.string().trim().min(2, 'Bank name is required'),
 })
 
-export const step3Schema = z.object({
-  requestedAmount: z.coerce
-    .number()
-    .min(LOAN_AMOUNT_MIN, 'Minimum loan amount is R250 000')
-    .max(LOAN_AMOUNT_MAX, 'Maximum loan amount is R5 million'),
-  termMonths: z.coerce
-    .number()
-    .int()
-    .min(LOAN_TERM_MIN, 'Minimum 1 month')
-    .max(LOAN_TERM_MAX, 'Maximum 60 months'),
-  purpose: z.string().trim().min(5, 'Please describe the loan purpose (at least 5 characters)'),
-  loanPurposeCategory: z.string().min(1, 'Please select a purpose category'),
-})
+/**
+ * Amount/term limits now come from loan_products (see lib/loanProduct.ts),
+ * not hardcoded constants — so this schema is built per-request rather than
+ * defined statically.
+ */
+export function createStep3Schema(limits: {
+  minAmount: number
+  maxAmount: number
+  minTermMonths: number
+  maxTermMonths: number
+}) {
+  return z.object({
+    requestedAmount: z.coerce
+      .number()
+      .min(limits.minAmount, `Minimum loan amount is R${limits.minAmount.toLocaleString('en-ZA')}`)
+      .max(limits.maxAmount, `Maximum loan amount is R${limits.maxAmount.toLocaleString('en-ZA')}`),
+    termMonths: z.coerce
+      .number()
+      .int()
+      .min(limits.minTermMonths, `Minimum ${limits.minTermMonths} month${limits.minTermMonths === 1 ? '' : 's'}`)
+      .max(limits.maxTermMonths, `Maximum ${limits.maxTermMonths} months`),
+    purpose: z.string().trim().min(5, 'Please describe the loan purpose (at least 5 characters)'),
+    loanPurposeCategory: z.string().min(1, 'Please select a purpose category'),
+  })
+}
+
+export type Step3Schema = ReturnType<typeof createStep3Schema>
 
 const requiredFileSchema = (message: string) =>
   z.any().refine((v): v is File => v instanceof File, { message })
@@ -70,7 +83,12 @@ export const step5Schema = z.object({
 
 export type Step1Data = z.infer<typeof step1Schema>
 export type Step2Data = z.infer<typeof step2Schema>
-export type Step3Data = z.infer<typeof step3Schema>
+export type Step3Data = {
+  requestedAmount: number
+  termMonths: number
+  purpose: string
+  loanPurposeCategory: string
+}
 export type Step4Data = {
   idDocument: File | null
   proofOfAddress: File | null

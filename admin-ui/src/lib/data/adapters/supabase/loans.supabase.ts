@@ -155,7 +155,7 @@ export function createSupabaseLoansAdapter(accessToken: string): LoansRepository
         const rows = buildInstallments(
           Number(loan.principal_amount),
           Number(loan.term_months),
-          Number(loan.interest_rate) || undefined
+          Number(loan.interest_rate)
         ).map((item) => {
           const due = new Date(base)
           due.setMonth(due.getMonth() + item.installmentNo)

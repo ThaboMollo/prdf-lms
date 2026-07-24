@@ -3,19 +3,17 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useCalculator } from '../contexts/CalculatorContext'
 import { formatRand } from '../lib/loanCalc'
-import { LOAN_AMOUNT_MIN } from '../lib/loanLimits'
+import { prdf as tenantConfig } from '../../../packages/tenant-config/tenants/prdf'
 
 export function LoginPage() {
   const navigate = useNavigate()
-  const { amount, term } = useCalculator()
+  const { amount, term, hasInteracted } = useCalculator()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [resetSent, setResetSent] = useState(false)
   const [resetting, setResetting] = useState(false)
-
-  const hasCalcState = amount !== LOAN_AMOUNT_MIN || term !== 6
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -54,9 +52,9 @@ export function LoginPage() {
     <div className="split-auth">
       {/* Brand Panel */}
       <div className="auth-brand-panel">
-        <Link to="/" className="brand-logo" aria-label="PRDF home">
-          <img src="/prdf-logo.png" alt="" className="brand-logo__mark" />
-          <span>PRDF</span>
+        <Link to="/" className="brand-logo" aria-label={`${tenantConfig.displayName} home`}>
+          <img src={tenantConfig.logoPath} alt="" className="brand-logo__mark" />
+          <span>{tenantConfig.displayName}</span>
         </Link>
         <div>
           <h2>Business Finance, Built for Growth</h2>
@@ -68,7 +66,7 @@ export function LoginPage() {
           <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> Dedicated loan officer support</li>
           <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> Funds disbursed within 48 hours</li>
         </ul>
-        {hasCalcState && (
+        {hasInteracted && (
           <div className="auth-loan-preview">
             <p>Your selected loan</p>
             <strong>{formatRand(amount)} over {term} month{term !== 1 ? 's' : ''}</strong>

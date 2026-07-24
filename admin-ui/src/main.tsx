@@ -6,10 +6,13 @@ import { App } from './App'
 import { ErrorBoundary } from './components/shared/ErrorBoundary'
 import { ToastProvider } from './components/shared/ToastProvider'
 import { GlobalLoader } from './components/shared/GlobalLoader'
+import { applyTenantTheme } from './lib/applyTenantTheme'
+import { prdf as tenantConfig } from '../../packages/tenant-config/tenants/prdf'
 import './styles/global.css'
 
 document.documentElement.setAttribute('data-theme', 'light')
 window.localStorage.setItem('theme', 'light')
+applyTenantTheme(tenantConfig)
 
 const queryClient = new QueryClient({
   defaultOptions: {

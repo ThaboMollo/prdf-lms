@@ -32,6 +32,9 @@ import { Link } from 'react-router-dom'
 import { formatCurrency, formatDate, formatDateTime, formatLongDate, calculateDaysElapsed } from '../lib/format'
 import { hasAnyRole, toAppRoles } from '../lib/rbac'
 import { paginateItems, parsePageParam } from '../lib/pagination'
+import { DOCUMENT_LABELS } from '../lib/requirements'
+import { useActiveLoanProduct, useDocumentRequirements } from '../lib/loanProduct'
+import { prdf as tenantConfig } from '../../../packages/tenant-config/tenants/prdf'
 
 type ApplicationsPageProps = {
   session: Session
@@ -70,18 +73,6 @@ function allowedNextStatuses(current: LoanApplicationStatus): LoanApplicationSta
   return STATUS_TRANSITIONS[current] ?? []
 }
 
-const requiredDocumentTypes: { type: string; label: string }[] = [
-  { type: 'IDDocument', label: 'ID Document' },
-  { type: 'ProofOfAddress', label: 'Proof of Address' },
-  { type: 'BusinessRegistration', label: 'Company Registration (CIPC)' },
-  { type: 'TaxClearance', label: 'Tax Clearance' },
-  { type: 'BankStatement', label: 'Bank Statements (3 months)' },
-  { type: 'Financials', label: 'Financial Statements' },
-  { type: 'VendorQuotation', label: 'Vendor Quotations (3x)' },
-  { type: 'RfqSupplierSpec', label: 'Central Supplier Database (CSD) Reports' },
-  { type: 'PurchaseOrder', label: 'Purchase Order / Short Term Contracts (Not greater than 3 years)' },
-  { type: 'TradeReference', label: 'Trade Reference' },
-]
 const APPLICATIONS_PAGE_SIZE = 10
 
 type DetailTab = 'Details' | 'Documents' | 'History' | 'Tasks' | 'Notes' | 'Advisory (NFS)'
@@ -937,6 +928,12 @@ type ApplicationDetailProps = {
 }
 
 function ApplicationDetail(props: ApplicationDetailProps) {
+  const { data: activeLoanProduct } = useActiveLoanProduct()
+  const { data: docRequirements = [] } = useDocumentRequirements(activeLoanProduct?.id)
+  const requiredDocumentTypes = docRequirements.map((req) => ({
+    type: req.docType,
+    label: DOCUMENT_LABELS[req.docType] ?? req.docType,
+  }))
   const missingDocs = requiredDocumentTypes.filter((requiredDoc) => !props.docs.some((doc) => doc.docType === requiredDoc.type))
 
   const isPendingStatus = ['Submitted', 'UnderReview', 'InfoRequested'].includes(props.application.status)
@@ -1035,7 +1032,16 @@ function ApplicationDetail(props: ApplicationDetailProps) {
 
       <article className="card">
         <div className="tabs-row">
-          {(['Details', 'Documents', 'History', 'Tasks', 'Notes', 'Advisory (NFS)'] as DetailTab[]).map((name) => (
+          {(
+            [
+              'Details',
+              'Documents',
+              'History',
+              'Tasks',
+              'Notes',
+              ...(tenantConfig.features.nonFinancialSupport ? (['Advisory (NFS)'] as const) : []),
+            ] as DetailTab[]
+          ).map((name) => (
             <button key={name} type="button" className={props.tab === name ? 'tab tab-active' : 'tab'} onClick={() => props.setTab(name)}>
               {name}
             </button>
@@ -1093,6 +1099,12 @@ function DetailsTab({ application, userNameById }: { application: ApplicationDet
 function DocumentsTab(props: ApplicationDetailProps) {
   const [dragging, setDragging] = useState(false)
   const [openingDocId, setOpeningDocId] = useState<string | null>(null)
+  const { data: activeLoanProduct } = useActiveLoanProduct()
+  const { data: docRequirements = [] } = useDocumentRequirements(activeLoanProduct?.id)
+  const requiredDocumentTypes = docRequirements.map((req) => ({
+    type: req.docType,
+    label: DOCUMENT_LABELS[req.docType] ?? req.docType,
+  }))
 
   return (
     <div className="stack-sm">

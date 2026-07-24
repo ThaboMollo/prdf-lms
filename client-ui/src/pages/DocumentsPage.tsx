@@ -9,7 +9,8 @@ import { StatusBadge } from '../components/shared/StatusBadge'
 import { useToast } from '../components/shared/ToastProvider'
 import type { MeResponse } from '../lib/api'
 import { formatDateTime } from '../lib/format'
-import { allDocuments, getDocumentLabel, requiredDocuments } from '../lib/requirements'
+import { DOCUMENT_LABELS, getDocumentLabel } from '../lib/requirements'
+import { useActiveLoanProduct, useDocumentRequirements } from '../lib/loanProduct'
 import { createApplicationsUseCases } from '../logic/usecases/applications'
 import { createDocumentsUseCases } from '../logic/usecases/documents'
 
@@ -25,8 +26,16 @@ export function DocumentsPage({ session }: DocumentsPageProps) {
   const accessToken = session.access_token
   const applicationsUseCases = useMemo(() => createApplicationsUseCases(accessToken), [accessToken])
   const documentsUseCases = useMemo(() => createDocumentsUseCases(accessToken), [accessToken])
+  const { data: product } = useActiveLoanProduct()
+  const { data: docRequirements = [] } = useDocumentRequirements(product?.id)
+  const requiredDocuments = docRequirements.map((req) => ({
+    type: req.docType,
+    label: DOCUMENT_LABELS[req.docType]?.label ?? req.docType,
+    description: DOCUMENT_LABELS[req.docType]?.hint ?? '',
+  }))
+
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null)
-  const [selectedDocType, setSelectedDocType] = useState<string>(requiredDocuments[0]?.type ?? 'IDDocument')
+  const [selectedDocType, setSelectedDocType] = useState<string>('IDDocument')
   const [uploadFiles, setUploadFiles] = useState<File[]>([])
 
   const appsQuery = useQuery({
@@ -63,7 +72,7 @@ export function DocumentsPage({ session }: DocumentsPageProps) {
   })
 
   const documents = effectiveAppId ? (docsQuery.data ?? []) : []
-  const selectedDocument = allDocuments.find((doc) => doc.type === selectedDocType) ?? requiredDocuments[0]
+  const selectedDocument = requiredDocuments.find((doc) => doc.type === selectedDocType) ?? requiredDocuments[0]
   const missingDocs = requiredDocuments.filter((requiredDoc) => !documents.some((doc) => doc.docType === requiredDoc.type))
   const canUpload = Boolean(effectiveAppId)
 

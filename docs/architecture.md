@@ -1,23 +1,30 @@
 # Architecture
 
-This document reflects the current state of the codebase after Phase 0 and Phase 1 of `platform-architecture-design.md` (repo root — the full 7-phase target-state spec and implementation roadmap; read that for anything not covered here). `docs/system-overview.md` remains the verified reference for pre-Phase-0 behaviour and is kept as historical record, not updated going forward.
+This document reflects the current state of the codebase after Phase 0, Phase 1, and Phase 2 of `platform-architecture-design.md` (repo root — the full 7-phase target-state spec and implementation roadmap; read that for anything not covered here). `docs/system-overview.md` remains the verified reference for pre-Phase-0 behaviour and is kept as historical record, not updated going forward.
 
 ## What this is
 
 A single loan origination and servicing platform, one codebase, deployed independently per client (client 1 = PRDF, client 2 = Kgolo). Every client gets their own Supabase project, database, storage bucket, auth user pool, and frontend/API deployments — there is no shared runtime and no `tenant_id` column. Client differences live in configuration and data (`packages/tenant-config`, once Phase 4 lands), never in forked code.
 
-## Current repository shape (post Phase 1)
+## Current repository shape (post Phase 2)
 
 ```
 client-ui/        React 19 + Vite SPA, client-facing
 admin-ui/         React 19 + Vite SPA, staff-facing
 backend-node/     NestJS 10 — the sole backend implementation (the parallel
                    ASP.NET Core implementation was deleted in Phase 1)
+packages/
+  tenant-config/   Plain TypeScript, not a workspace package yet (see its
+                    schema.ts header) — per-client branding/copy/feature
+                    flags/eligibility criteria. tenants/prdf.ts is wired into
+                    both apps; tenants/kgolo.ts exists but is intentionally
+                    incomplete (client 2 isn't provisioned yet, Phase 5)
 infra/supabase/
-  migrations/      Supabase-CLI-managed baseline migration (squashed from the
-                    prior 18 hand-maintained "phase" patch files — see the
-                    baseline file's header comment for exactly what changed
-                    during the squash)
+  migrations/      Supabase-CLI-managed migrations. 20260723180000_baseline
+                    (squashed from 18 hand-maintained "phase" patch files) +
+                    20260724120000 (Phase 2: loan_products/document_requirements
+                    columns, the approval verification gate) — see each
+                    file's header comment for what changed
   seed/            Role catalogue + notification templates, applied after
                     the baseline on every fresh tenant
   tests/           pgTAP RLS assertion suite (not yet populated — Phase 0
@@ -33,10 +40,11 @@ The schema, its triggers, and its RLS policies are the most valuable asset in th
 
 Key enforcement points, all in the database, not application code:
 - **Role resolution**: always re-derived from `user_roles`/`roles` at query time via `is_in_role()`, never trusted from JWT claims.
-- **Document submission gate**: a trigger blocks any transition into `Submitted` status if required documents are missing, regardless of which actor or code path performs the update.
+- **Document submission gate**: a trigger blocks any transition into `Submitted` status if required documents (per the application's `loan_products` row, via `document_requirements`) are missing, regardless of which actor or code path performs the update.
+- **Approval verification gate** (Phase 2): a trigger blocks any transition into `Approved` unless every required document is marked `Verified`, not just present. Previously, verification status was tracked but never enforced.
 - **Document immutability**: uploaded document rows can't have their core fields altered after insert — only verification metadata.
-- **Loan amount/term limits**: CHECK constraints, exempted while an application is a `Draft` so wizard autosave of partial data doesn't fail.
-- **RLS coverage**: all tenant-sensitive tables have row-level security, including `loans`/`disbursements`/`repayments`/`repayment_schedule` — these four had no RLS at all before Phase 0's baseline squash closed that gap.
+- **Loan amount/term/rate**: per-product, via `loan_products.min_amount`/`max_amount`/`min_term_months`/`max_term_months`/`interest_rate` — a trigger validates against the application's linked product (not a plain CHECK constraint, since that can't reference another table), exempted while an application is a `Draft` so wizard autosave of partial data doesn't fail.
+- **RLS coverage**: all tenant-sensitive tables have row-level security, including `loans`/`disbursements`/`repayments`/`repayment_schedule` — these four had no RLS at all before Phase 0's baseline squash closed that gap. `loan_products` is also `anon`-readable (for `is_active = true` rows only) since its rate/limits were already public marketing copy before Phase 2.
 
 ## Data access — current state, not yet the target state
 
@@ -49,6 +57,15 @@ Key enforcement points, all in the database, not application code:
 - Deleted the redundant ASP.NET Core backend (`backend/`), `docker-compose.yml`, dead `ProtectedRoute` components in both frontends, and the Azure/Railway deployment tooling that only served the deleted backend.
 - Rewrote CI to build `backend-node` instead of the deleted `.NET` solution.
 
+## What Phase 2 actually did
+
+- Added rate/amount/term columns to `loan_products` and wired `document_requirements` into the two DB triggers that used to hardcode a 10-item document list — one canonical, product-scoped source of truth instead of the trigger's hardcoded array.
+- Found and fixed a live bug while doing this: the required-document list had drifted into **four independent, inconsistent copies** across the codebase (a DB trigger, and three separate frontend arrays with different labels — one with a `multiple` upload flag the others lacked). All four now derive from `document_requirements`.
+- Added the document-verification approval gate (the human decision that unblocked this phase) — both as a DB trigger and as a faster, friendlier application-level pre-check in `admin-ui`'s approval code path.
+- Built `packages/tenant-config` (plain TypeScript, no workspace tooling — see its `schema.ts` header for why) with a real config for client 1 (`tenants/prdf.ts`) covering colours, logo, the eligibility checklist, and feature flags, wired into both apps at startup. `tenants/kgolo.ts` exists but is intentionally incomplete (missing `eligibility`) since client 2 isn't provisioned yet.
+- Wired two feature flags to actually gate rendering for the first time: the Non-Financial Support tab (`admin-ui`) and the BEE/impact demographic fields (`client-ui`'s application wizard) — previously always-on with no toggle at all.
+- Deliberately **not** done this pass: full copy-dictionary extraction (120+ strings in the application wizard alone) and making the wizard's step order genuinely data-driven (it's a hand-rolled reducer, not a data loop) — both flagged as separate, larger follow-up work rather than bundled in.
+
 ## What's still open
 
-Phases 2 through 6 (de-hardcoding business constants into `loan_products`/`document_requirements`, making the API the sole data path, extracting shared `packages/*`, provisioning client 2, operational readiness) are not started. Several are explicitly blocked on human decisions the implementing agent was told not to resolve unilaterally — see `platform-architecture-design.md` §10 for the current list.
+Phases 3 through 6 (making the API the sole data path, extracting shared `packages/*` beyond `tenant-config`, provisioning client 2, operational readiness) are not started. Several are explicitly blocked on human decisions the implementing agent was told not to resolve unilaterally — see `platform-architecture-design.md` §10 for the current list.

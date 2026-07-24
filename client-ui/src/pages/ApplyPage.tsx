@@ -12,12 +12,14 @@ import { FieldError } from '../components/shared/FieldError'
 import { LoanCalculator } from '../components/shared/LoanCalculator'
 import { AddressFields, type AddressValue } from '../components/shared/AddressFields'
 import { WizardCostCard } from '../components/shared/WizardCostCard'
-import { formatRand, calculateMonthlyInstalment, calculateTotalInterest, calculateTotalRepayment, DEFAULT_RATE_LABEL } from '../lib/loanCalc'
-import { LENDING_RATE_LABEL } from '../lib/loanLimits'
+import { formatRand, calculateMonthlyInstalment, calculateTotalInterest, calculateTotalRepayment } from '../lib/loanCalc'
+import { useActiveLoanProduct, useDocumentRequirements, type LoanProduct } from '../lib/loanProduct'
+import { DOCUMENT_LABELS } from '../lib/requirements'
+import { prdf as tenantConfig } from '../../../packages/tenant-config/tenants/prdf'
 import {
   step1Schema,
   step2Schema,
-  step3Schema,
+  createStep3Schema,
   type Step1Data,
   type Step2Data,
   type Step3Data,
@@ -27,6 +29,8 @@ import { createApplicationsUseCases } from '../logic/usecases/applications'
 import { createDocumentsUseCases } from '../logic/usecases/documents'
 import { ConsentModal } from '../components/shared/ConsentModal'
 import type { ConsentPayload } from '../features/consent/consentItems'
+
+type DocSlot = { type: string; label: string; hint: string; multiple: boolean }
 
 const STEPS = ['Business Profile', 'Financials', 'Loan Details', 'Documents', 'Review']
 
@@ -62,29 +66,14 @@ const LOAN_PURPOSES = [
   'Other'
 ]
 
-// Step 4 document slots. `type` is the stored doc_type (matches admin/back office).
-const DOC_SLOTS: { type: string; label: string; hint: string; multiple?: boolean }[] = [
-  { type: 'IDDocument', label: 'ID Document *', hint: 'Certified copy of the director or applicant identity document' },
-  { type: 'ProofOfAddress', label: 'Proof of Address *', hint: 'Recent proof of business or director address' },
-  { type: 'BusinessRegistration', label: 'Company Registration (CIPC) *', hint: 'CIPC company registration certificate' },
-  { type: 'TaxClearance', label: 'Tax Clearance *', hint: 'SARS tax clearance or tax compliance status document' },
-  { type: 'BankStatement', label: 'Bank Statements (last 3 months) *', hint: 'Upload 3 months of business bank statements', multiple: true },
-  { type: 'Financials', label: 'Financial Statements *', hint: 'Latest annual financials or management accounts' },
-  { type: 'VendorQuotation', label: 'Vendor Quotations (3x) *', hint: 'Three vendor quotations for the goods or services to be funded', multiple: true },
-  { type: 'RfqSupplierSpec', label: 'Central Supplier Database (CSD) Reports *', hint: 'Central Supplier Database (CSD) registration report' },
-  { type: 'PurchaseOrder', label: 'Purchase Order / Short Term Contracts (Not greater than 3 years) *', hint: 'The purchase order itself, including validity details' },
-  { type: 'TradeReference', label: 'Trade Reference *', hint: 'Reference from a business organisation or trade reference' },
-]
-const REQUIRED_DOC_TYPES = DOC_SLOTS.map((s) => s.type)
-
 // Strip the "applications/<id>/<uuid>-" prefix to show the original filename.
 function docFileName(storagePath: string): string {
   const last = storagePath.split('/').pop() ?? storagePath
   return last.replace(/^[0-9a-fA-F-]{36}-/, '')
 }
 
-function missingDocTypes(documents: ApplicationDocument[]): string[] {
-  return REQUIRED_DOC_TYPES.filter((t) => !documents.some((d) => d.docType === t))
+function missingDocTypes(documents: ApplicationDocument[], requiredTypes: string[]): string[] {
+  return requiredTypes.filter((t) => !documents.some((d) => d.docType === t))
 }
 
 // Whether the wizard holds enough to be worth persisting as a draft — avoids
@@ -177,9 +166,20 @@ export function ApplyPage({ session }: ApplyPageProps) {
     },
   })
 
-  const monthly = calculateMonthlyInstalment(amount, term)
-  const total = calculateTotalRepayment(amount, term)
-  const fees = calculateTotalInterest(amount, term)
+  const { data: loanProduct } = useActiveLoanProduct()
+  const { data: docRequirements = [] } = useDocumentRequirements(loanProduct?.id)
+  const docSlots: DocSlot[] = docRequirements.map((req) => ({
+    type: req.docType,
+    label: DOCUMENT_LABELS[req.docType]?.label ?? req.docType,
+    hint: DOCUMENT_LABELS[req.docType]?.hint ?? '',
+    multiple: req.allowsMultiple,
+  }))
+  const requiredDocTypes = docSlots.map((s) => s.type)
+  const rateLabel = loanProduct ? `${loanProduct.interestRate}% p.a.` : ''
+
+  const monthly = loanProduct ? calculateMonthlyInstalment(amount, term, loanProduct.interestRate) : 0
+  const total = loanProduct ? calculateTotalRepayment(amount, term, loanProduct.interestRate) : 0
+  const fees = loanProduct ? calculateTotalInterest(amount, term, loanProduct.interestRate) : 0
 
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -448,7 +448,7 @@ export function ApplyPage({ session }: ApplyPageProps) {
     }
 
     // Documents are already uploaded onto the draft; just confirm the set is complete.
-    if (missingDocTypes(documents).length) {
+    if (missingDocTypes(documents, requiredDocTypes).length) {
       setConsentOpen(false)
       setSubmitError('Please upload all required documents before submitting.')
       return
@@ -552,6 +552,7 @@ export function ApplyPage({ session }: ApplyPageProps) {
           {state.currentStep === 3 && (
             <Step3
               initial={state.data.step3}
+              loanProduct={loanProduct}
               savingDraft={savingDraft}
               onSaveDraft={(data) => saveAndExitFromStep(3, data)}
               onAutosave={(data) => scheduleAutosave(3, data)}
@@ -566,6 +567,7 @@ export function ApplyPage({ session }: ApplyPageProps) {
           {state.currentStep === 4 && (
             <Step4
               documents={documents}
+              docSlots={docSlots}
               uploading={docBusy}
               onUpload={handleUploadDoc}
               onRemove={handleRemoveDoc}
@@ -583,6 +585,8 @@ export function ApplyPage({ session }: ApplyPageProps) {
             <Step5
               data={state.data}
               documents={documents}
+              docSlots={docSlots}
+              loanProduct={loanProduct}
               submitting={submitting}
               submitError={submitError}
               onBack={() => dispatch({ type: 'PREV' })}
@@ -600,6 +604,7 @@ export function ApplyPage({ session }: ApplyPageProps) {
           monthly={monthly}
           total={total}
           fees={fees}
+          rateLabel={rateLabel}
           onEdit={() => dispatch({ type: 'GOTO_STEP', step: 3 })}
         />
       </div>
@@ -760,39 +765,43 @@ function Step1({
           }}
         />
 
-        <h3 style={{ fontSize: '1rem', marginTop: '1.5rem', borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>Demographics</h3>
-        <div className="form-two-col">
-          <div className="form-field">
-            <label htmlFor="gender">Primary Director Gender</label>
-            <select id="gender" value={form.gender} onChange={set('gender')}>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-              <option value="Prefer not to say">Prefer not to say</option>
-            </select>
-            <FieldError message={errors.gender} />
-          </div>
-          <div className="form-field">
-            <label htmlFor="saCitizenshipPercentage">% SA National Ownership</label>
-            <input type="number" min="0" max="100" id="saCitizenshipPercentage" value={form.saCitizenshipPercentage} onChange={set('saCitizenshipPercentage')} placeholder="100" />
-            <FieldError message={errors.saCitizenshipPercentage} />
-          </div>
-          <div className="form-field">
-            <label htmlFor="spatialType">Where does the business operate?</label>
-            <select id="spatialType" value={form.spatialType} onChange={set('spatialType')}>
-              <option value="">Select location type…</option>
-              <option value="Rural">Rural</option>
-              <option value="Township">Township</option>
-              <option value="City">City / Urban</option>
-            </select>
-            <FieldError message={errors.spatialType} />
-          </div>
-        </div>
+        {tenantConfig.features.impactFields && (
+          <>
+            <h3 style={{ fontSize: '1rem', marginTop: '1.5rem', borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>Demographics</h3>
+            <div className="form-two-col">
+              <div className="form-field">
+                <label htmlFor="gender">Primary Director Gender</label>
+                <select id="gender" value={form.gender} onChange={set('gender')}>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Prefer not to say">Prefer not to say</option>
+                </select>
+                <FieldError message={errors.gender} />
+              </div>
+              <div className="form-field">
+                <label htmlFor="saCitizenshipPercentage">% SA National Ownership</label>
+                <input type="number" min="0" max="100" id="saCitizenshipPercentage" value={form.saCitizenshipPercentage} onChange={set('saCitizenshipPercentage')} placeholder="100" />
+                <FieldError message={errors.saCitizenshipPercentage} />
+              </div>
+              <div className="form-field">
+                <label htmlFor="spatialType">Where does the business operate?</label>
+                <select id="spatialType" value={form.spatialType} onChange={set('spatialType')}>
+                  <option value="">Select location type…</option>
+                  <option value="Rural">Rural</option>
+                  <option value="Township">Township</option>
+                  <option value="City">City / Urban</option>
+                </select>
+                <FieldError message={errors.spatialType} />
+              </div>
+            </div>
 
-        <div className="form-field" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-          <label className="terms-check"><input type="checkbox" checked={form.isBlackWomenOwned} onChange={set('isBlackWomenOwned')} /> {'>'}50.1% Black Women Owned</label>
-          <label className="terms-check"><input type="checkbox" checked={form.isHdp} onChange={set('isHdp')} /> Historically Disadvantaged Person (HDP)</label>
-          <label className="terms-check"><input type="checkbox" checked={form.isDisabled} onChange={set('isDisabled')} /> Disabled Persons / Ownership</label>
-        </div>
+            <div className="form-field" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <label className="terms-check"><input type="checkbox" checked={form.isBlackWomenOwned} onChange={set('isBlackWomenOwned')} /> {'>'}50.1% Black Women Owned</label>
+              <label className="terms-check"><input type="checkbox" checked={form.isHdp} onChange={set('isHdp')} /> Historically Disadvantaged Person (HDP)</label>
+              <label className="terms-check"><input type="checkbox" checked={form.isDisabled} onChange={set('isDisabled')} /> Disabled Persons / Ownership</label>
+            </div>
+          </>
+        )}
 
         <h3 style={{ fontSize: '1rem', marginTop: '1.5rem', borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>Compliance & Registration</h3>
         <div className="form-two-col">
@@ -951,6 +960,7 @@ function Step2({
 // ----------------------------------------------------------------
 function Step3({
   initial,
+  loanProduct,
   onNext,
   onBack,
   onSaveDraft,
@@ -958,6 +968,7 @@ function Step3({
   savingDraft,
 }: {
   initial: Step3Data | null
+  loanProduct: LoanProduct | undefined
   onNext: (d: Step3Data) => void
   onBack: () => void
   onSaveDraft: (d: Step3Data) => void
@@ -986,7 +997,13 @@ function Step3({
   function handleTermChange(v: number) { setCalculator(amount, v) }
 
   function handleNext() {
-    const result = step3Schema.safeParse({ requestedAmount: amount, termMonths: term, purpose, loanPurposeCategory })
+    if (!loanProduct) return
+    const result = createStep3Schema({
+      minAmount: loanProduct.minAmount,
+      maxAmount: loanProduct.maxAmount,
+      minTermMonths: loanProduct.minTermMonths,
+      maxTermMonths: loanProduct.maxTermMonths,
+    }).safeParse({ requestedAmount: amount, termMonths: term, purpose, loanPurposeCategory })
     if (!result.success) {
       const fieldErrors: Partial<Record<keyof Step3Data, string>> = {}
       for (const issue of result.error.issues) {
@@ -1003,7 +1020,7 @@ function Step3({
   return (
     <div className="wizard-body">
       <h2>Loan Details</h2>
-      <p>Adjust the sliders to set your preferred loan amount and repayment term. Lending rate: {LENDING_RATE_LABEL}.</p>
+      <p>Adjust the sliders to set your preferred loan amount and repayment term. Lending rate: {loanProduct ? `${loanProduct.interestRate}% p.a.` : '—'}.</p>
 
       <LoanCalculator
         compact
@@ -1053,6 +1070,7 @@ function Step3({
 // ----------------------------------------------------------------
 function Step4({
   documents,
+  docSlots,
   uploading,
   onUpload,
   onRemove,
@@ -1063,6 +1081,7 @@ function Step4({
   savingDraft,
 }: {
   documents: ApplicationDocument[]
+  docSlots: DocSlot[]
   uploading: boolean
   onUpload: (docType: string, file: File) => void
   onRemove: (doc: ApplicationDocument) => void
@@ -1075,7 +1094,7 @@ function Step4({
   const [error, setError] = useState<string | null>(null)
 
   function handleNext() {
-    if (missingDocTypes(documents).length) {
+    if (missingDocTypes(documents, docSlots.map((s) => s.type)).length) {
       setError('Please upload all required documents before continuing.')
       return
     }
@@ -1092,7 +1111,7 @@ function Step4({
       </p>
 
       <div className="document-upload-grid">
-        {DOC_SLOTS.map((slot) => {
+        {docSlots.map((slot) => {
           const existing = documents.filter((d) => d.docType === slot.type)
           return (
             <div key={slot.type} className="doc-slot">
@@ -1139,6 +1158,8 @@ function Step4({
 function Step5({
   data,
   documents,
+  docSlots,
+  loanProduct,
   submitting,
   submitError,
   onBack,
@@ -1146,6 +1167,8 @@ function Step5({
 }: {
   data: WizardFormState
   documents: ApplicationDocument[]
+  docSlots: DocSlot[]
+  loanProduct: LoanProduct | undefined
   submitting: boolean
   submitError: string | null
   onBack: () => void
@@ -1154,10 +1177,11 @@ function Step5({
   const { step1, step2, step3 } = data
   const amount = step3?.requestedAmount ?? 0
   const term = step3?.termMonths ?? 0
-  const monthly = calculateMonthlyInstalment(amount, term)
-  const total = calculateTotalRepayment(amount, term)
-  const fees = calculateTotalInterest(amount, term)
-  const missingDocuments = missingDocTypes(documents)
+  const monthly = loanProduct ? calculateMonthlyInstalment(amount, term, loanProduct.interestRate) : 0
+  const total = loanProduct ? calculateTotalRepayment(amount, term, loanProduct.interestRate) : 0
+  const fees = loanProduct ? calculateTotalInterest(amount, term, loanProduct.interestRate) : 0
+  const rateLabel = loanProduct ? `${loanProduct.interestRate}% p.a.` : '—'
+  const missingDocuments = missingDocTypes(documents, docSlots.map((s) => s.type))
 
   return (
     <div className="wizard-body">
@@ -1204,9 +1228,9 @@ function Step5({
         <div className="review-section">
           <h3>Documents</h3>
           <dl className="review-dl">
-            {DOC_SLOTS.map((slot) => {
+            {docSlots.map((slot) => {
               const files = documents.filter((d) => d.docType === slot.type)
-              const label = slot.label.replace(' *', '')
+              const label = slot.label
               const provided = files.length > 0
               const value = !provided
                 ? 'Missing'
@@ -1236,7 +1260,7 @@ function Step5({
           <div className="review-row"><dt>Indicative first instalment</dt><dd style={{ color: 'var(--brand)', fontWeight: 700 }}>{formatRand(monthly)}</dd></div>
           <div className="review-row"><dt>Indicative total repayment</dt><dd>{formatRand(total)}</dd></div>
           <div className="review-row"><dt>Estimated total interest</dt><dd>{formatRand(fees)}</dd></div>
-          <div className="review-row"><dt>Lending rate</dt><dd>{DEFAULT_RATE_LABEL}</dd></div>
+          <div className="review-row"><dt>Lending rate</dt><dd>{rateLabel}</dd></div>
         </dl>
       </div>
 

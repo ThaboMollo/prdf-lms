@@ -1,62 +1,57 @@
-export const requiredDocuments = [
-  {
-    type: 'IDDocument',
+/**
+ * Display labels/hints for document types. Which types are actually
+ * required, and whether multiple files are allowed, now comes from
+ * document_requirements (see lib/loanProduct.ts's useDocumentRequirements) —
+ * this file is presentation-only.
+ *
+ * This consolidates what used to be three independently-drifted copies:
+ * this file, ApplyPage.tsx's DOC_SLOTS, and admin-ui/ApplicationsPage.tsx's
+ * inline array — each with different label text. There is exactly one
+ * label per doc_type now.
+ */
+export const DOCUMENT_LABELS: Record<string, { label: string; hint: string }> = {
+  IDDocument: {
     label: 'ID Document',
-    description: 'Director identity document.'
+    hint: 'Certified copy of the director or applicant identity document',
   },
-  {
-    type: 'ProofOfAddress',
+  ProofOfAddress: {
     label: 'Proof of Address',
-    description: 'Recent proof of business or director address.'
+    hint: 'Recent proof of business or director address',
   },
-  {
-    type: 'BankStatement',
-    label: 'Bank Statements (3 months)',
-    description: 'Three months of business bank statements.'
+  BusinessRegistration: {
+    label: 'Company Registration (CIPC)',
+    hint: 'CIPC company registration certificate',
   },
-  {
-    type: 'BusinessRegistration',
-    label: 'Company Registration',
-    description: 'CIPC company registration certificate.'
-  },
-  {
-    type: 'TaxClearance',
+  TaxClearance: {
     label: 'Tax Clearance',
-    description: 'SARS tax clearance or tax compliance status document.'
+    hint: 'SARS tax clearance or tax compliance status document',
   },
-  {
-    type: 'Financials',
+  BankStatement: {
+    label: 'Bank Statements (last 3 months)',
+    hint: 'Upload 3 months of business bank statements',
+  },
+  Financials: {
     label: 'Financial Statements',
-    description: 'Latest annual financials or management accounts.'
+    hint: 'Latest annual financials or management accounts',
   },
-  {
-    type: 'VendorQuotation',
+  VendorQuotation: {
     label: 'Vendor Quotations (3x)',
-    description: 'Three vendor quotations for the goods or services to be funded.'
+    hint: 'Three vendor quotations for the goods or services to be funded',
   },
-  {
-    type: 'RfqSupplierSpec',
+  RfqSupplierSpec: {
     label: 'Central Supplier Database (CSD) Reports',
-    description: 'Central Supplier Database (CSD) registration report.'
+    hint: 'Central Supplier Database (CSD) registration report',
   },
-  {
-    type: 'PurchaseOrder',
+  PurchaseOrder: {
     label: 'Purchase Order / Short Term Contracts (Not greater than 3 years)',
-    description: 'The purchase order itself, including validity details.'
+    hint: 'The purchase order itself, including validity details',
   },
-  {
-    type: 'TradeReference',
+  TradeReference: {
     label: 'Trade Reference',
-    description: 'Reference from a business organisation or trade reference.'
-  }
-] as const
+    hint: 'Reference from a business organisation or trade reference',
+  },
+}
 
-export const allDocuments = requiredDocuments
-
-export type RequiredDocumentType = typeof requiredDocuments[number]['type']
-
-export const requiredDocumentTypes = requiredDocuments.map((doc) => doc.type)
-
-export function getDocumentLabel(docType: string) {
-  return allDocuments.find((doc) => doc.type === docType)?.label ?? docType
+export function getDocumentLabel(docType: string): string {
+  return DOCUMENT_LABELS[docType]?.label ?? docType
 }

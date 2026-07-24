@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useIsFetching, useIsMutating } from '@tanstack/react-query'
+import { prdf as tenantConfig } from '../../../../packages/tenant-config/tenants/prdf'
 
 // Small delay so instant responses don't flash the overlay.
 const SHOW_DELAY_MS = 250
@@ -31,7 +32,7 @@ export function GlobalLoader() {
     <div className="global-loader" role="status" aria-live="polite" aria-label="Loading">
       <div className="global-loader__panel">
         <span className="global-loader__ring" aria-hidden="true" />
-        <img className="global-loader__logo" src="/prdf-logo.png" alt="PRDF" />
+        <img className="global-loader__logo" src={tenantConfig.logoPath} alt={tenantConfig.displayName} />
       </div>
     </div>
   )

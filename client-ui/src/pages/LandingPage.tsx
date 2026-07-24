@@ -3,7 +3,8 @@ import type { Session } from '@supabase/supabase-js'
 import { useNavigate, Link } from 'react-router-dom'
 import { LoanCalculator } from '../components/shared/LoanCalculator'
 import { PublicNav } from '../components/shared/PublicNav'
-import { LOAN_AMOUNT_RANGE_LABEL } from '../lib/loanLimits'
+import { useActiveLoanProduct } from '../lib/loanProduct'
+import { formatRand } from '../lib/loanCalc'
 
 type LandingPageProps = {
   session: Session | null
@@ -57,6 +58,7 @@ const DOCUMENTS = [
 
 export function LandingPage({ session }: LandingPageProps) {
   const navigate = useNavigate()
+  const { data: product } = useActiveLoanProduct()
 
   return (
     <div className="public-shell landing-design-page">
@@ -75,7 +77,11 @@ export function LandingPage({ session }: LandingPageProps) {
                 PRDF provides affordable loan financing for qualifying
                 small and medium enterprises across South Africa.
               </p>
-              <p className="landing-hero-note">{LOAN_AMOUNT_RANGE_LABEL}.</p>
+              {product && (
+                <p className="landing-hero-note">
+                  Loans from {formatRand(product.minAmount)} to {formatRand(product.maxAmount)}.
+                </p>
+              )}
               <div className="landing-hero-actions">
                 <button className="btn btn-primary landing-primary-action" type="button" onClick={() => navigate('/register')}>
                   Apply Now

@@ -3,11 +3,13 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useCalculator } from '../contexts/CalculatorContext'
 import { formatRand } from '../lib/loanCalc'
-import { LOAN_AMOUNT_MIN, LOAN_AMOUNT_RANGE_LABEL } from '../lib/loanLimits'
+import { useActiveLoanProduct } from '../lib/loanProduct'
+import { prdf as tenantConfig } from '../../../packages/tenant-config/tenants/prdf'
 
 export function RegisterPage() {
   const navigate = useNavigate()
-  const { amount, term } = useCalculator()
+  const { amount, term, hasInteracted } = useCalculator()
+  const { data: product } = useActiveLoanProduct()
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
@@ -16,7 +18,10 @@ export function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const hasCalcState = amount !== LOAN_AMOUNT_MIN || term !== 6
+  const loanAmountRangeLabel = product
+    ? `Loans from ${formatRand(product.minAmount)} to ${formatRand(product.maxAmount)}`
+    : null
+  const repaymentTermLabel = product ? `Repayment terms up to ${product.maxTermMonths} months` : null
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -48,9 +53,9 @@ export function RegisterPage() {
     <div className="split-auth">
       {/* Brand Panel */}
       <div className="auth-brand-panel">
-        <Link to="/" className="brand-logo" aria-label="PRDF home">
-          <img src="/prdf-logo.png" alt="" className="brand-logo__mark" />
-          <span>PRDF</span>
+        <Link to="/" className="brand-logo" aria-label={`${tenantConfig.displayName} home`}>
+          <img src={tenantConfig.logoPath} alt="" className="brand-logo__mark" />
+          <span>{tenantConfig.displayName}</span>
         </Link>
         <div>
           <h2>Start your business loan application today</h2>
@@ -58,11 +63,15 @@ export function RegisterPage() {
         </div>
         <ul className="auth-brand-bullets">
           <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> 100% online — no branch visits</li>
-          <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> {LOAN_AMOUNT_RANGE_LABEL}</li>
-          <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> Repayment terms up to 60 months</li>
+          {loanAmountRangeLabel && (
+            <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> {loanAmountRangeLabel}</li>
+          )}
+          {repaymentTermLabel && (
+            <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> {repaymentTermLabel}</li>
+          )}
           <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> NCR-registered</li>
         </ul>
-        {hasCalcState && (
+        {hasInteracted && (
           <div className="auth-loan-preview">
             <p>You're applying for</p>
             <strong>{formatRand(amount)} over {term} month{term !== 1 ? 's' : ''}</strong>

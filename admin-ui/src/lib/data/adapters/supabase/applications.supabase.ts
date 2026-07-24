@@ -6,7 +6,6 @@ import type {
   StatusHistoryItem,
   UpdateApplicationInput
 } from '../../../api'
-import { DEFAULT_ANNUAL_RATE_PA } from '../../../loanCalc'
 import { createSupabaseDataClient } from '../../../supabase/client'
 import type { ApplicationsRepository } from '../../repositories/applications.repo'
 
@@ -208,6 +207,39 @@ export function createSupabaseApplicationsAdapter(accessToken: string): Applicat
     const submittedAt =
       toStatus === 'Submitted' && !current.submittedAt ? new Date().toISOString() : current.submittedAt
 
+    // Fast, friendly pre-check — the DB trigger (enforce_document_verification_for_approval)
+    // is the authoritative gate regardless of what this check does.
+    if (toStatus === 'Approved') {
+      const appRow = await client
+        .from('loan_applications')
+        .select('loan_product_id')
+        .eq('id', applicationId)
+        .single()
+      if (!appRow.error && appRow.data) {
+        const loanProductId = (appRow.data as { loan_product_id: string }).loan_product_id
+        const requirements = await client
+          .from('document_requirements')
+          .select('doc_type')
+          .eq('loan_product_id', loanProductId)
+          .eq('required_at_status', 'Submitted')
+          .eq('is_required', true)
+        const verifiedDocs = await client
+          .from('loan_documents')
+          .select('doc_type, status')
+          .eq('application_id', applicationId)
+          .eq('status', 'Verified')
+        if (!requirements.error && !verifiedDocs.error) {
+          const verifiedTypes = new Set((verifiedDocs.data as { doc_type: string }[]).map((d) => d.doc_type))
+          const unverified = (requirements.data as { doc_type: string }[])
+            .map((r) => r.doc_type)
+            .filter((docType) => !verifiedTypes.has(docType))
+          if (unverified.length > 0) {
+            throw new Error(`Cannot approve: document(s) not verified: ${unverified.join(', ')}`)
+          }
+        }
+      }
+    }
+
     const update = await client
       .from('loan_applications')
       .update({
@@ -215,7 +247,7 @@ export function createSupabaseApplicationsAdapter(accessToken: string): Applicat
         submitted_at: submittedAt
       })
       .eq('id', applicationId)
-      .select('id, client_id, requested_amount, term_months, purpose, status, created_at, submitted_at, assigned_to_user_id')
+      .select('id, client_id, requested_amount, term_months, purpose, status, created_at, submitted_at, assigned_to_user_id, loan_product_id')
       .single()
 
     if (update.error) {
@@ -233,17 +265,25 @@ export function createSupabaseApplicationsAdapter(accessToken: string): Applicat
     }
 
     if (toStatus === 'Approved') {
-      const row = update.data as ApplicationRow
+      const row = update.data as ApplicationRow & { loan_product_id: string }
       const existing = await client
         .from('loans')
         .select('id', { count: 'exact', head: true })
         .eq('application_id', applicationId)
       if (!existing.error && (existing.count ?? 0) === 0) {
+        const product = await client
+          .from('loan_products')
+          .select('interest_rate')
+          .eq('id', row.loan_product_id)
+          .single()
+        if (product.error) {
+          throw new Error(`Supabase loan product lookup failed: ${product.error.message}`)
+        }
         const loan = await client.from('loans').insert({
           application_id: applicationId,
           principal_amount: row.requested_amount,
           outstanding_principal: row.requested_amount,
-          interest_rate: DEFAULT_ANNUAL_RATE_PA,
+          interest_rate: (product.data as { interest_rate: number }).interest_rate,
           term_months: row.term_months,
           status: 'PendingDisbursement'
         })

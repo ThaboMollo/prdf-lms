@@ -24,7 +24,8 @@ import { StatusBadge } from '../components/shared/StatusBadge'
 import { useToast } from '../components/shared/ToastProvider'
 import { formatCurrency, formatDate, formatDateTime } from '../lib/format'
 import { hasAnyRole, toAppRoles } from '../lib/rbac'
-import { getDocumentLabel, requiredDocumentTypes } from '../lib/requirements'
+import { getDocumentLabel } from '../lib/requirements'
+import { useActiveLoanProduct, useDocumentRequirements } from '../lib/loanProduct'
 
 type ApplicationsPageProps = {
   session: Session
@@ -135,6 +136,10 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
     queryFn: () => tasksUseCases.listTasks({ applicationId: selectedApplicationId as string }),
     enabled: Boolean(selectedApplicationId)
   })
+
+  const { data: activeLoanProduct } = useActiveLoanProduct()
+  const { data: docRequirements = [] } = useDocumentRequirements(activeLoanProduct?.id)
+  const requiredDocumentTypes = docRequirements.map((req) => req.docType)
 
   const notesQuery = useQuery({
     queryKey: ['application-notes', selectedApplicationId],
@@ -778,6 +783,9 @@ type ApplicationDetailProps = {
 }
 
 function ApplicationDetail(props: ApplicationDetailProps) {
+  const { data: activeLoanProduct } = useActiveLoanProduct()
+  const { data: docRequirements = [] } = useDocumentRequirements(activeLoanProduct?.id)
+  const requiredDocumentTypes = docRequirements.map((req) => req.docType)
   const missingDocs = requiredDocumentTypes.filter((requiredDoc) => !props.docs.some((doc) => doc.docType === requiredDoc))
 
   return (
@@ -875,6 +883,9 @@ function DetailsTab({ application }: { application: ApplicationDetails }) {
 
 function DocumentsTab(props: ApplicationDetailProps) {
   const [dragging, setDragging] = useState(false)
+  const { data: activeLoanProduct } = useActiveLoanProduct()
+  const { data: docRequirements = [] } = useDocumentRequirements(activeLoanProduct?.id)
+  const requiredDocumentTypes = docRequirements.map((req) => req.docType)
 
   return (
     <div className="stack-sm">

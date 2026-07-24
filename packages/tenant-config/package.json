@@ -1,0 +1,9 @@
+{
+  "name": "tenant-config",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Plain-TypeScript per-client configuration, imported via relative paths from client-ui and admin-ui. Not a workspace package yet — see the note at the top of schema.ts.",
+  "dependencies": {
+    "zod": "^4.3.6"
+  }
+}
