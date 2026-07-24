@@ -1,52 +1,54 @@
 # Architecture
 
-## Module Boundaries
+This document reflects the current state of the codebase after Phase 0 and Phase 1 of `platform-architecture-design.md` (repo root — the full 7-phase target-state spec and implementation roadmap; read that for anything not covered here). `docs/system-overview.md` remains the verified reference for pre-Phase-0 behaviour and is kept as historical record, not updated going forward.
 
-```text
-client-ui (React + TS)
-  -> Supabase Auth (session)
-  -> .NET API (business rules)
+## What this is
 
-admin-ui (React + TS)
-  -> Supabase Auth (session)
-  -> .NET API (business rules)
+A single loan origination and servicing platform, one codebase, deployed independently per client (client 1 = PRDF, client 2 = Kgolo). Every client gets their own Supabase project, database, storage bucket, auth user pool, and frontend/API deployments — there is no shared runtime and no `tenant_id` column. Client differences live in configuration and data (`packages/tenant-config`, once Phase 4 lands), never in forked code.
 
-backend/src/PRDF.Lms.Api
-  -> PRDF.Lms.Application (use cases/contracts)
-  -> PRDF.Lms.Infrastructure (Dapper, Supabase integration)
-  -> PRDF.Lms.Domain (enums/constants)
+## Current repository shape (post Phase 1)
 
-Supabase
-  -> Postgres (tables/RLS/policies)
-  -> Auth (JWT issuer)
-  -> Storage (signed upload URLs)
+```
+client-ui/        React 19 + Vite SPA, client-facing
+admin-ui/         React 19 + Vite SPA, staff-facing
+backend-node/     NestJS 10 — the sole backend implementation (the parallel
+                   ASP.NET Core implementation was deleted in Phase 1)
+infra/supabase/
+  migrations/      Supabase-CLI-managed baseline migration (squashed from the
+                    prior 18 hand-maintained "phase" patch files — see the
+                    baseline file's header comment for exactly what changed
+                    during the squash)
+  seed/            Role catalogue + notification templates, applied after
+                    the baseline on every fresh tenant
+  tests/           pgTAP RLS assertion suite (not yet populated — Phase 0
+                    scaffolding only; the suite itself is unfinished work)
+docs/              This file, system-overview.md, and product/support docs
 ```
 
-## Clean Architecture Responsibilities
+`backend-node/railway.toml` and `Dockerfile` are still present as a deliberate, temporary exception to the target-state spec — they're deleted only once Phase 3 actually ships the NestJS-as-Vercel-Functions replacement, to avoid a window with zero deployment path for the API.
 
-- `PRDF.Lms.Domain`: status enums, role constants, domain-level primitives.
-- `PRDF.Lms.Application`: request/response DTOs, service interfaces, validators.
-- `PRDF.Lms.Infrastructure`: DB reads/writes, audit logging, notification sweeps, invite integration.
-- `PRDF.Lms.Api`: HTTP transport, JWT auth, role-gated controllers, Quartz scheduler registration.
+## The database is the business rule engine
 
-## Runtime Flow
+The schema, its triggers, and its RLS policies are the most valuable asset in this system and stay in Postgres — business logic is not moved into the API layer. Every client runs a byte-identical schema from `infra/supabase/migrations/`; a client-specific need becomes a migration behind a feature flag or config row, applied to every tenant, never a schema fork.
 
-1. User authenticates via Supabase Auth (client or admin UI).
-2. Frontend sends Supabase JWT to API.
-3. API validates issuer/audience/signature against Supabase.
-4. API enforces role rules (server-side), then executes use-case via infrastructure services.
-5. Every critical mutation writes an `audit_log` record.
-6. Quartz job runs hourly and creates reminder notifications (arrears/tasks/stale apps).
+Key enforcement points, all in the database, not application code:
+- **Role resolution**: always re-derived from `user_roles`/`roles` at query time via `is_in_role()`, never trusted from JWT claims.
+- **Document submission gate**: a trigger blocks any transition into `Submitted` status if required documents are missing, regardless of which actor or code path performs the update.
+- **Document immutability**: uploaded document rows can't have their core fields altered after insert — only verification metadata.
+- **Loan amount/term limits**: CHECK constraints, exempted while an application is a `Draft` so wizard autosave of partial data doesn't fail.
+- **RLS coverage**: all tenant-sensitive tables have row-level security, including `loans`/`disbursements`/`repayments`/`repayment_schedule` — these four had no RLS at all before Phase 0's baseline squash closed that gap.
 
-## Security Model
+## Data access — current state, not yet the target state
 
-- Trust boundary: UI clients are untrusted for authorization.
-- RBAC enforced at API and reinforced by Supabase RLS.
-- Signed upload URLs are generated server-side using service role key.
-- Immutable fields on `loan_documents` are DB-trigger-protected.
+**This has not changed in Phase 0/1 and won't until Phase 3.** Both frontends still default to `VITE_DATA_PROVIDER=supabase`, talking directly to Supabase (PostgREST + Storage) with RLS as the authorization boundary. The target architecture — the API as the *only* data path, with RLS kept live behind it as a second independent layer — is Phase 3 scope, gated on open decisions that haven't been resolved yet (see `platform-architecture-design.md` §10).
 
-## Observability
+## What Phase 0 + Phase 1 actually did
 
-- Serilog console logs for API and request pipeline.
-- `/health` endpoint for uptime checks.
-- Notification sweep job logs through hosted service lifecycle + request logs.
+- Squashed 18 hand-maintained SQL patch files into one Supabase-CLI-managed baseline migration, fixing a defect where the Non-Financial Support RLS policies referenced a function (`current_user_has_role`) that was never defined anywhere — those policies would have failed at creation time on a fresh database.
+- Added RLS policies to `loans`, `disbursements`, `repayments`, and `repayment_schedule` — a gap present in the old chain and not mentioned in the platform spec, found and closed during the squash.
+- Deleted the redundant ASP.NET Core backend (`backend/`), `docker-compose.yml`, dead `ProtectedRoute` components in both frontends, and the Azure/Railway deployment tooling that only served the deleted backend.
+- Rewrote CI to build `backend-node` instead of the deleted `.NET` solution.
+
+## What's still open
+
+Phases 2 through 6 (de-hardcoding business constants into `loan_products`/`document_requirements`, making the API the sole data path, extracting shared `packages/*`, provisioning client 2, operational readiness) are not started. Several are explicitly blocked on human decisions the implementing agent was told not to resolve unilaterally — see `platform-architecture-design.md` §10 for the current list.

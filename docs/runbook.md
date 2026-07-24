@@ -5,12 +5,10 @@
 1. Copy `.env.example` to `.env`.
 2. Set Supabase keys and DB connection string.
 3. Apply SQL in order:
-   1. `infra/supabase/schema.sql`
-   2. `infra/supabase/rls.sql`
-   3. `infra/supabase/seed.sql`
+   1. `infra/supabase/migrations/20260723180000_baseline.sql`
+   2. `infra/supabase/seed/seed.sql`
 4. Run backend:
-   - `dotnet restore backend/PRDF.Lms.sln --configfile backend/NuGet.Config`
-   - `dotnet run --project backend/src/PRDF.Lms.Api/PRDF.Lms.Api.csproj`
+   - `cd backend-node && npm ci && npm run start:dev`
 5. Run client UI:
    - `cd client-ui && npm ci && npm run dev`
 6. Run admin UI:
@@ -34,19 +32,20 @@
 
 - Client UI: Vercel/Netlify using `client-ui/`.
 - Admin UI: Vercel/Netlify using `admin-ui/`.
-- API: Azure Container Apps from `backend/src/PRDF.Lms.Api/Dockerfile`.
+- API: currently `backend-node/` via Railway (`backend-node/railway.toml`, `Dockerfile`) — temporary; Phase 3 of `platform-architecture-design.md` replaces this with Vercel Functions.
 - Configure secrets in host secret manager (never commit prod keys).
 
 ## Rollback
 
 - API: redeploy previous container image tag.
 - Frontend: rollback to previous deployment in host dashboard.
-- DB: apply backward-safe SQL patch (do not destructive-drop live tables).
+- DB: apply a new forward-only migration under `infra/supabase/migrations/` (do not destructive-drop live tables; do not edit an already-applied migration file).
 
 ## Background Jobs
 
-- Quartz job: `NotificationSweepJob` runs hourly.
+- NestJS scheduled job (`backend-node/src/jobs/notification-sweep.job.ts`) runs hourly.
 - Confirms reminder generation for:
   - arrears
   - pending due tasks
   - stale applications
+- Whether this job has actually been executing in production is unconfirmed — see `platform-architecture-design.md` §10, open decision 5.
