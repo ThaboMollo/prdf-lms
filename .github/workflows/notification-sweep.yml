@@ -1,0 +1,32 @@
+name: Notification Sweep
+
+# Vercel's Cron Jobs are limited to once-daily on Hobby-tier accounts, which
+# doesn't cover the hourly schedule this needs — so this triggers the
+# endpoint from GitHub Actions instead, mirroring uptime-check.yml's
+# existing scheduled-workflow pattern in this repo.
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger notification sweep
+        env:
+          API_HEALTH_URL: ${{ secrets.API_HEALTH_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$API_HEALTH_URL" ]; then
+            echo "API_HEALTH_URL secret is not set."
+            exit 1
+          fi
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET secret is not set."
+            exit 1
+          fi
+          curl --fail --silent --show-error -X POST \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$API_HEALTH_URL/internal/cron/notification-sweep"
