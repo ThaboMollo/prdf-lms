@@ -30,7 +30,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
-    await this.pool.end();
+    await this.pool?.end();
   }
 
   /** The RLS-scoped client for this request, if RlsTransactionInterceptor opened one. */

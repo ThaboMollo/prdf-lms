@@ -1,9 +1,14 @@
 import { Controller, Get, Post, Put, Param, Body, Query, UseGuards } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { SupabaseAuthGuard } from '../auth/supabase-auth.guard';
 import { GetCurrentUser } from '../auth/current-user.decorator';
 import { CurrentUser } from '../auth/roles.helper';
 import { TasksService } from './tasks.service';
+import { CreateTaskDto } from './dto/create-task.dto';
+import { UpdateTaskDto } from './dto/update-task.dto';
+import { CompleteTaskDto } from './dto/complete-task.dto';
 
+@ApiTags('tasks')
 @Controller('api/tasks')
 @UseGuards(SupabaseAuthGuard)
 export class TasksController {
@@ -15,11 +20,11 @@ export class TasksController {
   }
 
   @Post()
-  create(@GetCurrentUser() u: CurrentUser, @Body() body: any) { return this.svc.create(u, body); }
+  create(@GetCurrentUser() u: CurrentUser, @Body() body: CreateTaskDto) { return this.svc.create(u, body); }
 
   @Put(':id')
-  update(@GetCurrentUser() u: CurrentUser, @Param('id') id: string, @Body() body: any) { return this.svc.update(u, id, body); }
+  update(@GetCurrentUser() u: CurrentUser, @Param('id') id: string, @Body() body: UpdateTaskDto) { return this.svc.update(u, id, body); }
 
   @Post(':id/complete')
-  complete(@GetCurrentUser() u: CurrentUser, @Param('id') id: string, @Body() body: any) { return this.svc.complete(u, id, body?.note); }
+  complete(@GetCurrentUser() u: CurrentUser, @Param('id') id: string, @Body() body: CompleteTaskDto) { return this.svc.complete(u, id, body?.note); }
 }

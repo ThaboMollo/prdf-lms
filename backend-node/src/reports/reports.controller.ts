@@ -1,9 +1,11 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { SupabaseAuthGuard } from '../auth/supabase-auth.guard';
 import { GetCurrentUser } from '../auth/current-user.decorator';
 import { CurrentUser } from '../auth/roles.helper';
 import { ReportsService } from './reports.service';
 
+@ApiTags('reports')
 @Controller('api/reports')
 @UseGuards(SupabaseAuthGuard)
 export class ReportsController {
@@ -17,4 +19,7 @@ export class ReportsController {
   @Get('productivity') productivity(@GetCurrentUser() u: CurrentUser) { return this.svc.productivity(u); }
   @Get('pipeline-summary') pipelineSummary(@GetCurrentUser() u: CurrentUser, @Query('startDate') startDate?: string, @Query('endDate') endDate?: string) { return this.svc.pipelineSummary(u, startDate, endDate); }
   @Get('origination-trends') originationTrends(@GetCurrentUser() u: CurrentUser, @Query('startDate') startDate?: string, @Query('endDate') endDate?: string) { return this.svc.originationTrends(u, startDate, endDate); }
+  @Get('demographic') demographic(@GetCurrentUser() u: CurrentUser) { return this.svc.demographic(u); }
+  @Get('debtors-age') debtorsAge(@GetCurrentUser() u: CurrentUser) { return this.svc.debtorsAge(u); }
+  @Get('province') province(@GetCurrentUser() u: CurrentUser) { return this.svc.province(u); }
 }

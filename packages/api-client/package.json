@@ -1,0 +1,14 @@
+{
+  "name": "api-client",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Typed HTTP client for backend-node, generated from its OpenAPI spec. Plain TypeScript, imported via relative paths from client-ui and admin-ui once frontend repointing starts — not a workspace package yet, matching packages/tenant-config's precedent (see its package.json). Nothing imports this yet this pass; existence is proven by generating and type-checking it end-to-end.",
+  "scripts": {
+    "generate": "openapi-typescript ../../backend-node/openapi.json -o src/schema.d.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^5.7.3"
+  }
+}

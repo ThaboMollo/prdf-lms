@@ -16,6 +16,8 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { ReportsModule } from './reports/reports.module';
 import { NfsModule } from './nfs/nfs.module';
 import { CronModule } from './cron/cron.module';
+import { LoanProductsModule } from './loan-products/loan-products.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -32,6 +34,8 @@ import { CronModule } from './cron/cron.module';
     ReportsModule,
     NfsModule,
     CronModule,
+    LoanProductsModule,
+    UsersModule,
   ],
   controllers: [HealthController, MeController],
   providers: [

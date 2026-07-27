@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
-import { CurrentUser, isStaff, hasAnyRole, hasRole, STAFF_ROLES, ASSIGNED_ROLES } from '../auth/roles.helper';
+import { CurrentUser, fetchUserRoles, isStaff, hasAnyRole, hasRole, ASSIGNED_ROLES } from '../auth/roles.helper';
 import { randomUUID } from 'crypto';
 import { PoolClient } from 'pg';
 import { DEFAULT_ANNUAL_RATE_PA, monthlyInterest, roundCents } from '../common/interest';
@@ -9,12 +9,33 @@ import { DEFAULT_ANNUAL_RATE_PA, monthlyInterest, roundCents } from '../common/i
 export class LoansService {
   constructor(private readonly db: DatabaseService) {}
 
-  private async getRoles(userId: string): Promise<string[]> {
-    const rows = await this.db.query<{ name: string }>(
-      `select r.name from public.user_roles ur join public.roles r on r.id = ur.role_id where ur.user_id = $1`,
-      [userId],
-    );
-    return [...new Set(rows.map((r) => r.name))];
+  /**
+   * Role-scoped the same way ApplicationsService.list() is: staff see all,
+   * Intern/Originator see loans on applications assigned to them, Client
+   * sees their own loans via the linked application/client.
+   */
+  async list(actor: CurrentUser) {
+    const roles = await fetchUserRoles(this.db, actor.userId);
+    let sql = `select l.id, l.application_id as "applicationId", l.principal_amount as "principalAmount",
+                      l.outstanding_principal as "outstandingPrincipal", l.interest_rate as "interestRate",
+                      l.term_months as "termMonths", l.status, l.disbursed_at as "disbursedAt", l.created_at as "createdAt"
+               from public.loans l
+               join public.loan_applications la on la.id = l.application_id
+               join public.clients c on c.id = la.client_id`;
+    let params: any[] = [];
+
+    if (isStaff(roles)) {
+      sql += ` order by l.created_at desc`;
+    } else if (hasAnyRole(roles, ...ASSIGNED_ROLES)) {
+      sql += ` where la.assigned_to_user_id = $1 order by l.created_at desc`;
+      params = [actor.userId];
+    } else if (hasRole(roles, 'Client')) {
+      sql += ` where c.user_id = $1 order by l.created_at desc`;
+      params = [actor.userId];
+    } else {
+      return [];
+    }
+    return this.db.query(sql, params);
   }
 
   private async getLoanDetails(loanId: string) {
@@ -35,7 +56,7 @@ export class LoansService {
   }
 
   async getById(actor: CurrentUser, loanId: string) {
-    const roles = await this.getRoles(actor.userId);
+    const roles = await fetchUserRoles(this.db, actor.userId);
     const proj = await this.db.queryOne<{ loan_id: string; client_owner_user_id: string | null; assigned_to_user_id: string | null }>(
       `select l.id as loan_id, c.user_id as client_owner_user_id, la.assigned_to_user_id from public.loans l join public.loan_applications la on la.id=l.application_id join public.clients c on c.id=la.client_id where l.id=$1`,
       [loanId],
@@ -48,7 +69,7 @@ export class LoansService {
   }
 
   async disburse(actor: CurrentUser, loanId: string, body: { amount: number; reference?: string }) {
-    const roles = await this.getRoles(actor.userId);
+    const roles = await fetchUserRoles(this.db, actor.userId);
     if (!isStaff(roles)) throw new Error('Only Admin or LoanOfficer can perform this action.');
 
     await this.db.withTransaction(async (client: PoolClient) => {
@@ -93,7 +114,7 @@ export class LoansService {
   }
 
   async recordRepayment(actor: CurrentUser, loanId: string, body: { amount: number; paidAt?: string; paymentReference?: string }) {
-    const roles = await this.getRoles(actor.userId);
+    const roles = await fetchUserRoles(this.db, actor.userId);
     if (!isStaff(roles)) throw new Error('Only Admin or LoanOfficer can perform this action.');
 
     await this.db.withTransaction(async (client: PoolClient) => {

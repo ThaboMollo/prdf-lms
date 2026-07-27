@@ -1,9 +1,11 @@
 import { Controller, Get, Post, Delete, Param, Query, UseGuards } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { SupabaseAuthGuard } from '../auth/supabase-auth.guard';
 import { GetCurrentUser } from '../auth/current-user.decorator';
 import { CurrentUser } from '../auth/roles.helper';
 import { AdminService } from './admin.service';
 
+@ApiTags('admin')
 @Controller('api/admin/users')
 @UseGuards(SupabaseAuthGuard)
 export class AdminController {
@@ -19,13 +21,13 @@ export class AdminController {
     return this.adminService.listUserAccess(user, { filter, role, search });
   }
 
-  @Post(':userId/roles/admin')
-  grantAdmin(@GetCurrentUser() user: CurrentUser, @Param('userId') userId: string) {
-    return this.adminService.grantAdmin(user, userId);
+  @Post(':userId/roles/:roleName')
+  assignRole(@GetCurrentUser() user: CurrentUser, @Param('userId') userId: string, @Param('roleName') roleName: string) {
+    return this.adminService.assignRole(user, userId, roleName);
   }
 
-  @Delete(':userId/roles/admin')
-  revokeAdmin(@GetCurrentUser() user: CurrentUser, @Param('userId') userId: string) {
-    return this.adminService.revokeAdmin(user, userId);
+  @Delete(':userId/roles/:roleName')
+  removeRole(@GetCurrentUser() user: CurrentUser, @Param('userId') userId: string, @Param('roleName') roleName: string) {
+    return this.adminService.removeRole(user, userId, roleName);
   }
 }
