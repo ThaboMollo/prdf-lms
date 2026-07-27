@@ -19,12 +19,12 @@ export class DocumentsService {
   async listRequirements(actor: CurrentUser, productId?: string) {
     if (productId) {
       return this.db.query(
-        `select id, loan_product_id as "loanProductId", required_at_status as "requiredAtStatus", doc_type as "docType", is_required as "isRequired", created_at as "createdAt" from public.document_requirements where loan_product_id = $1 order by required_at_status asc, doc_type asc`,
+        `select id, loan_product_id as "loanProductId", required_at_status as "requiredAtStatus", doc_type as "docType", is_required as "isRequired", allows_multiple as "allowsMultiple", created_at as "createdAt" from public.document_requirements where loan_product_id = $1 order by required_at_status asc, doc_type asc`,
         [productId],
       );
     }
     return this.db.query(
-      `select id, loan_product_id as "loanProductId", required_at_status as "requiredAtStatus", doc_type as "docType", is_required as "isRequired", created_at as "createdAt" from public.document_requirements order by required_at_status asc, doc_type asc`,
+      `select id, loan_product_id as "loanProductId", required_at_status as "requiredAtStatus", doc_type as "docType", is_required as "isRequired", allows_multiple as "allowsMultiple", created_at as "createdAt" from public.document_requirements order by required_at_status asc, doc_type asc`,
     );
   }
 
@@ -37,7 +37,7 @@ export class DocumentsService {
       [id, body.loanProductId ?? null, body.requiredAtStatus, body.docType, body.isRequired],
     );
     return this.db.queryOne(
-      `select id, loan_product_id as "loanProductId", required_at_status as "requiredAtStatus", doc_type as "docType", is_required as "isRequired", created_at as "createdAt" from public.document_requirements where id=$1`,
+      `select id, loan_product_id as "loanProductId", required_at_status as "requiredAtStatus", doc_type as "docType", is_required as "isRequired", allows_multiple as "allowsMultiple", created_at as "createdAt" from public.document_requirements where id=$1`,
       [id],
     );
   }

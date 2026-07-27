@@ -1,5 +1,5 @@
 import type { ArrearsItem, PortfolioSummary } from '../../api'
-import { createSupabaseReportsAdapter } from '../adapters/supabase/reports.supabase'
+import { createApiReportsAdapter } from '../adapters/api/reports.api'
 
 export type ReportsRepository = {
   getPortfolioSummary: () => Promise<PortfolioSummary>
@@ -7,5 +7,5 @@ export type ReportsRepository = {
 }
 
 export function createReportsRepository(accessToken: string): ReportsRepository {
-  return createSupabaseReportsAdapter(accessToken)
+  return createApiReportsAdapter(accessToken)
 }

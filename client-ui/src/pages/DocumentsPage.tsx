@@ -27,7 +27,7 @@ export function DocumentsPage({ session }: DocumentsPageProps) {
   const applicationsUseCases = useMemo(() => createApplicationsUseCases(accessToken), [accessToken])
   const documentsUseCases = useMemo(() => createDocumentsUseCases(accessToken), [accessToken])
   const { data: product } = useActiveLoanProduct()
-  const { data: docRequirements = [] } = useDocumentRequirements(product?.id)
+  const { data: docRequirements = [] } = useDocumentRequirements(product?.id, accessToken)
   const requiredDocuments = docRequirements.map((req) => ({
     type: req.docType,
     label: DOCUMENT_LABELS[req.docType]?.label ?? req.docType,

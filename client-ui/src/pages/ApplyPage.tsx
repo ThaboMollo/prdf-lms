@@ -167,7 +167,7 @@ export function ApplyPage({ session }: ApplyPageProps) {
   })
 
   const { data: loanProduct } = useActiveLoanProduct()
-  const { data: docRequirements = [] } = useDocumentRequirements(loanProduct?.id)
+  const { data: docRequirements = [] } = useDocumentRequirements(loanProduct?.id, session.access_token)
   const docSlots: DocSlot[] = docRequirements.map((req) => ({
     type: req.docType,
     label: DOCUMENT_LABELS[req.docType]?.label ?? req.docType,
@@ -376,7 +376,7 @@ export function ApplyPage({ session }: ApplyPageProps) {
   async function handleRemoveDoc(doc: ApplicationDocument) {
     setDocBusy(true)
     try {
-      await documentsUseCases.deleteDocument(doc.applicationId, doc.id, doc.storagePath)
+      await documentsUseCases.deleteDocument(doc.applicationId, doc.id)
       await queryClient.invalidateQueries({ queryKey: ['draft-documents', doc.applicationId] })
     } catch (err) {
       toast.push(err instanceof Error ? err.message : 'Could not remove the document.', 'error')
@@ -387,7 +387,7 @@ export function ApplyPage({ session }: ApplyPageProps) {
 
   async function handleViewDoc(doc: ApplicationDocument) {
     try {
-      const url = await documentsUseCases.createSignedUrl(doc.storagePath)
+      const url = await documentsUseCases.createSignedUrl(doc.applicationId, doc.id)
       window.open(url, '_blank', 'noopener')
     } catch (err) {
       toast.push(err instanceof Error ? err.message : 'Could not open the document.', 'error')
@@ -423,7 +423,7 @@ export function ApplyPage({ session }: ApplyPageProps) {
       await saveChain.current.catch(() => null)
       // Remove uploaded files (storage + rows) before deleting the draft row.
       for (const doc of documents) {
-        await documentsUseCases.deleteDocument(doc.applicationId, doc.id, doc.storagePath).catch(() => { })
+        await documentsUseCases.deleteDocument(doc.applicationId, doc.id).catch(() => { })
       }
       await applicationsUseCases.deleteApplication(id)
       draftIdRef.current = null

@@ -1,5 +1,4 @@
 import { env } from './config/env'
-import { createSupabaseDataClient } from './supabase/client'
 
 export type MeResponse = {
   userId: string
@@ -220,12 +219,6 @@ export type ArrearsItem = {
 
 const apiBaseUrl = env.VITE_API_BASE_URL
 
-function assertApiProviderEnabled(endpoint: string): void {
-  if (env.VITE_ENABLE_API_PROVIDER !== 'true') {
-    throw new Error(`API provider is disabled. Attempted API call: ${endpoint}`)
-  }
-}
-
 function authHeaders(accessToken: string): HeadersInit {
   return {
     Authorization: `Bearer ${accessToken}`,
@@ -258,18 +251,7 @@ export async function fetchMe(accessToken: string): Promise<MeResponse> {
   return parseResponse<MeResponse>(response)
 }
 
-/** Roles for the signed-in user, read from the DB (same source RLS trusts). */
-export async function getMyRoles(accessToken: string): Promise<string[]> {
-  const client = createSupabaseDataClient(accessToken)
-  const { data, error } = await client.rpc('get_my_roles')
-  if (error) {
-    throw new Error(error.message)
-  }
-  return (data as string[] | null) ?? []
-}
-
 export async function createApplication(accessToken: string, input: CreateApplicationInput): Promise<ApplicationDetails> {
-  assertApiProviderEnabled('/api/applications')
   const response = await fetch(`${apiBaseUrl}/api/applications`, {
     method: 'POST',
     headers: authHeaders(accessToken),
@@ -279,7 +261,6 @@ export async function createApplication(accessToken: string, input: CreateApplic
 }
 
 export async function updateApplication(accessToken: string, id: string, input: UpdateApplicationInput): Promise<ApplicationDetails> {
-  assertApiProviderEnabled(`/api/applications/${id}`)
   const response = await fetch(`${apiBaseUrl}/api/applications/${id}`, {
     method: 'PUT',
     headers: authHeaders(accessToken),
@@ -289,7 +270,6 @@ export async function updateApplication(accessToken: string, id: string, input: 
 }
 
 export async function submitApplication(accessToken: string, id: string, note?: string): Promise<ApplicationDetails> {
-  assertApiProviderEnabled(`/api/applications/${id}/submit`)
   const response = await fetch(`${apiBaseUrl}/api/applications/${id}/submit`, {
     method: 'POST',
     headers: authHeaders(accessToken),
@@ -299,7 +279,6 @@ export async function submitApplication(accessToken: string, id: string, note?: 
 }
 
 export async function listApplications(accessToken: string): Promise<ApplicationSummary[]> {
-  assertApiProviderEnabled('/api/applications')
   const response = await fetch(`${apiBaseUrl}/api/applications`, {
     headers: authHeaders(accessToken)
   })
@@ -307,7 +286,6 @@ export async function listApplications(accessToken: string): Promise<Application
 }
 
 export async function getApplication(accessToken: string, id: string): Promise<ApplicationDetails> {
-  assertApiProviderEnabled(`/api/applications/${id}`)
   const response = await fetch(`${apiBaseUrl}/api/applications/${id}`, {
     headers: authHeaders(accessToken)
   })
@@ -382,6 +360,22 @@ export async function verifyDocument(
   await parseResponse<void>(response)
 }
 
+export async function deleteDocument(accessToken: string, applicationId: string, documentId: string): Promise<void> {
+  const response = await fetch(`${apiBaseUrl}/api/applications/${applicationId}/documents/${documentId}`, {
+    method: 'DELETE',
+    headers: authHeaders(accessToken)
+  })
+  await parseResponse<void>(response)
+}
+
+export async function getDocumentUrl(accessToken: string, applicationId: string, documentId: string): Promise<string> {
+  const response = await fetch(`${apiBaseUrl}/api/applications/${applicationId}/documents/${documentId}/url`, {
+    headers: authHeaders(accessToken)
+  })
+  const { url } = await parseResponse<{ url: string }>(response)
+  return url
+}
+
 export async function changeStatus(
   accessToken: string,
   applicationId: string,
@@ -401,6 +395,31 @@ export async function getHistory(accessToken: string, applicationId: string): Pr
     headers: authHeaders(accessToken)
   })
   return parseResponse<StatusHistoryItem[]>(response)
+}
+
+/** The signed-in client's current open Draft, if any — null if none exists. */
+export async function getMyDraft(accessToken: string): Promise<ApplicationSummary | null> {
+  const response = await fetch(`${apiBaseUrl}/api/applications/draft`, {
+    headers: authHeaders(accessToken)
+  })
+  return parseResponse<ApplicationSummary | null>(response)
+}
+
+export async function recordConsent(accessToken: string, applicationId: string, consent: ApplicationConsentInput): Promise<void> {
+  const response = await fetch(`${apiBaseUrl}/api/applications/${applicationId}/consent`, {
+    method: 'POST',
+    headers: authHeaders(accessToken),
+    body: JSON.stringify(consent)
+  })
+  await parseResponse<void>(response)
+}
+
+export async function deleteApplication(accessToken: string, id: string): Promise<void> {
+  const response = await fetch(`${apiBaseUrl}/api/applications/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(accessToken)
+  })
+  await parseResponse<void>(response)
 }
 
 export async function listTasks(accessToken: string, options?: { applicationId?: string; assignedToMe?: boolean }): Promise<TaskItem[]> {
@@ -471,6 +490,14 @@ export async function createNote(accessToken: string, applicationId: string, bod
     body: JSON.stringify({ body })
   })
   return parseResponse<NoteItem>(response)
+}
+
+/** Role-scoped server-side to the caller's own loans for a Client actor — no client-side filtering needed. */
+export async function listMyLoans(accessToken: string): Promise<LoanSummary[]> {
+  const response = await fetch(`${apiBaseUrl}/api/loans`, {
+    headers: authHeaders(accessToken)
+  })
+  return parseResponse<LoanSummary[]>(response)
 }
 
 export async function getLoan(accessToken: string, loanId: string): Promise<LoanDetails> {

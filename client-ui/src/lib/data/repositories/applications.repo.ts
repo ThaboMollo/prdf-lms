@@ -7,8 +7,7 @@ import type {
   StatusHistoryItem,
   UpdateApplicationInput
 } from '../../api'
-import { getDataProvider } from '../../config/dataProvider'
-import { createSupabaseApplicationsAdapter } from '../adapters/supabase/applications.supabase'
+import { createApiApplicationsAdapter } from '../adapters/api/applications.api'
 
 export type ApplicationsRepository = {
   listApplications: () => Promise<ApplicationSummary[]>
@@ -30,10 +29,5 @@ export type ApplicationsRepository = {
 }
 
 export function createApplicationsRepository(accessToken: string): ApplicationsRepository {
-  const provider = getDataProvider()
-  if (provider === 'api') {
-    console.warn('Applications repository forced to Supabase adapter for client UI runtime.')
-  }
-
-  return createSupabaseApplicationsAdapter(accessToken)
+  return createApiApplicationsAdapter(accessToken)
 }

@@ -38,6 +38,21 @@ jobs:
         run: npm ci
         working-directory: client-ui
 
+      # Enforces platform-architecture-design.md §3.4: "the browser never
+      # talks to Supabase for data." lib/supabase/client.ts is the one
+      # legitimate exception (session management only). Excludes
+      # Array.from(...) — the only false-positive match found when this
+      # check was introduced.
+      - name: Check for direct Supabase data access in client UI
+        run: |
+          matches=$(grep -rPn '(?<!Array)\.from\(|\.storage\.from\(' src --include='*.ts' --include='*.tsx' | grep -v 'lib/supabase/client.ts' || true)
+          if [ -n "$matches" ]; then
+            echo "Found direct Supabase data access outside lib/supabase/client.ts:"
+            echo "$matches"
+            exit 1
+          fi
+        working-directory: client-ui
+
       - name: Build client UI
         run: npm run build
         working-directory: client-ui

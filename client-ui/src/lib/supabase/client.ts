@@ -13,18 +13,3 @@ export function getSupabaseAuthClient(): SupabaseClient {
   authClient = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY)
   return authClient
 }
-
-export function createSupabaseDataClient(accessToken: string): SupabaseClient {
-  return createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-      detectSessionInUrl: false
-    },
-    global: {
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
-    }
-  })
-}

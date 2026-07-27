@@ -1,14 +1,20 @@
-import { Controller, Get, NotFoundException, UseGuards } from '@nestjs/common';
+import { Controller, Get, NotFoundException } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { SupabaseAuthGuard } from '../auth/supabase-auth.guard';
 import { LoanProductsService } from './loan-products.service';
 
 @ApiTags('loan-products')
 @Controller('api/loan-products')
-@UseGuards(SupabaseAuthGuard)
 export class LoanProductsController {
   constructor(private readonly svc: LoanProductsService) {}
 
+  /**
+   * Deliberately public — no SupabaseAuthGuard. Mirrors the DB's own
+   * anon-readable RLS scope exactly (is_active = true rows only), since
+   * this backs the logged-out public marketing loan calculator
+   * (client-ui's LandingPage/LoanCalculator). If more routes are added to
+   * this controller later, they need the guard back individually — this
+   * exemption is specific to "the one active product's public fields."
+   */
   @Get('active')
   async getActive() {
     const product = await this.svc.getActiveProduct();

@@ -1480,6 +1480,45 @@
           "draftState": {
             "type": "object",
             "additionalProperties": true
+          },
+          "province": {
+            "type": "string"
+          },
+          "spatialType": {
+            "type": "string"
+          },
+          "industry": {
+            "type": "string"
+          },
+          "gender": {
+            "type": "string"
+          },
+          "isDisabled": {
+            "type": "boolean"
+          },
+          "isHdp": {
+            "type": "boolean"
+          },
+          "isRural": {
+            "type": "boolean"
+          },
+          "isBlackWomenOwned": {
+            "type": "boolean"
+          },
+          "saCitizenshipPercentage": {
+            "type": "number"
+          },
+          "isDirectorOperational": {
+            "type": "boolean"
+          },
+          "cipcRegistered": {
+            "type": "boolean"
+          },
+          "sarsTaxPin": {
+            "type": "string"
+          },
+          "insolventOrDebtReview": {
+            "type": "boolean"
           }
         }
       },
@@ -1528,6 +1567,45 @@
           "draftState": {
             "type": "object",
             "additionalProperties": true
+          },
+          "province": {
+            "type": "string"
+          },
+          "spatialType": {
+            "type": "string"
+          },
+          "industry": {
+            "type": "string"
+          },
+          "gender": {
+            "type": "string"
+          },
+          "isDisabled": {
+            "type": "boolean"
+          },
+          "isHdp": {
+            "type": "boolean"
+          },
+          "isRural": {
+            "type": "boolean"
+          },
+          "isBlackWomenOwned": {
+            "type": "boolean"
+          },
+          "saCitizenshipPercentage": {
+            "type": "number"
+          },
+          "isDirectorOperational": {
+            "type": "boolean"
+          },
+          "cipcRegistered": {
+            "type": "boolean"
+          },
+          "sarsTaxPin": {
+            "type": "string"
+          },
+          "insolventOrDebtReview": {
+            "type": "boolean"
           }
         }
       },

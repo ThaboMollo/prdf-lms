@@ -22,6 +22,7 @@ const LOAN_STATUS_TRANSITIONS: Record<string, string[]> = {
 interface SecurityProjection {
   id: string;
   status: string;
+  clientId: string;
   assignedToUserId: string | null;
   clientOwnerUserId: string | null;
   loanProductId: string | null;
@@ -38,11 +39,50 @@ export class ApplicationsService {
 
   private async getSecurityProjection(applicationId: string): Promise<SecurityProjection | null> {
     return this.db.queryOne<SecurityProjection>(
-      `select la.id, la.status, la.assigned_to_user_id as "assignedToUserId", c.user_id as "clientOwnerUserId",
+      `select la.id, la.status, la.client_id as "clientId", la.assigned_to_user_id as "assignedToUserId", c.user_id as "clientOwnerUserId",
               la.loan_product_id as "loanProductId", la.requested_amount as "requestedAmount", la.term_months as "termMonths"
        from public.loan_applications la join public.clients c on c.id = la.client_id where la.id = $1`,
       [applicationId],
     );
+  }
+
+  /**
+   * Mirrors client-ui's resolveClientId() patch semantics exactly: only
+   * writes fields the caller actually provided (skips undefined AND empty
+   * string — province/spatialType have CHECK constraints on allowed values,
+   * and an early draft save before the business profile is filled must not
+   * clobber existing client data with blanks).
+   */
+  private async patchClientProfile(clientId: string, body: CreateApplicationDto) {
+    const sets: string[] = [];
+    const params: unknown[] = [];
+    const setIf = (column: string, value: unknown) => {
+      if (value === undefined || value === '') return;
+      params.push(value);
+      sets.push(`${column} = $${params.length}`);
+    };
+    setIf('registration_no', body.registrationNo);
+    setIf('address', body.address);
+    if (body.businessName?.trim()) {
+      params.push(body.businessName.trim());
+      sets.push(`business_name = $${params.length}`);
+    }
+    setIf('province', body.province);
+    setIf('spatial_type', body.spatialType);
+    setIf('industry', body.industry);
+    setIf('gender', body.gender);
+    setIf('is_disabled', body.isDisabled);
+    setIf('is_hdp', body.isHdp);
+    setIf('is_rural', body.isRural);
+    setIf('is_black_women_owned', body.isBlackWomenOwned);
+    setIf('sa_citizenship_percentage', body.saCitizenshipPercentage);
+    setIf('is_director_operational', body.isDirectorOperational);
+    setIf('cipc_registered', body.cipcRegistered);
+    setIf('sars_tax_pin', body.sarsTaxPin);
+    setIf('insolvent_or_debt_review', body.insolventOrDebtReview);
+    if (!sets.length) return;
+    params.push(clientId);
+    await this.db.execute(`update public.clients set ${sets.join(', ')} where id = $${params.length}`, params);
   }
 
   private ensureCanAccess(roles: string[], userId: string, proj: { assignedToUserId: string | null; clientOwnerUserId: string | null }) {
@@ -184,6 +224,8 @@ export class ApplicationsService {
       throw new Error('Role not allowed to create applications.');
     }
 
+    await this.patchClientProfile(clientId, body);
+
     const product = await this.loanProducts.getActiveProduct();
     if (!product) throw new Error('No active loan product is configured.');
 
@@ -247,6 +289,7 @@ export class ApplicationsService {
     params.push(applicationId);
 
     await this.db.execute(`update public.loan_applications set ${sets.join(', ')} where id = $${params.length}`, params);
+    await this.patchClientProfile(proj.clientId, body);
     await this.insertAuditLog(applicationId, 'UpdateDraftApplication', actor.userId, { requestedAmount: body.requestedAmount, termMonths: body.termMonths });
     return this.getById(applicationId);
   }

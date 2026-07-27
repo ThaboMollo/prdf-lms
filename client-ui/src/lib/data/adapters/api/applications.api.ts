@@ -1,11 +1,15 @@
 import {
   changeStatus,
   createApplication,
+  deleteApplication as deleteApplicationRequest,
   getApplication,
   getHistory,
+  getMyDraft,
   listApplications,
+  recordConsent as recordConsentRequest,
   submitApplication,
   updateApplication,
+  type ApplicationConsentInput,
   type CreateApplicationInput,
   type LoanApplicationStatus,
   type UpdateApplicationInput
@@ -18,17 +22,12 @@ export function createApiApplicationsAdapter(accessToken: string): ApplicationsR
     getApplication: (id) => getApplication(accessToken, id),
     createDraft: (input: CreateApplicationInput) => createApplication(accessToken, input),
     updateDraft: (id: string, input: UpdateApplicationInput) => updateApplication(accessToken, id, input),
-    // Draft save/resume is a Supabase-provider feature; the REST provider isn't
-    // used by the client UI runtime. Provide minimal stubs to satisfy the type.
     saveDraft: (id, input) =>
       id ? updateApplication(accessToken, id, input as UpdateApplicationInput) : createApplication(accessToken, input),
-    getMyDraft: async () => null,
-    recordConsent: async () => {
-      throw new Error('recordConsent is not supported by the REST provider.')
-    },
-    deleteApplication: async () => {
-      throw new Error('deleteApplication is not supported by the REST provider.')
-    },
+    getMyDraft: () => getMyDraft(accessToken),
+    recordConsent: (applicationId: string, consent: ApplicationConsentInput) =>
+      recordConsentRequest(accessToken, applicationId, consent),
+    deleteApplication: (id: string) => deleteApplicationRequest(accessToken, id),
     assignApplication: (id: string, input: UpdateApplicationInput) => updateApplication(accessToken, id, input),
     submit: (id: string, note?: string) => submitApplication(accessToken, id, note),
     changeStatus: (applicationId: string, toStatus: LoanApplicationStatus, note?: string) =>

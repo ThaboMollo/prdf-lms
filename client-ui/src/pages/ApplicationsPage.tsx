@@ -138,7 +138,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
   })
 
   const { data: activeLoanProduct } = useActiveLoanProduct()
-  const { data: docRequirements = [] } = useDocumentRequirements(activeLoanProduct?.id)
+  const { data: docRequirements = [] } = useDocumentRequirements(activeLoanProduct?.id, accessToken)
   const requiredDocumentTypes = docRequirements.map((req) => req.docType)
 
   const notesQuery = useQuery({
@@ -589,6 +589,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
       {detail ? (
         <ApplicationDetail
           application={detail}
+          accessToken={accessToken}
           docs={docsQuery.data ?? []}
           history={historyQuery.data ?? []}
           tasks={tasksQuery.data ?? []}
@@ -738,6 +739,7 @@ function ClientWizardModal({
 
 type ApplicationDetailProps = {
   application: ApplicationDetails
+  accessToken: string
   docs: ApplicationDocument[]
   history: StatusHistoryItem[]
   tasks: TaskItem[]
@@ -784,7 +786,7 @@ type ApplicationDetailProps = {
 
 function ApplicationDetail(props: ApplicationDetailProps) {
   const { data: activeLoanProduct } = useActiveLoanProduct()
-  const { data: docRequirements = [] } = useDocumentRequirements(activeLoanProduct?.id)
+  const { data: docRequirements = [] } = useDocumentRequirements(activeLoanProduct?.id, props.accessToken)
   const requiredDocumentTypes = docRequirements.map((req) => req.docType)
   const missingDocs = requiredDocumentTypes.filter((requiredDoc) => !props.docs.some((doc) => doc.docType === requiredDoc))
 
@@ -884,7 +886,7 @@ function DetailsTab({ application }: { application: ApplicationDetails }) {
 function DocumentsTab(props: ApplicationDetailProps) {
   const [dragging, setDragging] = useState(false)
   const { data: activeLoanProduct } = useActiveLoanProduct()
-  const { data: docRequirements = [] } = useDocumentRequirements(activeLoanProduct?.id)
+  const { data: docRequirements = [] } = useDocumentRequirements(activeLoanProduct?.id, props.accessToken)
   const requiredDocumentTypes = docRequirements.map((req) => req.docType)
 
   return (

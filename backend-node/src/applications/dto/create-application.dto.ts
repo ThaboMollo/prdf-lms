@@ -76,4 +76,73 @@ export class CreateApplicationDto {
   @IsOptional()
   @IsObject()
   draftState?: Record<string, unknown>;
+
+  // BEE/demographic/compliance fields — live on the `clients` table, not
+  // `loan_applications`. Persisted via ApplicationsService's client-profile
+  // patch (mirrors client-ui's resolveClientId()), not a direct column
+  // mapping on this DTO's own insert/update.
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  province?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  spatialType?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  industry?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  gender?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isDisabled?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isHdp?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isRural?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isBlackWomenOwned?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  saCitizenshipPercentage?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isDirectorOperational?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  cipcRegistered?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  sarsTaxPin?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  insolventOrDebtReview?: boolean;
 }

@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
-import { CurrentUser, ensureStaff, fetchUserRoles } from '../auth/roles.helper';
+import { CurrentUser, ensureStaff, fetchUserRoles, hasRole, isStaff } from '../auth/roles.helper';
 
 const DEBTORS_AGE_BUCKETS = ['Current (not overdue)', '1-30 days', '31-60 days', '61-90 days', '91-120 days', '120+ days'];
 
@@ -12,17 +12,45 @@ export class ReportsService {
     ensureStaff(await fetchUserRoles(this.db, actor.userId));
   }
 
+  /**
+   * portfolio()/arrears() are consumed by both admin-ui (staff: global
+   * aggregate) and client-ui (Client role: their own loans only, same
+   * scope the RLS-direct Supabase path already gave them) — unlike every
+   * other report method here, which is staff-only with no client-ui caller.
+   */
   async portfolio(actor: CurrentUser) {
-    await this.ensureStaffActor(actor);
+    const roles = await fetchUserRoles(this.db, actor.userId);
+    if (isStaff(roles)) {
+      return this.db.queryOne(
+        `select cast(count(*) as int) as "totalLoans", cast(count(*) filter (where status in ('Disbursed','InRepayment')) as int) as "activeLoans", coalesce(sum(principal_amount),0) as "totalPrincipal", coalesce(sum(outstanding_principal),0) as "outstandingPrincipal", coalesce(sum(principal_amount) - sum(outstanding_principal),0) as "repaidPrincipal" from public.loans`,
+      );
+    }
+    if (!hasRole(roles, 'Client')) throw new ForbiddenException('Only staff or the applicant can view portfolio data.');
     return this.db.queryOne(
-      `select cast(count(*) as int) as "totalLoans", cast(count(*) filter (where status in ('Disbursed','InRepayment')) as int) as "activeLoans", coalesce(sum(principal_amount),0) as "totalPrincipal", coalesce(sum(outstanding_principal),0) as "outstandingPrincipal" from public.loans`,
+      `select cast(count(*) as int) as "totalLoans", cast(count(*) filter (where l.status in ('Disbursed','InRepayment')) as int) as "activeLoans", coalesce(sum(l.principal_amount),0) as "totalPrincipal", coalesce(sum(l.outstanding_principal),0) as "outstandingPrincipal", coalesce(sum(l.principal_amount) - sum(l.outstanding_principal),0) as "repaidPrincipal"
+       from public.loans l join public.loan_applications la on la.id = l.application_id join public.clients c on c.id = la.client_id
+       where c.user_id = $1`,
+      [actor.userId],
     );
   }
 
   async arrears(actor: CurrentUser) {
-    await this.ensureStaffActor(actor);
+    const roles = await fetchUserRoles(this.db, actor.userId);
+    if (isStaff(roles)) {
+      return this.db.query(
+        `select rs.loan_id as "loanId", l.application_id as "applicationId", rs.installment_no as "installmentNo", rs.due_date as "dueDate", rs.due_total as "dueTotal", rs.paid_amount as "paidAmount", cast(greatest(rs.due_total-rs.paid_amount,0) as numeric(18,2)) as "outstandingAmount", cast(greatest((current_date-rs.due_date),0) as int) as "daysOverdue" from public.repayment_schedule rs join public.loans l on l.id=rs.loan_id where rs.due_date<current_date and rs.due_total>rs.paid_amount and l.status<>'Closed' order by rs.due_date asc`,
+      );
+    }
+    if (!hasRole(roles, 'Client')) throw new ForbiddenException('Only staff or the applicant can view arrears data.');
     return this.db.query(
-      `select rs.loan_id as "loanId", l.application_id as "applicationId", rs.installment_no as "installmentNo", rs.due_date as "dueDate", rs.due_total as "dueTotal", rs.paid_amount as "paidAmount", cast(greatest(rs.due_total-rs.paid_amount,0) as numeric(18,2)) as "outstandingAmount", cast(greatest((current_date-rs.due_date),0) as int) as "daysOverdue" from public.repayment_schedule rs join public.loans l on l.id=rs.loan_id where rs.due_date<current_date and rs.due_total>rs.paid_amount and l.status<>'Closed' order by rs.due_date asc`,
+      `select rs.loan_id as "loanId", l.application_id as "applicationId", rs.installment_no as "installmentNo", rs.due_date as "dueDate", rs.due_total as "dueTotal", rs.paid_amount as "paidAmount", cast(greatest(rs.due_total-rs.paid_amount,0) as numeric(18,2)) as "outstandingAmount", cast(greatest((current_date-rs.due_date),0) as int) as "daysOverdue"
+       from public.repayment_schedule rs
+       join public.loans l on l.id = rs.loan_id
+       join public.loan_applications la on la.id = l.application_id
+       join public.clients c on c.id = la.client_id
+       where rs.due_date < current_date and rs.due_total > rs.paid_amount and l.status <> 'Closed' and c.user_id = $1
+       order by rs.due_date asc`,
+      [actor.userId],
     );
   }
 
