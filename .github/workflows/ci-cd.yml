@@ -61,6 +61,17 @@ jobs:
         run: npm ci
         working-directory: admin-ui
 
+      # Same enforcement as client UI, above.
+      - name: Check for direct Supabase data access in admin UI
+        run: |
+          matches=$(grep -rPn '(?<!Array)\.from\(|\.storage\.from\(' src --include='*.ts' --include='*.tsx' | grep -v 'lib/supabase/client.ts' || true)
+          if [ -n "$matches" ]; then
+            echo "Found direct Supabase data access outside lib/supabase/client.ts:"
+            echo "$matches"
+            exit 1
+          fi
+        working-directory: admin-ui
+
       - name: Build admin UI
         run: npm run build
         working-directory: admin-ui

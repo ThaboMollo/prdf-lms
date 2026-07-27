@@ -61,3 +61,11 @@ export function ensureInternal(roles: string[]): void {
 export function ensureAdmin(roles: string[]): void {
   if (!hasRole(roles, 'Admin')) throw new Error('Only Admin users can manage admin access.');
 }
+
+export function ensureAdminOrSuper(roles: string[]): void {
+  if (!hasAnyRole(roles, 'Admin', 'SuperAdmin')) throw new Error('Only Admin or SuperAdmin users can manage admin access.');
+}
+
+export function ensureSuperAdmin(roles: string[]): void {
+  if (!hasRole(roles, 'SuperAdmin')) throw new Error('Only a SuperAdmin can perform this action.');
+}

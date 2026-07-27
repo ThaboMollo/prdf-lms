@@ -1,5 +1,4 @@
 import { env } from './config/env'
-import { createSupabaseDataClient } from './supabase/client'
 
 export type MeResponse = {
   userId: string
@@ -18,8 +17,8 @@ export type AdminAccessListItem = {
   isAdmin: boolean
   isSuperAdmin: boolean
   isInternal: boolean
-  canGrantAdmin: boolean
-  canRevokeAdmin: boolean
+  canGrant: boolean
+  canRevoke: boolean
   grantDisabledReason: string | null
   revokeDisabledReason: string | null
 }
@@ -301,32 +300,6 @@ export type CreateNfsInput = {
 
 const apiBaseUrl = env.VITE_API_BASE_URL
 
-type AdminAccessRpcRow = {
-  user_id: string
-  full_name: string | null
-  email: string | null
-  roles: string[] | null
-  is_admin: boolean
-  is_super_admin: boolean
-  is_internal: boolean
-  can_grant_admin: boolean
-  can_revoke_admin: boolean
-  grant_disabled_reason: string | null
-  revoke_disabled_reason: string | null
-}
-
-type AdminAccessMutationRpcRow = {
-  user_id: string
-  roles: string[] | null
-  is_admin: boolean
-}
-
-function assertApiProviderEnabled(endpoint: string): void {
-  if (env.VITE_ENABLE_API_PROVIDER !== 'true') {
-    throw new Error(`API provider is disabled. Attempted API call: ${endpoint}`)
-  }
-}
-
 function authHeaders(accessToken: string): HeadersInit {
   return {
     Authorization: `Bearer ${accessToken}`,
@@ -359,102 +332,38 @@ export async function fetchMe(accessToken: string): Promise<MeResponse> {
   return parseResponse<MeResponse>(response)
 }
 
-/** Roles for the signed-in user, read from the DB (same source RLS trusts). */
-export async function getMyRoles(accessToken: string): Promise<string[]> {
-  const client = createSupabaseDataClient(accessToken)
-  const { data, error } = await client.rpc('get_my_roles')
-  if (error) {
-    throw new Error(error.message)
-  }
-  return (data as string[] | null) ?? []
-}
-
 export async function listAdminUserAccess(
   accessToken: string,
   input: { search?: string; filter?: AdminAccessFilter; role?: string } = {}
 ): Promise<AdminAccessListItem[]> {
-  const client = createSupabaseDataClient(accessToken)
-  const { data, error } = await client.rpc('admin_access_list', {
-    p_search: input.search?.trim() || null,
-    p_filter: input.filter ?? 'all',
-    p_role: input.role?.trim() || null
+  const params = new URLSearchParams()
+  if (input.search?.trim()) params.set('search', input.search.trim())
+  params.set('filter', input.filter ?? 'all')
+  if (input.role?.trim()) params.set('role', input.role.trim())
+
+  const response = await fetch(`${apiBaseUrl}/api/admin/users/access?${params.toString()}`, {
+    headers: authHeaders(accessToken)
   })
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  return (data ?? []).map((row: AdminAccessRpcRow) => ({
-    userId: row.user_id,
-    fullName: row.full_name,
-    email: row.email,
-    roles: row.roles ?? [],
-    isAdmin: row.is_admin,
-    isSuperAdmin: row.is_super_admin,
-    isInternal: row.is_internal,
-    canGrantAdmin: row.can_grant_admin,
-    canRevokeAdmin: row.can_revoke_admin,
-    grantDisabledReason: row.grant_disabled_reason,
-    revokeDisabledReason: row.revoke_disabled_reason
-  }))
+  return parseResponse<AdminAccessListItem[]>(response)
 }
 
-export async function assignUserRole(
-  accessToken: string,
-  userId: string,
-  role: AssignableRole
-): Promise<AdminAccessMutationResult> {
-  const client = createSupabaseDataClient(accessToken)
-  const { data, error } = await client.rpc('admin_access_assign_role', {
-    p_target_user_id: userId,
-    p_role_name: role
+export async function assignUserRole(accessToken: string, userId: string, role: AssignableRole): Promise<AdminAccessMutationResult> {
+  const response = await fetch(`${apiBaseUrl}/api/admin/users/${userId}/roles/${role}`, {
+    method: 'POST',
+    headers: authHeaders(accessToken)
   })
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  const row = (data as AdminAccessMutationRpcRow[] | null)?.[0]
-  if (!row) {
-    throw new Error('Unable to assign role.')
-  }
-
-  return {
-    userId: row.user_id,
-    roles: row.roles ?? [],
-    isAdmin: row.is_admin
-  }
+  return parseResponse<AdminAccessMutationResult>(response)
 }
 
-export async function removeUserRole(
-  accessToken: string,
-  userId: string,
-  role: AssignableRole
-): Promise<AdminAccessMutationResult> {
-  const client = createSupabaseDataClient(accessToken)
-  const { data, error } = await client.rpc('admin_access_remove_role', {
-    p_target_user_id: userId,
-    p_role_name: role
+export async function removeUserRole(accessToken: string, userId: string, role: AssignableRole): Promise<AdminAccessMutationResult> {
+  const response = await fetch(`${apiBaseUrl}/api/admin/users/${userId}/roles/${role}`, {
+    method: 'DELETE',
+    headers: authHeaders(accessToken)
   })
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  const row = (data as AdminAccessMutationRpcRow[] | null)?.[0]
-  if (!row) {
-    throw new Error('Unable to remove role.')
-  }
-
-  return {
-    userId: row.user_id,
-    roles: row.roles ?? [],
-    isAdmin: row.is_admin
-  }
+  return parseResponse<AdminAccessMutationResult>(response)
 }
 
 export async function createApplication(accessToken: string, input: CreateApplicationInput): Promise<ApplicationDetails> {
-  assertApiProviderEnabled('/api/applications')
   const response = await fetch(`${apiBaseUrl}/api/applications`, {
     method: 'POST',
     headers: authHeaders(accessToken),
@@ -464,7 +373,6 @@ export async function createApplication(accessToken: string, input: CreateApplic
 }
 
 export async function updateApplication(accessToken: string, id: string, input: UpdateApplicationInput): Promise<ApplicationDetails> {
-  assertApiProviderEnabled(`/api/applications/${id}`)
   const response = await fetch(`${apiBaseUrl}/api/applications/${id}`, {
     method: 'PUT',
     headers: authHeaders(accessToken),
@@ -474,7 +382,6 @@ export async function updateApplication(accessToken: string, id: string, input: 
 }
 
 export async function submitApplication(accessToken: string, id: string, note?: string): Promise<ApplicationDetails> {
-  assertApiProviderEnabled(`/api/applications/${id}/submit`)
   const response = await fetch(`${apiBaseUrl}/api/applications/${id}/submit`, {
     method: 'POST',
     headers: authHeaders(accessToken),
@@ -484,7 +391,6 @@ export async function submitApplication(accessToken: string, id: string, note?: 
 }
 
 export async function listApplications(accessToken: string): Promise<ApplicationSummary[]> {
-  assertApiProviderEnabled('/api/applications')
   const response = await fetch(`${apiBaseUrl}/api/applications`, {
     headers: authHeaders(accessToken)
   })
@@ -492,7 +398,6 @@ export async function listApplications(accessToken: string): Promise<Application
 }
 
 export async function getApplication(accessToken: string, id: string): Promise<ApplicationDetails> {
-  assertApiProviderEnabled(`/api/applications/${id}`)
   const response = await fetch(`${apiBaseUrl}/api/applications/${id}`, {
     headers: authHeaders(accessToken)
   })
@@ -565,6 +470,14 @@ export async function verifyDocument(
   })
 
   await parseResponse<void>(response)
+}
+
+export async function getDocumentUrl(accessToken: string, applicationId: string, documentId: string): Promise<string> {
+  const response = await fetch(`${apiBaseUrl}/api/applications/${applicationId}/documents/${documentId}/url`, {
+    headers: authHeaders(accessToken)
+  })
+  const { url } = await parseResponse<{ url: string }>(response)
+  return url
 }
 
 export async function changeStatus(
@@ -774,6 +687,53 @@ export async function getAuditLog(accessToken: string, from?: string, to?: strin
     headers: authHeaders(accessToken)
   })
   return parseResponse<AuditLogItem[]>(response)
+}
+
+export async function getDemographicBreakdown(accessToken: string): Promise<DemographicBreakdown> {
+  const response = await fetch(`${apiBaseUrl}/api/reports/demographic`, {
+    headers: authHeaders(accessToken)
+  })
+  return parseResponse<DemographicBreakdown>(response)
+}
+
+export async function getDebtorsAgeAnalysis(accessToken: string): Promise<DebtorsAgeBucket[]> {
+  const response = await fetch(`${apiBaseUrl}/api/reports/debtors-age`, {
+    headers: authHeaders(accessToken)
+  })
+  return parseResponse<DebtorsAgeBucket[]>(response)
+}
+
+export async function getProvinceBreakdown(accessToken: string): Promise<ProvinceBreakdown> {
+  const response = await fetch(`${apiBaseUrl}/api/reports/province`, {
+    headers: authHeaders(accessToken)
+  })
+  return parseResponse<ProvinceBreakdown>(response)
+}
+
+export type AssignableUser = {
+  userId: string
+  name: string
+  roles: string[]
+}
+
+export async function listAssignableUsers(accessToken: string): Promise<AssignableUser[]> {
+  const response = await fetch(`${apiBaseUrl}/api/users/assignable`, {
+    headers: authHeaders(accessToken)
+  })
+  return parseResponse<AssignableUser[]>(response)
+}
+
+export async function getUserProfiles(accessToken: string, ids: string[]): Promise<Map<string, string>> {
+  if (!ids.length) return new Map()
+  const response = await fetch(`${apiBaseUrl}/api/users/profiles?ids=${ids.map(encodeURIComponent).join(',')}`, {
+    headers: authHeaders(accessToken)
+  })
+  const rows = await parseResponse<{ userId: string; fullName: string | null }[]>(response)
+  const names = new Map<string, string>()
+  for (const row of rows) {
+    if (row.fullName) names.set(row.userId, row.fullName)
+  }
+  return names
 }
 
 export async function listNfs(accessToken: string, clientId: string): Promise<NonFinancialSupportItem[]> {

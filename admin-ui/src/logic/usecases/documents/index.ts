@@ -5,8 +5,7 @@ export function createDocumentsUseCases(accessToken: string) {
 
   return {
     getDocuments: (applicationId: string) => repository.getDocuments(applicationId),
-    getDocumentUrl: (applicationId: string, storagePath: string, expiresInSeconds?: number) =>
-      repository.getDocumentUrl(applicationId, storagePath, expiresInSeconds),
+    getDocumentUrl: (applicationId: string, documentId: string) => repository.getDocumentUrl(applicationId, documentId),
     presignUpload: (applicationId: string, docType: string, fileName: string, contentType?: string) =>
       repository.presignUpload(applicationId, docType, fileName, contentType),
     confirmUpload: (applicationId: string, docType: string, storagePath: string, status?: string) =>

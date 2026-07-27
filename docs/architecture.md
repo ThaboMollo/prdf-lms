@@ -1,14 +1,14 @@
 # Architecture
 
-This document reflects the current state of the codebase after Phase 0, Phase 1, Phase 2, Phase 3a, and two passes of full Phase 3 of `platform-architecture-design.md` (repo root — the full 7-phase target-state spec and implementation roadmap; read that for anything not covered here). `docs/system-overview.md` remains the verified reference for pre-Phase-0 behaviour and is kept as historical record, not updated going forward.
+This document reflects the current state of the codebase after Phase 0, Phase 1, Phase 2, Phase 3a, and three passes of full Phase 3 of `platform-architecture-design.md` (repo root — the full 7-phase target-state spec and implementation roadmap; read that for anything not covered here). `docs/system-overview.md` remains the verified reference for pre-Phase-0 behaviour and is kept as historical record, not updated going forward.
 
-**Phase 3 status**: full Phase 3 ("make the API the only data path") is large — `backend-node` API completeness (done), `client-ui` repointing (done, this pass), `admin-ui` repointing (not started — more surface area: role-management RPC calls, inline data queries in `ApplicationsPage.tsx`). **`client-ui` no longer talks to Supabase for data at all** — only `lib/supabase/client.ts`'s `getSupabaseAuthClient()` remains, for session management only. `admin-ui` still defaults to `VITE_DATA_PROVIDER=supabase`, unchanged.
+**Phase 3 status: complete.** `backend-node` API completeness, `client-ui` repointing, and `admin-ui` repointing are all done. **Neither frontend talks to Supabase for data anymore** — in both apps, only `lib/supabase/client.ts`'s `getSupabaseAuthClient()` remains, for session management (`signInWithPassword`/`getSession`/`onAuthStateChange`) only. `VITE_DATA_PROVIDER` no longer exists in either app.
 
 ## What this is
 
 A single loan origination and servicing platform, one codebase, deployed independently per client (client 1 = PRDF, client 2 = Kgolo). Every client gets their own Supabase project, database, storage bucket, auth user pool, and frontend/API deployments — there is no shared runtime and no `tenant_id` column. Client differences live in configuration and data (`packages/tenant-config`, once Phase 4 lands), never in forked code.
 
-## Current repository shape (post Phase 2)
+## Current repository shape (post Phase 3)
 
 ```
 client-ui/        React 19 + Vite SPA, client-facing
@@ -26,8 +26,11 @@ packages/
                     generic fetch wrapper, matching the existing hand-rolled
                     api.ts style in both frontends rather than a full codegen
                     tool). Plain TypeScript, no workspace tooling — same
-                    precedent as tenant-config. Nothing imports it yet;
-                    frontend repointing is separately-scoped follow-up work.
+                    precedent as tenant-config. Both frontends' repointing
+                    (Phase 3, passes two and three) used the existing
+                    hand-rolled api.ts fetch pattern instead, so this still
+                    isn't imported by either app — not a gap, a deliberate
+                    choice to stay consistent with established style.
                     Request bodies are genuinely typed; response bodies are
                     not yet (see its client.ts header for why).
 infra/supabase/
@@ -44,7 +47,7 @@ infra/supabase/
 docs/              This file, system-overview.md, and product/support docs
 ```
 
-`backend-node/railway.toml` and `Dockerfile` are still present as a deliberate, temporary exception to the target-state spec — they're deleted only once Phase 3 actually ships the NestJS-as-Vercel-Functions replacement, to avoid a window with zero deployment path for the API.
+`backend-node/railway.toml` and `Dockerfile` are now dead — the NestJS-as-Vercel-Functions replacement they were kept alongside shipped in Phase 3a and has been confirmed live in production since. Not deleted yet; a small, separate cleanup, not bundled into this pass.
 
 ## The database is the business rule engine
 
@@ -58,9 +61,9 @@ Key enforcement points, all in the database, not application code:
 - **Loan amount/term/rate**: per-product, via `loan_products.min_amount`/`max_amount`/`min_term_months`/`max_term_months`/`interest_rate` — a trigger validates against the application's linked product (not a plain CHECK constraint, since that can't reference another table), exempted while an application is a `Draft` so wizard autosave of partial data doesn't fail.
 - **RLS coverage**: all tenant-sensitive tables have row-level security, including `loans`/`disbursements`/`repayments`/`repayment_schedule` — these four had no RLS at all before Phase 0's baseline squash closed that gap. `loan_products` is also `anon`-readable (for `is_active = true` rows only) since its rate/limits were already public marketing copy before Phase 2.
 
-## Data access — current state, not yet the target state
+## Data access — the target state, reached
 
-**`client-ui` reached the target state this pass** — the API is its only data path (`getSupabaseAuthClient()` for session management is the sole remaining Supabase import). **`admin-ui` has not changed** — still defaults to `VITE_DATA_PROVIDER=supabase`, talking directly to Supabase (PostgREST + Storage) with RLS as the authorization boundary. Full Phase 3 isn't complete until `admin-ui` is repointed too.
+Both frontends' only data path is `backend-node`. `getSupabaseAuthClient()` (session management only) is the sole remaining Supabase import in either app. RLS stays live behind the API as the second independent authorization layer, per the spec's original design — nothing about the RLS-behind-API mechanism itself changed in the frontend-repointing passes.
 
 ## What Phase 0 + Phase 1 actually did
 
@@ -116,9 +119,21 @@ Repointed `client-ui` to `backend-node` end to end — no frontend UI/UX changes
 - **CI enforcement added** (ESLint deferred — no ESLint config exists anywhere in this repo, bootstrapping one is a separate task): a `ci-cd.yml` step greps `client-ui/src` for `\.from\(`/`.storage.from(` outside `lib/supabase/client.ts`, failing the build on any direct Supabase data access. Verified it fires on a deliberately-reintroduced violation and passes clean on the real result.
 - **Verified**: all new/changed backend logic (BEE field persistence on create *and* partial-patch update, the public product endpoint, role-scoped reports, `allowsMultiple`) proven against a scratch Postgres running the real migration chain with real signed JWTs — not just `tsc` passing. `client-ui`'s own `tsc`/`vite build` are clean. **Not done**: a real browser click-through with a live user login — the live `prdf-api` Vercel deployment still runs the pre-this-pass DTOs (would reject the new BEE fields via `forbidNonWhitelisted`), and no browser automation tool was available locally without a fresh install. Needs the backend changes deployed first, then your own visual verification, matching every prior phase's pattern.
 
+## What Phase 3, third pass (admin-ui repointing) actually did
+
+Repointed `admin-ui`, the second and final frontend, completing full Phase 3. Found a real authorization regression this time, not just missing endpoints:
+
+- **Security fix, not a feature**: the previous pass's generalized `AdminService.assignRole()`/`removeRole()` gated Admin/SuperAdmin role changes with `ensureAdmin` — any Admin, not just SuperAdmin. Comparing against the *old*, now-deleted `admin_access_assign_role`/`admin_access_remove_role` RPCs (`infra/supabase/migrations/20260723180000_baseline.sql:486-680`) showed the real, deliberately-designed rule: **granting or revoking `Admin` or `SuperAdmin` requires the actor to be a SuperAdmin**; everything else only needs Admin-or-above. Independently confirmed by `admin-ui`'s own untouched frontend logic (`UserAccessPage.tsx`'s `canManageRole()`), which already assumed this exact rule. Also restored two behaviors the old RPC had that the rewrite dropped: **"SuperAdmin implies Admin"** (granting SuperAdmin auto-grants Admin; Admin can't be removed while SuperAdmin is still held — "Remove SuperAdmin before removing Admin") and the `'clients'` filter on `GET /api/admin/users/access`, which an unconditional staff-only SQL clause had silently broken (dropdown option, never returned results). Verified against a scratch Postgres with real signed JWTs: plain-Admin grant attempts rejected, SuperAdmin succeeds, `isSuperAdmin` now present in the list response, `clients` filter returns real client-role users.
+- **Better than assumed**: `applications.repo.ts`/`documents.repo.ts` already had fully(-ish) built API adapters from earlier work — just orphaned, since the repo factories never branched to them. Only `loans.repo.ts` had no API adapter at all; `admin-ui` turned out to have no "browse all loans" feature at all (only a details page reached via an application's linked loan), so no list endpoint was needed, unlike the `client-ui` pass.
+- **A second bypass site the audit missed**: `admin-ui/src/lib/loanProduct.ts` — an near-exact duplicate of `client-ui`'s file (the same public-marketing-calculator conflict applies) — wasn't caught by the initial audit and only surfaced during the final CI-grep sweep. Fixed identically to the `client-ui` pass: `useActiveLoanProduct()` calls the now-public endpoint unauthenticated, `useDocumentRequirements()` threads a real access token through its two call sites in `ApplicationsPage.tsx`.
+- Filled the remaining stubs: `documents.api.ts`'s `getDocumentUrl` (same `(storagePath, ...)` → `(applicationId, documentId)` signature change as `client-ui`, one caller updated), and `reports.api.ts`'s three demographic/debtors-age/province stubs.
+- Replaced `ApplicationsPage.tsx`'s two inline Supabase queries (`assignableUsersQuery`, `profileNamesQuery`) with `GET /api/users/assignable`/`GET /api/users/profiles?ids=`.
+- Same cleanup as `client-ui`: all 8 dead `adapters/supabase/*.supabase.ts` files deleted, `VITE_DATA_PROVIDER`/`VITE_ENABLE_API_PROVIDER`/`dataProvider.ts`/`assertApiProviderEnabled`/`createSupabaseDataClient` all removed, matching CI grep step added to `ci-cd.yml`.
+- **Verified**: the authorization fix against scratch Postgres + real JWTs (above) before any frontend code touched it. Every new fetch function's exact URL/query-param construction re-verified against a live backend afterward — not just the backend logic in isolation, the actual frontend call shapes too. All three projects (`backend-node`, `client-ui`, `admin-ui`) build clean. Same limitation as the `client-ui` pass: no real browser click-through with a live login.
+
 ## What's still open
 
-`admin-ui` repointing hasn't started — more surface area than `client-ui` had: role-management now goes through `backend-node`'s generalized `POST/DELETE /api/admin/users/:userId/roles/:roleName` instead of 3 Supabase RPC calls, and `ApplicationsPage.tsx`'s inline assignable-staff/profile-name queries need to move to the new `GET /api/users/assignable`/`GET /api/users/profiles` endpoints. `packages/api-client`'s response-body typing (see above) and a committed test suite (none exists yet) are also open. Phases 4 through 6 (extracting shared `packages/*` beyond `tenant-config`, provisioning client 2, operational readiness) haven't been touched. Several are explicitly blocked on human decisions the implementing agent was told not to resolve unilaterally — see `platform-architecture-design.md` §10 for the current list.
+Full Phase 3 is done — both frontends' only data path is `backend-node`. Not yet deployed or visually verified in a real browser with a live login (see each pass's note above); that's the immediate next step, not further code changes. `packages/api-client`'s response-body typing (see the backend-completeness section above) and a committed test suite (none exists yet) are open. An ESLint rule enforcing the no-direct-Supabase-data-access rule (the CI grep covers the same ground without it) is deferred — no ESLint config exists anywhere in this repo, bootstrapping one is a separate task. Phases 4 through 6 (extracting shared `packages/*` beyond `tenant-config`, provisioning client 2, operational readiness) haven't been touched. Several are explicitly blocked on human decisions the implementing agent was told not to resolve unilaterally — see `platform-architecture-design.md` §10 for the current list.
 
 **`backend-node` is now confirmed live on Vercel** (`prdf-api` project, commit `9936172`) — `/health` returns 200, `/me` returns a clean 401 for an invalid token (proving JWT verification actually runs against the real Supabase JWKS endpoint, not just that the function boots), `/internal/cron/notification-sweep` returns a clean 401 without the correct `CRON_SECRET`, and no runtime errors in production. Getting here required three fixes against real deployment attempts, in order: (1) a stale-commit issue — nothing had been pushed yet; (2) Vercel's zero-config NestJS entrypoint detection rejecting `src/main.ts` because Phase 3a had moved its `NestFactory.create()` call into a helper (fixed by restoring the direct call, and removing the now-unnecessary custom `api/index.ts` + `vercel.json`); (3) `jose` v6 is ESM-only with no `require` export condition — a static import compiled to `require('jose')` and crashed with `ERR_REQUIRE_ESM` on Vercel's runtime (worked locally only because that Node build tolerates synchronous `require(esm)`). Fixed with a `new Function('specifier', 'return import(specifier)')` indirection in `supabase-auth.guard.ts`, since a literal `await import('jose')` isn't sufficient either — `tsc` downlevels it back into a wrapped `require()` under CommonJS output.
 

@@ -11,8 +11,6 @@ import type {
   ProductivityItem,
   TurnaroundResult
 } from '../../api'
-import { getDataProvider } from '../../config/dataProvider'
-import { createSupabaseReportsAdapter } from '../adapters/supabase/reports.supabase'
 import { createApiReportsAdapter } from '../adapters/api/reports.api'
 
 export type ReportsRepository = {
@@ -30,8 +28,5 @@ export type ReportsRepository = {
 }
 
 export function createReportsRepository(accessToken: string): ReportsRepository {
-  if (getDataProvider() === 'api') {
-    return createApiReportsAdapter(accessToken)
-  }
-  return createSupabaseReportsAdapter(accessToken)
+  return createApiReportsAdapter(accessToken)
 }

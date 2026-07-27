@@ -1,14 +1,17 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
-import { CurrentUser, ensureAdmin } from '../auth/roles.helper';
+import { CurrentUser, ensureAdminOrSuper, ensureSuperAdmin, hasRole } from '../auth/roles.helper';
 import { PoolClient } from 'pg';
 
 const KNOWN_ROLES = ['SuperAdmin', 'Admin', 'LoanOfficer', 'Intern', 'Originator', 'Client'];
-// Roles with a lockout risk: only these get the "can't remove the last
-// holder" / "can't remove your own" protections that Admin already had.
-// The other four (LoanOfficer/Intern/Originator/Client) are assigned and
-// removed as casually today as the rest of this endpoint always allowed.
-const PROTECTED_ROLES = ['SuperAdmin', 'Admin'];
+// Mirrors the old admin_access_assign_role/admin_access_remove_role RPCs
+// (infra/supabase/migrations/20260723180000_baseline.sql:486-680) exactly:
+// "granted/revoked by a SuperAdmin; everything else requires Admin or
+// above. SuperAdmin implies Admin." These two get last-holder/self-revoke
+// protection and a stricter actor gate; the other four are managed as
+// casually as they always were.
+const ELEVATED_ROLES = ['SuperAdmin', 'Admin'];
+const INTERNAL_ROLES = ['SuperAdmin', 'Admin', 'LoanOfficer', 'Originator', 'Intern'];
 
 @Injectable()
 export class AdminService {
@@ -19,7 +22,8 @@ export class AdminService {
   }
 
   async listUserAccess(actor: CurrentUser, query: { filter?: string; role?: string; search?: string }) {
-    ensureAdmin(actor.roles);
+    ensureAdminOrSuper(actor.roles);
+    const actorIsSuperAdmin = hasRole(actor.roles, 'SuperAdmin');
 
     const search = query.search?.trim() || null;
     const roleFilter = query.role?.trim() || null;
@@ -36,8 +40,7 @@ export class AdminService {
        left join public.user_roles ur on ur.user_id = u.id
        left join public.roles r on r.id = ur.role_id
        group by u.id, p.full_name, u.email
-       having bool_or(r.name in ('Admin', 'LoanOfficer', 'Originator', 'Intern'))
-          and ($1::text is null or coalesce(p.full_name,'') ilike '%' || $1 || '%' or coalesce(u.email,'') ilike '%' || $1 || '%')
+       having ($1::text is null or coalesce(p.full_name,'') ilike '%' || $1 || '%' or coalesce(u.email,'') ilike '%' || $1 || '%')
           and ($2::text is null or bool_or(r.name = $2))
        order by coalesce(p.full_name, u.email, u.id::text)`,
       [search, roleFilter],
@@ -47,14 +50,20 @@ export class AdminService {
     const adminCount = rows.filter((r) => r.roles.includes('Admin')).length;
 
     return rows
-      .filter((row) => {
-        if (normalizedFilter === 'admins') return row.roles.includes('Admin');
-        if (normalizedFilter === 'non-admins') return !row.roles.includes('Admin');
+      .map((row) => ({
+        row,
+        isAdmin: row.roles.includes('Admin'),
+        isSuperAdmin: row.roles.includes('SuperAdmin'),
+        isInternal: row.roles.some((r) => INTERNAL_ROLES.includes(r)),
+      }))
+      .filter(({ isAdmin, isInternal }) => {
+        if (normalizedFilter === 'internal') return isInternal;
+        if (normalizedFilter === 'clients') return !isInternal;
+        if (normalizedFilter === 'admins') return isAdmin;
+        if (normalizedFilter === 'non-admins') return isInternal && !isAdmin;
         return true;
       })
-      .map((row) => {
-        const isAdmin = row.roles.includes('Admin');
-        const isInternal = row.roles.some((r) => ['Admin', 'LoanOfficer', 'Originator', 'Intern'].includes(r));
+      .map(({ row, isAdmin, isSuperAdmin, isInternal }) => {
         const isSelf = row.userid === actor.userId;
         const isLastAdmin = isAdmin && adminCount <= 1;
 
@@ -64,11 +73,16 @@ export class AdminService {
           email: row.email,
           roles: row.roles,
           isAdmin,
+          isSuperAdmin,
           isInternal,
-          canGrant: !isAdmin && isInternal,
-          canRevoke: isAdmin && !isSelf && !isLastAdmin,
-          grantDisabledReason: isAdmin ? 'User already has Admin access.' : (!isInternal ? 'Only internal users are eligible.' : null),
-          revokeDisabledReason: !isAdmin ? 'User does not currently have Admin access.' : (isSelf ? 'You cannot revoke your own Admin access.' : (isLastAdmin ? 'This is the last remaining admin.' : null)),
+          canGrant: actorIsSuperAdmin && !isAdmin,
+          canRevoke: actorIsSuperAdmin && isAdmin && !isSelf && !isLastAdmin,
+          grantDisabledReason: !actorIsSuperAdmin
+            ? 'Only a SuperAdmin can grant Admin access.'
+            : (isAdmin ? 'User already has Admin access.' : null),
+          revokeDisabledReason: !actorIsSuperAdmin
+            ? 'Only a SuperAdmin can revoke Admin access.'
+            : (!isAdmin ? 'User does not currently have Admin access.' : (isSelf ? 'You cannot revoke your own Admin access.' : (isLastAdmin ? 'This is the last remaining admin.' : null))),
         };
       });
   }
@@ -85,59 +99,74 @@ export class AdminService {
     return target.rows[0] as { id: string; full_name: string | null; email: string | null; roles: string[] };
   }
 
+  private async setRole(client: PoolClient, targetUserId: string, roleName: string) {
+    const roleRow = await client.query(`select id from public.roles where name = $1 limit 1`, [roleName]);
+    if (!roleRow.rows[0]) throw new Error(`${roleName} role does not exist.`);
+    await client.query(
+      `insert into public.user_roles (user_id, role_id) values ($1, $2) on conflict (user_id, role_id) do nothing`,
+      [targetUserId, roleRow.rows[0].id],
+    );
+  }
+
+  private async currentRoles(client: PoolClient, targetUserId: string): Promise<string[]> {
+    const result = await client.query(
+      `select r.name from public.user_roles ur join public.roles r on r.id = ur.role_id where ur.user_id = $1`,
+      [targetUserId],
+    );
+    return result.rows.map((r: any) => r.name);
+  }
+
   async assignRole(actor: CurrentUser, targetUserId: string, roleName: string) {
-    ensureAdmin(actor.roles);
     this.ensureKnownRole(roleName);
+    if (ELEVATED_ROLES.includes(roleName)) {
+      ensureSuperAdmin(actor.roles);
+    } else {
+      ensureAdminOrSuper(actor.roles);
+    }
 
     return this.db.withTransaction(async (client: PoolClient) => {
       const target = await this.loadTarget(client, targetUserId);
 
-      // Preserves the exact pre-existing Admin-grant eligibility rule
-      // (only already-internal users can be made Admin) — not extended to
-      // other roles, since no such rule existed for them before.
-      if (roleName === 'Admin') {
-        const isInternal = target.roles.some((r) => ['Admin', 'LoanOfficer', 'Originator', 'Intern'].includes(r));
-        if (!isInternal) throw new Error('Only existing internal users can be granted Admin access.');
+      await this.setRole(client, targetUserId, roleName);
+      // SuperAdmin implies Admin — granting SuperAdmin also grants Admin.
+      if (roleName === 'SuperAdmin') {
+        await this.setRole(client, targetUserId, 'Admin');
       }
 
-      const roleRow = await client.query(`select id from public.roles where name = $1 limit 1`, [roleName]);
-      if (!roleRow.rows[0]) throw new Error(`${roleName} role does not exist.`);
-
-      await client.query(
-        `insert into public.user_roles (user_id, role_id) values ($1, $2) on conflict (user_id, role_id) do nothing`,
-        [targetUserId, roleRow.rows[0].id],
-      );
-
-      const afterRolesResult = await client.query(
-        `select r.name from public.user_roles ur join public.roles r on r.id = ur.role_id where ur.user_id = $1`,
-        [targetUserId],
-      );
-      const afterRoles = afterRolesResult.rows.map((r: any) => r.name);
+      const afterRoles = await this.currentRoles(client, targetUserId);
 
       await client.query(
         `insert into public.audit_log (entity, entity_id, action, actor_user_id, metadata) values ('UserAccess', $1, 'RoleAssigned', $2, $3::jsonb)`,
         [targetUserId, actor.userId, JSON.stringify({ role: roleName, targetEmail: target.email, priorRoles: target.roles, resultingRoles: afterRoles })],
       );
 
-      return { userId: targetUserId, roles: afterRoles };
+      return { userId: targetUserId, roles: afterRoles, isAdmin: afterRoles.includes('Admin'), isSuperAdmin: afterRoles.includes('SuperAdmin') };
     });
   }
 
   async removeRole(actor: CurrentUser, targetUserId: string, roleName: string) {
-    ensureAdmin(actor.roles);
     this.ensureKnownRole(roleName);
-
-    if (PROTECTED_ROLES.includes(roleName) && actor.userId === targetUserId) {
-      throw new Error(`You cannot revoke your own ${roleName} access.`);
+    if (ELEVATED_ROLES.includes(roleName)) {
+      ensureSuperAdmin(actor.roles);
+      if (actor.userId === targetUserId) {
+        throw new Error(`You cannot revoke your own ${roleName} access.`);
+      }
+    } else {
+      ensureAdminOrSuper(actor.roles);
     }
 
     return this.db.withTransaction(async (client: PoolClient) => {
       const target = await this.loadTarget(client, targetUserId);
       if (!target.roles.includes(roleName)) {
-        return { userId: targetUserId, roles: target.roles };
+        return { userId: targetUserId, roles: target.roles, isAdmin: target.roles.includes('Admin'), isSuperAdmin: target.roles.includes('SuperAdmin') };
       }
 
-      if (PROTECTED_ROLES.includes(roleName)) {
+      // SuperAdmin implies Admin — Admin can't be removed while SuperAdmin is still held.
+      if (roleName === 'Admin' && target.roles.includes('SuperAdmin')) {
+        throw new Error('Remove SuperAdmin before removing Admin.');
+      }
+
+      if (ELEVATED_ROLES.includes(roleName)) {
         const holderCountResult = await client.query(
           `select cast(count(distinct ur.user_id) as int) as cnt from public.user_roles ur join public.roles r on r.id = ur.role_id where r.name = $1`,
           [roleName],
@@ -150,18 +179,14 @@ export class AdminService {
       const roleRow = await client.query(`select id from public.roles where name = $1 limit 1`, [roleName]);
       await client.query(`delete from public.user_roles where user_id = $1 and role_id = $2`, [targetUserId, roleRow.rows[0].id]);
 
-      const afterRolesResult = await client.query(
-        `select r.name from public.user_roles ur join public.roles r on r.id = ur.role_id where ur.user_id = $1`,
-        [targetUserId],
-      );
-      const afterRoles = afterRolesResult.rows.map((r: any) => r.name);
+      const afterRoles = await this.currentRoles(client, targetUserId);
 
       await client.query(
         `insert into public.audit_log (entity, entity_id, action, actor_user_id, metadata) values ('UserAccess', $1, 'RoleRemoved', $2, $3::jsonb)`,
         [targetUserId, actor.userId, JSON.stringify({ role: roleName, targetEmail: target.email, priorRoles: target.roles, resultingRoles: afterRoles })],
       );
 
-      return { userId: targetUserId, roles: afterRoles };
+      return { userId: targetUserId, roles: afterRoles, isAdmin: afterRoles.includes('Admin'), isSuperAdmin: afterRoles.includes('SuperAdmin') };
     });
   }
 }

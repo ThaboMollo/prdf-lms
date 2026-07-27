@@ -4,8 +4,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
 import {
+  getUserProfiles,
+  listAssignableUsers,
   type ApplicationDetails,
   type ApplicationDocument,
+  type AssignableUser,
   type LoanApplicationStatus,
   type MeResponse,
   type NoteItem,
@@ -18,7 +21,6 @@ import { createDocumentsUseCases } from '../logic/usecases/documents'
 import { createNotesUseCases } from '../logic/usecases/notes'
 import { createNfsUseCases } from '../logic/usecases/nfs'
 import { createTasksUseCases } from '../logic/usecases/tasks'
-import { createSupabaseDataClient } from '../lib/supabase/client'
 import { createApplicationSchema, statusChangeSchema, uploadSchema, type CreateApplicationFormData } from '../features/applications/validation'
 import { ConsentModal } from '../components/shared/ConsentModal'
 import type { ConsentPayload } from '../features/consent/consentItems'
@@ -39,12 +41,6 @@ import { prdf as tenantConfig } from '../../../packages/tenant-config/tenants/pr
 type ApplicationsPageProps = {
   session: Session
   me: MeResponse
-}
-
-type AssignableUser = {
-  userId: string
-  name: string
-  roles: string[]
 }
 
 const statuses: LoanApplicationStatus[] = [
@@ -130,60 +126,8 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
   const assignableUsersQuery = useQuery({
     queryKey: ['assignable-users'],
     queryFn: async (): Promise<AssignableUser[]> => {
-      const client = createSupabaseDataClient(accessToken)
-      const { data: roleRows, error: rolesError } = await client
-        .from('user_roles')
-        .select('user_id, roles(name)')
-
-      if (rolesError) {
-        throw new Error(`Supabase list roles failed: ${rolesError.message}`)
-      }
-
-      const allowedRoleNames = new Set(['Admin', 'LoanOfficer', 'Originator', 'Intern'])
-      const rolesByUser = new Map<string, string[]>()
-
-      for (const row of roleRows ?? []) {
-        const roleName = Array.isArray((row as { roles?: { name?: string } | { name?: string }[] }).roles)
-          ? ((row as { roles?: { name?: string }[] }).roles ?? []).map((role) => role.name).filter(Boolean)
-          : [(row as { roles?: { name?: string } }).roles?.name].filter(Boolean)
-
-        const cleaned = roleName.filter((name): name is string => Boolean(name))
-        if (!cleaned.length) continue
-
-        const userRoles = rolesByUser.get((row as { user_id: string }).user_id) ?? []
-        rolesByUser.set((row as { user_id: string }).user_id, [...new Set([...userRoles, ...cleaned])])
-      }
-
-      const assignableUserIds = [...rolesByUser.entries()]
-        .filter(([, userRoles]) => userRoles.some((role) => allowedRoleNames.has(role)))
-        .map(([userId]) => userId)
-
-      if (!assignableUserIds.length) return []
-
-      const { data: profiles, error: profileError } = await client
-        .from('profiles')
-        .select('user_id, full_name')
-        .in('user_id', assignableUserIds)
-
-      if (profileError) {
-        throw new Error(`Supabase list profiles failed: ${profileError.message}`)
-      }
-
-      const nameByUser = new Map<string, string>()
-      for (const profile of profiles ?? []) {
-        const name = (profile as { full_name?: string }).full_name?.trim()
-        if (name) {
-          nameByUser.set((profile as { user_id: string }).user_id, name)
-        }
-      }
-
-      return assignableUserIds
-        .map((userId) => ({
-          userId,
-          name: nameByUser.get(userId) ?? `User ${userId.slice(0, 8)}`,
-          roles: rolesByUser.get(userId) ?? []
-        }))
-        .sort((a, b) => a.name.localeCompare(b.name))
+      const users = await listAssignableUsers(accessToken)
+      return [...users].sort((a, b) => a.name.localeCompare(b.name))
     },
     enabled: isInternal
   })
@@ -283,30 +227,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
 
   const profileNamesQuery = useQuery({
     queryKey: ['application-user-names', selectedApplicationId, visibleUserIds.join(',')],
-    queryFn: async () => {
-      if (!visibleUserIds.length) return new Map<string, string>()
-
-      const client = createSupabaseDataClient(accessToken)
-      const { data, error } = await client
-        .from('profiles')
-        .select('user_id, full_name')
-        .in('user_id', visibleUserIds)
-
-      if (error) {
-        throw new Error(`Supabase list profiles failed: ${error.message}`)
-      }
-
-      const names = new Map<string, string>()
-      for (const row of data ?? []) {
-        const userId = (row as { user_id: string }).user_id
-        const fullName = (row as { full_name?: string | null }).full_name?.trim()
-        if (fullName) {
-          names.set(userId, fullName)
-        }
-      }
-
-      return names
-    },
+    queryFn: () => getUserProfiles(accessToken, visibleUserIds),
     enabled: Boolean(selectedApplicationId && visibleUserIds.length)
   })
 
@@ -673,6 +594,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
       {detail ? (
         <ApplicationDetail
           application={detail}
+          accessToken={accessToken}
           docs={docsQuery.data ?? []}
           history={historyQuery.data ?? []}
           tasks={tasksQuery.data ?? []}
@@ -728,9 +650,9 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
           nfsPending={createNfsMutation.isPending}
           onSubmitApp={() => selectedApplicationId ? submitMutation.mutate(selectedApplicationId) : null}
           submitting={submitMutation.isPending}
-          onOpenDocument={async (storagePath) => {
+          onOpenDocument={async (documentId) => {
             try {
-              const url = await documentsUseCases.getDocumentUrl(selectedApplicationId as string, storagePath, 600)
+              const url = await documentsUseCases.getDocumentUrl(selectedApplicationId as string, documentId)
               window.open(url, '_blank', 'noopener,noreferrer')
             } catch (error) {
               console.error(error)
@@ -866,6 +788,7 @@ function ClientWizard({
 
 type ApplicationDetailProps = {
   application: ApplicationDetails
+  accessToken: string
   docs: ApplicationDocument[]
   history: StatusHistoryItem[]
   tasks: TaskItem[]
@@ -921,7 +844,7 @@ type ApplicationDetailProps = {
   nfsPending: boolean
   onSubmitApp: () => void
   submitting: boolean
-  onOpenDocument: (storagePath: string) => Promise<void>
+  onOpenDocument: (documentId: string) => Promise<void>
   onVerifyDocument: (docId: string, status: 'Verified' | 'Rejected') => void
   verifyDocPending: boolean
   userNameById: Map<string, string>
@@ -929,7 +852,7 @@ type ApplicationDetailProps = {
 
 function ApplicationDetail(props: ApplicationDetailProps) {
   const { data: activeLoanProduct } = useActiveLoanProduct()
-  const { data: docRequirements = [] } = useDocumentRequirements(activeLoanProduct?.id)
+  const { data: docRequirements = [] } = useDocumentRequirements(activeLoanProduct?.id, props.accessToken)
   const requiredDocumentTypes = docRequirements.map((req) => ({
     type: req.docType,
     label: DOCUMENT_LABELS[req.docType] ?? req.docType,
@@ -1100,7 +1023,7 @@ function DocumentsTab(props: ApplicationDetailProps) {
   const [dragging, setDragging] = useState(false)
   const [openingDocId, setOpeningDocId] = useState<string | null>(null)
   const { data: activeLoanProduct } = useActiveLoanProduct()
-  const { data: docRequirements = [] } = useDocumentRequirements(activeLoanProduct?.id)
+  const { data: docRequirements = [] } = useDocumentRequirements(activeLoanProduct?.id, props.accessToken)
   const requiredDocumentTypes = docRequirements.map((req) => ({
     type: req.docType,
     label: DOCUMENT_LABELS[req.docType] ?? req.docType,
@@ -1162,7 +1085,7 @@ function DocumentsTab(props: ApplicationDetailProps) {
                   onClick={async () => {
                     try {
                       setOpeningDocId(doc.id)
-                      await props.onOpenDocument(doc.storagePath)
+                      await props.onOpenDocument(doc.id)
                     } catch (error) {
                       console.error(error)
                     } finally {

@@ -1,5 +1,5 @@
 import type { LoanDetails } from '../../api'
-import { createSupabaseLoansAdapter } from '../adapters/supabase/loans.supabase'
+import { createApiLoansAdapter } from '../adapters/api/loans.api'
 
 export type LoansRepository = {
   getLoan: (loanId: string) => Promise<LoanDetails>
@@ -8,5 +8,5 @@ export type LoansRepository = {
 }
 
 export function createLoansRepository(accessToken: string): LoansRepository {
-  return createSupabaseLoansAdapter(accessToken)
+  return createApiLoansAdapter(accessToken)
 }

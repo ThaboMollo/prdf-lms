@@ -27,14 +27,8 @@ export function createApiReportsAdapter(accessToken: string): ReportsRepository 
     getProductivity: (): Promise<ProductivityItem[]> => api.getProductivity(accessToken),
     getAuditLog: (from?: string, to?: string, limit?: number): Promise<AuditLogItem[]> =>
       api.getAuditLog(accessToken, from, to, limit),
-    getDemographicBreakdown: (): Promise<DemographicBreakdown> => {
-      throw new Error('getDemographicBreakdown is only available on the Supabase provider.')
-    },
-    getDebtorsAgeAnalysis: (): Promise<DebtorsAgeBucket[]> => {
-      throw new Error('getDebtorsAgeAnalysis is only available on the Supabase provider.')
-    },
-    getProvinceBreakdown: (): Promise<ProvinceBreakdown> => {
-      throw new Error('getProvinceBreakdown is only available on the Supabase provider.')
-    }
+    getDemographicBreakdown: (): Promise<DemographicBreakdown> => api.getDemographicBreakdown(accessToken),
+    getDebtorsAgeAnalysis: (): Promise<DebtorsAgeBucket[]> => api.getDebtorsAgeAnalysis(accessToken),
+    getProvinceBreakdown: (): Promise<ProvinceBreakdown> => api.getProvinceBreakdown(accessToken)
   }
 }

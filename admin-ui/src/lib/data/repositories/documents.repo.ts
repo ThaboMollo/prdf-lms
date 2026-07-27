@@ -1,10 +1,10 @@
 import type { ApplicationDocument, DocumentVerificationStatus, PresignUploadResponse } from '../../api'
-import { createSupabaseDocumentsAdapter } from '../adapters/supabase/documents.supabase'
+import { createApiDocumentsAdapter } from '../adapters/api/documents.api'
 
 export type DocumentsRepository = {
   getDocuments: (applicationId: string) => Promise<ApplicationDocument[]>
   uploadDocument: (applicationId: string, docType: string, file: File, status?: string) => Promise<ApplicationDocument>
-  getDocumentUrl: (applicationId: string, storagePath: string, expiresInSeconds?: number) => Promise<string>
+  getDocumentUrl: (applicationId: string, documentId: string) => Promise<string>
   presignUpload: (
     applicationId: string,
     docType: string,
@@ -26,6 +26,5 @@ export type DocumentsRepository = {
 }
 
 export function createDocumentsRepository(accessToken: string): DocumentsRepository {
-  // Document files must flow directly through Supabase storage.
-  return createSupabaseDocumentsAdapter(accessToken)
+  return createApiDocumentsAdapter(accessToken)
 }
