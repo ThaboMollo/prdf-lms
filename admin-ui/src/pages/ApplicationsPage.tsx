@@ -37,6 +37,7 @@ import { paginateItems, parsePageParam } from '../lib/pagination'
 import { DOCUMENT_LABELS } from '../lib/requirements'
 import { useActiveLoanProduct, useDocumentRequirements } from '../lib/loanProduct'
 import { prdf as tenantConfig } from '../../../packages/tenant-config/tenants/prdf'
+import { allowedNextStatuses } from '../../../packages/domain/status'
 
 type ApplicationsPageProps = {
   session: Session
@@ -55,19 +56,8 @@ const statuses: LoanApplicationStatus[] = [
   'Closed'
 ]
 
-const STATUS_TRANSITIONS: Partial<Record<LoanApplicationStatus, LoanApplicationStatus[]>> = {
-  Draft: ['Submitted'],
-  Submitted: ['UnderReview', 'InfoRequested', 'Approved', 'Rejected'],
-  UnderReview: ['InfoRequested', 'Approved', 'Rejected'],
-  InfoRequested: ['Submitted', 'UnderReview'],
-  Approved: ['Disbursed'],
-  Disbursed: ['InRepayment'],
-  InRepayment: ['Closed'],
-}
-
-function allowedNextStatuses(current: LoanApplicationStatus): LoanApplicationStatus[] {
-  return STATUS_TRANSITIONS[current] ?? []
-}
+// Transition graph now lives in packages/domain/status.ts (shared with
+// backend-node's independently-maintained copy — see that file's header).
 
 const APPLICATIONS_PAGE_SIZE = 10
 

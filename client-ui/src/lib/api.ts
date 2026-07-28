@@ -1,4 +1,7 @@
 import { env } from './config/env'
+import type { LoanApplicationStatus } from '../../../packages/domain/status'
+
+export type { LoanApplicationStatus }
 
 export type MeResponse = {
   userId: string
@@ -6,18 +9,6 @@ export type MeResponse = {
   fullName: string | null
   roles: string[]
 }
-
-export type LoanApplicationStatus =
-  | 'Draft'
-  | 'Withdrawn'
-  | 'Submitted'
-  | 'UnderReview'
-  | 'InfoRequested'
-  | 'Approved'
-  | 'Rejected'
-  | 'Disbursed'
-  | 'InRepayment'
-  | 'Closed'
 
 export type ApplicationSummary = {
   id: string

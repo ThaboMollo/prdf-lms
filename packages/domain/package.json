@@ -1,0 +1,9 @@
+{
+  "name": "domain",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Plain-TypeScript shared types/enums/validation schemas, imported via relative paths from client-ui and admin-ui — same precedent as packages/tenant-config (not a workspace package yet). backend-node keeps its own independently-maintained copy of the status-transition graph; its tsc-based build with rootDir-scoped output can't cleanly consume a sibling package the way Vite's bundler can.",
+  "dependencies": {
+    "zod": "^4.3.6"
+  }
+}
