@@ -4,7 +4,8 @@ const envSchema = z.object({
   VITE_SUPABASE_URL: z.string().optional().default(''),
   VITE_SUPABASE_ANON_KEY: z.string().optional().default(''),
   VITE_API_BASE_URL: z.string().optional().default('http://localhost:3000'),
-  VITE_ENABLE_NOTIFICATIONS: z.enum(['true', 'false']).optional().default('false')
+  VITE_ENABLE_NOTIFICATIONS: z.enum(['true', 'false']).optional().default('false'),
+  VITE_SENTRY_DSN: z.string().optional().default('')
 })
 
 const parsedEnv = envSchema.safeParse(import.meta.env)

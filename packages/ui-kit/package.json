@@ -8,7 +8,8 @@
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.0.0",
     "@tanstack/react-query": "^5.0.0",
-    "@supabase/supabase-js": "^2.95.3"
+    "@supabase/supabase-js": "^2.95.3",
+    "@sentry/react": "^10.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.2.13",

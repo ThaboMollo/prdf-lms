@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import * as Sentry from '@sentry/node';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -38,6 +39,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
       } else {
         this.logger.error(exception.message, exception.stack);
       }
+    }
+
+    // Only genuine 500s (unmatched errors, or non-Error/non-HttpException
+    // throws) are worth alerting on — 4xx branches above are expected
+    // control flow (bad input, permission checks), not incidents.
+    if (status === HttpStatus.INTERNAL_SERVER_ERROR) {
+      Sentry.captureException(exception);
     }
 
     response.status(status).json({ statusCode: status, message, path: request.url });
