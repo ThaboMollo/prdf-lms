@@ -17,4 +17,16 @@ jobs:
             echo "API_HEALTH_URL secret is not set."
             exit 1
           fi
-          curl --fail --silent --show-error "$API_HEALTH_URL/health"
+          # Assert an explicit 200 rather than relying on `curl --fail`,
+          # which only fails on 4xx/5xx — a 3xx passes it. This workflow
+          # silently "succeeded" for months against a team-scoped Vercel
+          # URL that 302-redirected to SSO login, so the API was never
+          # actually reached and a real outage would not have been caught.
+          status=$(curl --silent --show-error --output /tmp/body.txt \
+            --write-out '%{http_code}' "$API_HEALTH_URL/health")
+          echo "HTTP $status"
+          cat /tmp/body.txt
+          if [ "$status" != "200" ]; then
+            echo "Expected HTTP 200 from /health, got $status."
+            exit 1
+          fi
