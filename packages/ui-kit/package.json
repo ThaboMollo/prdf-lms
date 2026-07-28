@@ -1,0 +1,18 @@
+{
+  "name": "ui-kit",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Plain React components, imported via relative paths from client-ui and admin-ui — same precedent as packages/tenant-config and packages/domain (not a workspace package yet). React is a peer, not a bundled dependency, since both consuming apps already depend on it directly. Styling comes from each app's own global.css (no CSS Modules/Tailwind in this repo); these components carry no styles of their own, only class names, so moving them here is behavior-neutral.",
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.0.0",
+    "@tanstack/react-query": "^5.0.0",
+    "@supabase/supabase-js": "^2.95.3"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.13",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "~5.9.3"
+  }
+}

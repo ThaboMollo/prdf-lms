@@ -9,75 +9,11 @@ import type { ApplicationSummary, MeResponse } from '../lib/api'
 import { formatCurrency, formatDateTime } from '../lib/format'
 import { createApplicationsUseCases } from '../logic/usecases/applications'
 import { createLoansUseCases } from '../logic/usecases/loans'
+import { MILESTONES, REPAYMENT_STATUSES, getMilestoneState } from '../../../packages/domain/milestones'
 
 type StatusPageProps = {
   session: Session
   me: MeResponse
-}
-
-type Milestone = {
-  key: string
-  label: string
-  description: string
-  statuses: string[]
-}
-
-const MILESTONES: Milestone[] = [
-  {
-    key: 'Submitted',
-    label: 'Application Submitted',
-    description: 'Your application has been received and is awaiting assignment.',
-    statuses: ['Submitted'],
-  },
-  {
-    key: 'UnderReview',
-    label: 'Under Review',
-    description: 'Our team is reviewing your application and documents.',
-    statuses: ['UnderReview', 'InfoRequested'],
-  },
-  {
-    key: 'Approved',
-    label: 'Approved',
-    description: 'Your loan application has been approved.',
-    statuses: ['Approved'],
-  },
-  {
-    key: 'Disbursed',
-    label: 'Funds Disbursed',
-    description: 'Loan funds have been transferred to your business account.',
-    statuses: ['Disbursed'],
-  },
-  {
-    key: 'InRepayment',
-    label: 'In Repayment',
-    description: 'Your loan is active. Monthly instalments are being collected.',
-    statuses: ['InRepayment'],
-  },
-  {
-    key: 'Closed',
-    label: 'Loan Closed',
-    description: 'This loan has been fully repaid and closed.',
-    statuses: ['Closed'],
-  },
-]
-
-const STATUS_ORDER = [
-  'Draft', 'Submitted', 'UnderReview', 'InfoRequested',
-  'Approved', 'Disbursed', 'InRepayment', 'Closed',
-]
-
-const REPAYMENT_STATUSES = new Set(['Disbursed', 'InRepayment', 'Closed'])
-
-function getMilestoneState(milestone: Milestone, appStatus: string): 'done' | 'active' | 'pending' {
-  const normalizedStatus = appStatus === 'InfoRequested' ? 'UnderReview' : appStatus
-
-  if (milestone.statuses.includes(appStatus)) return 'active'
-
-  const milestoneStatusIndex = STATUS_ORDER.indexOf(milestone.statuses[0])
-  const currentStatusIndex = STATUS_ORDER.indexOf(normalizedStatus)
-
-  if (milestoneStatusIndex < currentStatusIndex) return 'done'
-  return 'pending'
 }
 
 export function StatusPage({ session }: StatusPageProps) {

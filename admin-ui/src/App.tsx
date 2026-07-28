@@ -16,6 +16,7 @@ import { ReportsPage } from './pages/ReportsPage'
 import { UserAccessPage } from './pages/UserAccessPage'
 import { fetchMe } from './lib/api'
 import { supabase } from './lib/supabase'
+import { hasAnyRole, toAppRoles } from './lib/rbac'
 
 export function App() {
   const [session, setSession] = useState<Session | null>(null)
@@ -65,6 +66,9 @@ export function App() {
   }
 
   const protectedReady = Boolean(session && meQuery.data)
+  const onSignOut = () => {
+    supabase.auth.signOut().catch(() => {})
+  }
 
   return (
     <Routes>
@@ -72,18 +76,46 @@ export function App() {
       <Route path="/register" element={<RegisterPage />} />
       <Route element={<RequireAuth session={session} />}>
         {protectedReady ? (
-          <Route element={<RequireRole me={meQuery.data!} allowed={['Intern', 'Originator', 'LoanOfficer', 'Admin']} />}>
+          <Route
+            element={
+              <RequireRole
+                isAllowed={hasAnyRole(toAppRoles(meQuery.data!.roles), ['Intern', 'Originator', 'LoanOfficer', 'Admin'])}
+                onSignOut={onSignOut}
+              />
+            }
+          >
             <Route element={<AppShell session={session as Session} me={meQuery.data!} />}>
               <Route path="/dashboard" element={<DashboardPage session={session as Session} me={meQuery.data!} />} />
               <Route path="/applications" element={<ApplicationsPage session={session as Session} me={meQuery.data!} />} />
-              <Route element={<RequireRole me={meQuery.data!} allowed={['Originator', 'LoanOfficer', 'Admin']} />}>
+              <Route
+                element={
+                  <RequireRole
+                    isAllowed={hasAnyRole(toAppRoles(meQuery.data!.roles), ['Originator', 'LoanOfficer', 'Admin'])}
+                    onSignOut={onSignOut}
+                  />
+                }
+              >
                 <Route path="/loan/:loanId" element={<LoanDetailsPage session={session as Session} />} />
               </Route>
-              <Route element={<RequireRole me={meQuery.data!} allowed={['LoanOfficer', 'Admin']} />}>
+              <Route
+                element={
+                  <RequireRole
+                    isAllowed={hasAnyRole(toAppRoles(meQuery.data!.roles), ['LoanOfficer', 'Admin'])}
+                    onSignOut={onSignOut}
+                  />
+                }
+              >
                 <Route path="/portfolio" element={<PortfolioPage session={session as Session} />} />
                 <Route path="/reports" element={<ReportsPage session={session as Session} />} />
               </Route>
-              <Route element={<RequireRole me={meQuery.data!} allowed={['Admin']} />}>
+              <Route
+                element={
+                  <RequireRole
+                    isAllowed={hasAnyRole(toAppRoles(meQuery.data!.roles), ['Admin'])}
+                    onSignOut={onSignOut}
+                  />
+                }
+              >
                 <Route path="/user-access" element={<UserAccessPage session={session as Session} me={meQuery.data!} />} />
               </Route>
             </Route>

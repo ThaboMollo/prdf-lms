@@ -13,7 +13,7 @@ import { LoanCalculator } from '../components/shared/LoanCalculator'
 import { AddressFields, type AddressValue } from '../components/shared/AddressFields'
 import { WizardCostCard } from '../components/shared/WizardCostCard'
 import { formatRand, calculateMonthlyInstalment, calculateTotalInterest, calculateTotalRepayment } from '../lib/loanCalc'
-import { useActiveLoanProduct, useDocumentRequirements, type LoanProduct } from '../lib/loanProduct'
+import { useActiveLoanProduct, useDocumentRequirements, type LoanProduct } from '../../../packages/client-core/useLoanProduct'
 import { DOCUMENT_LABELS } from '../lib/requirements'
 import { prdf as tenantConfig } from '../../../packages/tenant-config/tenants/prdf'
 import {

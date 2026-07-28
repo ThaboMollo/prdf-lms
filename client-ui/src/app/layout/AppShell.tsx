@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { Outlet } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { MeResponse } from '../../lib/api'
 import { supabase } from '../../lib/supabase'
 import { toAppRoles } from '../../lib/rbac'
@@ -10,7 +9,7 @@ import { MobileNavDrawer } from './MobileNavDrawer'
 import { clientNavItems } from './navigation'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
-import { createNotificationsUseCases } from '../../logic/usecases/notifications'
+import { useNotifications } from '../../../../packages/client-core/useNotifications'
 import { env } from '../../lib/config/env'
 
 type AppShellProps = {
@@ -21,8 +20,6 @@ type AppShellProps = {
 export function AppShell({ session, me }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const accessToken = session.access_token
-  const notificationsUseCases = useMemo(() => createNotificationsUseCases(accessToken), [accessToken])
-  const queryClient = useQueryClient()
   const toast = useToast()
 
   const { roleItems, showNav } = useMemo(() => {
@@ -37,21 +34,11 @@ export function AppShell({ session, me }: AppShellProps) {
 
   const notificationsEnabled = env.VITE_ENABLE_NOTIFICATIONS === 'true'
 
-  const notificationsQuery = useQuery({
-    queryKey: ['notifications', session.user.id],
-    queryFn: () => notificationsUseCases.listNotifications(true),
-    refetchInterval: notificationsEnabled ? 60_000 : false,
-    enabled: notificationsEnabled
-  })
-
-  const markReadMutation = useMutation({
-    mutationFn: (id: string) => notificationsUseCases.markRead(id),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['notifications', session.user.id] })
-    },
-    onError: () => {
+  const { notifications, markRead, isMarkingRead } = useNotifications(accessToken, session.user.id, {
+    enabled: notificationsEnabled,
+    onMarkReadError: () => {
       toast.push('Could not mark notification as read.', 'error')
-    }
+    },
   })
 
   return (
@@ -69,9 +56,9 @@ export function AppShell({ session, me }: AppShellProps) {
                 toast.push('Sign out failed. Please retry.', 'error')
               })
             }}
-            notifications={notificationsQuery.data ?? []}
-            onMarkRead={(id) => markReadMutation.mutate(id)}
-            isMarkingRead={markReadMutation.isPending}
+            notifications={notifications}
+            onMarkRead={(id) => markRead(id)}
+            isMarkingRead={isMarkingRead}
           />
           <main className="content-wrap">
             <Outlet context={{ session, me }} />

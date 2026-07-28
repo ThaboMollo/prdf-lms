@@ -1,7 +1,7 @@
 /**
  * Display labels/hints for document types. Which types are actually
  * required, and whether multiple files are allowed, now comes from
- * document_requirements (see lib/loanProduct.ts's useDocumentRequirements) —
+ * document_requirements (see packages/client-core/useLoanProduct.ts's useDocumentRequirements) —
  * this file is presentation-only.
  *
  * This consolidates what used to be three independently-drifted copies:

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCalculator } from '../../contexts/CalculatorContext'
 import { calculateMonthlyInstalment, calculateTotalInterest, calculateTotalRepayment, formatRand } from '../../lib/loanCalc'
-import { useActiveLoanProduct } from '../../lib/loanProduct'
+import { useActiveLoanProduct } from '../../../../packages/client-core/useLoanProduct'
 
 // Slider granularity — a presentation choice, not a business rule, so it
 // stays local rather than moving into loan_products alongside min/max/rate.

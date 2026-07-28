@@ -10,7 +10,7 @@ import { useToast } from '../components/shared/ToastProvider'
 import type { MeResponse } from '../lib/api'
 import { formatDateTime } from '../lib/format'
 import { DOCUMENT_LABELS, getDocumentLabel } from '../lib/requirements'
-import { useActiveLoanProduct, useDocumentRequirements } from '../lib/loanProduct'
+import { useActiveLoanProduct, useDocumentRequirements } from '../../../packages/client-core/useLoanProduct'
 import { createApplicationsUseCases } from '../logic/usecases/applications'
 import { createDocumentsUseCases } from '../logic/usecases/documents'
 

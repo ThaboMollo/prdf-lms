@@ -22,6 +22,7 @@ import { LoansPage } from './pages/LoansPage'
 import { LoanDetailsPage } from './pages/LoanDetailsPage'
 import { fetchMe } from './lib/api'
 import { supabase } from './lib/supabase'
+import { hasAnyRole, toAppRoles } from './lib/rbac'
 
 export function App() {
   const [session, setSession] = useState<Session | null>(null)
@@ -86,7 +87,16 @@ export function App() {
         {/* Protected routes */}
         <Route element={<RequireAuth session={session} />}>
           {protectedReady ? (
-            <Route element={<RequireRole me={meQuery.data!} allowed={['Client']} />}>
+            <Route
+              element={
+                <RequireRole
+                  isAllowed={hasAnyRole(toAppRoles(meQuery.data!.roles), ['Client'])}
+                  onSignOut={() => {
+                    supabase.auth.signOut().catch(() => {})
+                  }}
+                />
+              }
+            >
               <Route element={<AppShell session={session as Session} me={meQuery.data!} />}>
                 <Route element={<RequireClientProgress session={session as Session} />}>
                   <Route path="/home" element={<HomePage session={session as Session} me={meQuery.data!} />} />

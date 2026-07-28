@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useState } from 'react'
 // No longer clamps against LOAN_AMOUNT_MIN/MAX — this context just stores
 // amount/term for cross-page persistence. Clamping against the real product
 // limits happens in LoanCalculator.tsx, where the product data is actually
-// fetched (see useActiveLoanProduct() in lib/loanProduct.ts).
+// fetched (see useActiveLoanProduct() in packages/client-core/useLoanProduct.ts).
 
 type CalculatorState = {
   amount: number

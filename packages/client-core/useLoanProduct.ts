@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { env } from './config/env'
+import { env } from '../../client-ui/src/lib/config/env'
 
 /**
  * The loan product's amount/term/rate limits and required-document list,

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useCalculator } from '../contexts/CalculatorContext'
 import { formatRand } from '../lib/loanCalc'
-import { useActiveLoanProduct } from '../lib/loanProduct'
+import { useActiveLoanProduct } from '../../../packages/client-core/useLoanProduct'
 import { prdf as tenantConfig } from '../../../packages/tenant-config/tenants/prdf'
 
 export function RegisterPage() {

@@ -3,7 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { useNavigate, Link } from 'react-router-dom'
 import { LoanCalculator } from '../components/shared/LoanCalculator'
 import { PublicNav } from '../components/shared/PublicNav'
-import { useActiveLoanProduct } from '../lib/loanProduct'
+import { useActiveLoanProduct } from '../../../packages/client-core/useLoanProduct'
 import { formatRand } from '../lib/loanCalc'
 
 type LandingPageProps = {

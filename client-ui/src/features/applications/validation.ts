@@ -36,7 +36,7 @@ export const step2Schema = z.object({
 })
 
 /**
- * Amount/term limits now come from loan_products (see lib/loanProduct.ts),
+ * Amount/term limits now come from loan_products (see packages/client-core/useLoanProduct.ts),
  * not hardcoded constants — so this schema is built per-request rather than
  * defined statically.
  */
