@@ -35,3 +35,8 @@ New Text Document.txt
 .DS_Store
 Thumbs.db
 .gstack/
+
+# Internal security/remediation tracker — deliberately NOT published.
+# This repo is public; the tracker enumerates unpatched issues and would
+# read as an exploitation guide if committed. Keep it local.
+docs/outstanding-work.md

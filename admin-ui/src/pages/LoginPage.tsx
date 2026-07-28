@@ -1,5 +1,5 @@
 ﻿import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 export function LoginPage() {
@@ -64,7 +64,7 @@ export function LoginPage() {
             {resetting ? 'Sending...' : 'Forgot password?'}
           </button>
         </p>
-        <p>No account? <Link to="/register">Register</Link></p>
+        <p className="muted-text">Staff accounts are created by an administrator. Contact one to request access.</p>
       </section>
     </main>
   )

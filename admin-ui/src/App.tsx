@@ -11,7 +11,6 @@ import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
 import { LoanDetailsPage } from './pages/LoanDetailsPage'
 import { PortfolioPage } from './pages/PortfolioPage'
-import { RegisterPage } from './pages/RegisterPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { UserAccessPage } from './pages/UserAccessPage'
 import { fetchMe } from './lib/api'
@@ -73,7 +72,6 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
       <Route element={<RequireAuth session={session} />}>
         {protectedReady ? (
           <Route
