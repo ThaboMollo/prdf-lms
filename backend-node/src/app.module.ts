@@ -50,12 +50,29 @@ import { UsersModule } from './users/users.module';
 })
 export class AppModule implements NestModule {
   /**
-   * Tenant resolution runs before guards on EVERY route, including the health
-   * check and the cron endpoint — a route that reaches the database without a
-   * tenant in context should fail loudly rather than fall back to a default
-   * (docs/multi-tenant-spec.md §4, invariant 5).
+   * Tenant resolution runs before guards on every tenant-scoped route
+   * (docs/multi-tenant-spec.md §1).
+   *
+   * Two routes are deliberately excluded because they are infrastructure, not
+   * tenant data:
+   *
+   *   /health          — a static liveness response that touches nothing.
+   *                      Requiring a tenant here made the API unmonitorable
+   *                      once more than one tenant was configured: the probe
+   *                      has no token and its host is not a tenant domain, so
+   *                      it 404'd. Caught by the step-5 isolation suite.
+   *
+   *   /internal/cron/* — sweeps every tenant in turn and establishes its own
+   *                      context per tenant (see W5).
+   *
+   * Excluding them is safe rather than a loophole: neither has a tenant in
+   * context, so any attempt to touch the database from them throws in
+   * currentTenant() rather than silently using a default (§4, invariant 5).
    */
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(TenantResolverMiddleware).forRoutes('*');
+    consumer
+      .apply(TenantResolverMiddleware)
+      .exclude('health', 'internal/cron/(.*)')
+      .forRoutes('*');
   }
 }

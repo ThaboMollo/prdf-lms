@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
-import { CurrentUser, ensureStaff } from '../auth/roles.helper';
+import { CurrentUser, ensureInternal } from '../auth/roles.helper';
 
 const ASSIGNABLE_ROLE_NAMES = ['Admin', 'LoanOfficer', 'Originator', 'Intern'];
 
@@ -14,7 +14,10 @@ export class UsersService {
    * directly against Supabase.
    */
   async listAssignable(actor: CurrentUser) {
-    ensureStaff(actor.roles);
+    // The admin UI exposes application/task assignment to every internal
+    // role. Interns and Originators therefore need to be able to resolve the
+    // same assignee list as Admins and Loan Officers.
+    ensureInternal(actor.roles);
     const rows = await this.db.query<{ userId: string; fullName: string | null; roles: string[] }>(
       `select u.id as "userId", p.full_name as "fullName",
               coalesce(array_agg(distinct r.name) filter (where r.name is not null), '{}'::text[]) as roles
@@ -32,7 +35,7 @@ export class UsersService {
 
   /** Batch user_id -> full_name resolution for uploader/note-author/assignee display names. */
   async getProfiles(actor: CurrentUser, ids: string[]) {
-    ensureStaff(actor.roles);
+    ensureInternal(actor.roles);
     if (!ids.length) return [];
     const rows = await this.db.query<{ userId: string; fullName: string | null }>(
       `select user_id as "userId", full_name as "fullName" from public.profiles where user_id = any($1::uuid[])`,

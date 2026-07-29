@@ -1,6 +1,7 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ForbiddenException, INestApplication, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AllExceptionsFilter } from './common/exception.filter';
+import { TenantRegistryService } from './tenancy/tenant-registry.service';
 
 /**
  * Shared CORS/exception-filter/validation/OpenAPI config for the app
@@ -12,15 +13,43 @@ import { AllExceptionsFilter } from './common/exception.filter';
 export function configureApp(app: INestApplication): void {
   const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? 'http://localhost:5173,http://localhost:5174')
     .split(',')
-    .map((o) => o.trim());
+    .map((o) => o.trim())
+    .filter(Boolean);
+
+  // Each tenant's own frontend domains are allowed automatically, on top of
+  // ALLOWED_ORIGINS. With one API serving many tenants, a single global list
+  // would have to be edited on every onboarding — and forgetting is a silent
+  // CORS failure in that tenant's browser only, which is miserable to
+  // diagnose. The registry already knows every tenant's domains, so it is the
+  // right source. (Found by the step-5 isolation suite, which could not reach
+  // a tenant's own origin.)
+  // Looked up per request, not captured at bootstrap: configureApp runs before
+  // app.listen(), and the registry populates in onModuleInit — which
+  // NestFactory.create() has not reached yet. Capturing the domains here gave
+  // an always-empty set and rejected every tenant's own origin.
+  const registry = app.get(TenantRegistryService, { strict: false });
 
   app.enableCors({
     origin: (origin, callback) => {
       if (!origin || allowedOrigins.includes(origin) || origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
         callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
+        return;
       }
+      let hostname: string | null = null;
+      try {
+        hostname = new URL(origin).hostname.toLowerCase();
+      } catch {
+        hostname = null;
+      }
+      if (hostname && registry.findByDomain(hostname)) {
+        callback(null, true);
+        return;
+      }
+      // ForbiddenException, not a bare Error: a rejected origin is a client
+      // error, not a server fault. A plain Error fell through to the 500
+      // branch of AllExceptionsFilter — which also reports to Sentry, so every
+      // stray origin would have raised an alert.
+      callback(new ForbiddenException(`Origin not allowed: ${origin}`));
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

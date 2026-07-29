@@ -595,6 +595,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
           isInternal={isInternal}
           assignableUsers={assignableUsersQuery.data ?? []}
           isLoadingAssignees={assignableUsersQuery.isLoading}
+          assigneesError={assignableUsersQuery.isError ? 'Unable to load assignable users' : null}
           docType={docType}
           setDocType={setDocType}
           setDocFile={setDocFile}
@@ -789,6 +790,7 @@ type ApplicationDetailProps = {
   isInternal: boolean
   assignableUsers: AssignableUser[]
   isLoadingAssignees: boolean
+  assigneesError: string | null
   docType: string
   setDocType: (value: string) => void
   setDocFile: (file: File | null) => void
@@ -899,10 +901,12 @@ function ApplicationDetail(props: ApplicationDetailProps) {
               <select
                 value={props.assignUserId}
                 onChange={(e) => props.setAssignUserId(e.target.value)}
-                disabled={props.isLoadingAssignees}
+                disabled={props.isLoadingAssignees || Boolean(props.assigneesError)}
               >
                 {props.isLoadingAssignees ? (
                   <option value="">Loading users...</option>
+                ) : props.assigneesError ? (
+                  <option value="">{props.assigneesError}</option>
                 ) : (
                   <option value="">{props.assignableUsers.length ? 'Unassigned' : 'No assignable users found'}</option>
                 )}

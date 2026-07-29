@@ -38,6 +38,30 @@ jobs:
       - name: Run RLS assertion suite
         run: ./infra/supabase/tests/run.sh
 
+
+  # Every tenant must run a byte-identical schema. One tenant silently a
+  # migration behind is invisible otherwise — there was no migration tracking
+  # at all before this. Needs tenant DB URLs as repository secrets; skips with
+  # a clear message rather than failing the build if they are not configured.
+  migration-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check tenant schema drift
+        env:
+          TENANTS: ${{ secrets.TENANTS }}
+          TENANT_PRDF_DB_URL: ${{ secrets.TENANT_PRDF_DB_URL }}
+          SUPABASE_DB_CONNECTION_STRING: ${{ secrets.SUPABASE_DB_CONNECTION_STRING }}
+        run: |
+          if [ -z "$TENANTS" ] && [ -z "$SUPABASE_DB_CONNECTION_STRING" ]; then
+            echo "No tenant database secrets configured — skipping drift check."
+            echo "Set TENANTS + TENANT_<SLUG>_DB_URL (or SUPABASE_DB_CONNECTION_STRING) to enable it."
+            exit 0
+          fi
+          ./infra/scripts/migrate-all.sh --status
+
   build-test:
     runs-on: ubuntu-latest
     steps:
