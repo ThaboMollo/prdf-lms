@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import type { createRemoteJWKSet, JWTPayload } from 'jose';
 import { DatabaseService } from '../database/database.service';
-import { CurrentUser, fetchUserRoles } from './roles.helper';
+import { CurrentUser, fetchUserRoles, ensureMfaSatisfied } from './roles.helper';
 
 // jose v6 ships ESM-only (no "require" export condition) — a static
 // `import ... from 'jose'` compiles to `require('jose')` under this
@@ -95,7 +95,17 @@ export class SupabaseAuthGuard implements CanActivate {
       email: (payload.email as string | undefined) ?? '',
       fullName: profileRow?.full_name ?? null,
       roles,
+      aal: payload.aal as string | undefined,
     };
+
+    // Second-factor requirement for internal roles (§6.5). No-op unless
+    // REQUIRE_MFA_FOR_STAFF=true. Enforced at the guard so it covers every
+    // authenticated route, rather than relying on each service to remember.
+    try {
+      ensureMfaSatisfied(currentUser);
+    } catch (err) {
+      throw new UnauthorizedException(err instanceof Error ? err.message : 'MFA required');
+    }
 
     request.user = currentUser;
     return true;

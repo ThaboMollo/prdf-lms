@@ -3,6 +3,7 @@ import { DatabaseService } from '../database/database.service';
 import { CurrentUser, fetchUserRoles, hasRole, hasAnyRole, isStaff, ASSIGNED_ROLES } from '../auth/roles.helper';
 import { LoanProductsService, LoanProduct } from '../loan-products/loan-products.service';
 import { DEFAULT_ANNUAL_RATE_PA } from '../common/interest';
+import { validateDocumentUpload, assertStoragePathWithinApplication } from '../common/file-validation';
 import { CreateApplicationDto } from './dto/create-application.dto';
 import { UpdateApplicationDto } from './dto/update-application.dto';
 import { RecordConsentDto } from './dto/record-consent.dto';
@@ -486,7 +487,11 @@ export class ApplicationsService {
     if (!proj) return null;
     this.ensureCanAccess(roles, actor.userId, proj);
 
-    const safeFileName = body.fileName.replace(/ /g, '-');
+    // Server-side type validation (§6.3) — the client-side check in
+    // FileDropzone is bypassable by calling this endpoint directly. Also
+    // strips any directory component, so a crafted fileName can't traverse
+    // out of this application's storage prefix.
+    const safeFileName = validateDocumentUpload(body.fileName, body.contentType);
     const storagePath = `applications/${applicationId}/${randomUUID().replace(/-/g, '')}-${safeFileName}`;
     const uploadUrl = await this.createSignedUploadUrl('loan-documents', storagePath);
     return { bucket: 'loan-documents', storagePath, uploadUrl, expiresInSeconds: 7200 };
@@ -497,6 +502,14 @@ export class ApplicationsService {
     const proj = await this.getSecurityProjection(applicationId);
     if (!proj) return null;
     this.ensureCanAccess(roles, actor.userId, proj);
+
+    // The caller supplies this path, so it must be confirmed to belong to the
+    // application it is being recorded against. Otherwise a client can record
+    // a row on their own application pointing at another borrower's object
+    // key, then request a download URL for it — the ownership check passes,
+    // and the URL is signed with the service role key, which bypasses storage
+    // RLS. Only presignUpload should ever mint an object key.
+    assertStoragePathWithinApplication(body.storagePath, applicationId);
 
     const docId = randomUUID();
     await this.db.execute(

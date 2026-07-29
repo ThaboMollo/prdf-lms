@@ -15,7 +15,11 @@ import { ReportsPage } from './pages/ReportsPage'
 import { UserAccessPage } from './pages/UserAccessPage'
 import { fetchMe } from './lib/api'
 import { supabase } from './lib/supabase'
-import { hasAnyRole, toAppRoles } from './lib/rbac'
+import { hasAnyRole, toAppRoles, isInternalUser } from './lib/rbac'
+import { env } from './lib/config/env'
+import { MfaChallenge } from './features/mfa/MfaChallenge'
+import { MfaEnrolment } from './features/mfa/MfaEnrolment'
+import { useMfaStatus } from './features/mfa/useMfaStatus'
 
 export function App() {
   const [session, setSession] = useState<Session | null>(null)
@@ -54,6 +58,15 @@ export function App() {
     enabled: Boolean(session?.access_token)
   })
 
+  // Hooks must run unconditionally, so this sits above the early returns and
+  // simply reports 'satisfied' until the profile has loaded.
+  const appRoles = meQuery.data ? toAppRoles(meQuery.data.roles) : []
+  const { state: mfaState, refresh: refreshMfa } = useMfaStatus(
+    isInternalUser(appRoles),
+    env.VITE_REQUIRE_MFA === 'true',
+  )
+  const [enrolmentDismissed, setEnrolmentDismissed] = useState(false)
+
   if (loadingSession) {
     return (
       <main className="auth-wrap">
@@ -67,6 +80,26 @@ export function App() {
   const protectedReady = Boolean(session && meQuery.data)
   const onSignOut = () => {
     supabase.auth.signOut().catch(() => {})
+  }
+
+  // MFA gates sit between authentication and the routed app (spec §6.5).
+  //
+  // The challenge is unconditional: once an account has a verified factor,
+  // an aal1 session is only half-authenticated, and the API rejects it for
+  // staff when REQUIRE_MFA_FOR_STAFF is on. Enrolment is gated by
+  // VITE_REQUIRE_MFA so it can be rolled out without locking anyone out.
+  if (protectedReady && mfaState === 'challenge') {
+    return <MfaChallenge onVerified={() => void refreshMfa()} />
+  }
+
+  if (protectedReady && mfaState === 'enrolment' && !enrolmentDismissed) {
+    return (
+      <MfaEnrolment
+        dismissable={env.VITE_REQUIRE_MFA !== 'true'}
+        onEnrolled={() => void refreshMfa()}
+        onDismiss={() => setEnrolmentDismissed(true)}
+      />
+    )
   }
 
   return (

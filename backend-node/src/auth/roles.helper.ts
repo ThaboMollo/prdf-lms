@@ -9,6 +9,39 @@ export interface CurrentUser {
   email: string;
   fullName: string | null;
   roles: string[];
+  /**
+   * Authenticator Assurance Level, taken from the verified JWT (spec §6.5).
+   * 'aal1' = password only. 'aal2' = password plus a verified second factor.
+   * Undefined on tokens minted before MFA was enabled on the project.
+   *
+   * This is one of the few claims that IS trusted from the token, and safely
+   * so: it is set by Supabase Auth and the signature is verified before we
+   * read it. Roles remain re-derived from the database — a user cannot mint
+   * themselves an aal2 token any more than they can mint a valid signature.
+   */
+  aal?: string;
+}
+
+/**
+ * Enforce a second factor for internal users (spec §6.5: "Staff can currently
+ * approve loans up to R5,000,000 behind a single password").
+ *
+ * Gated by REQUIRE_MFA_FOR_STAFF so it can be deployed before staff have
+ * enrolled — turning this on with nobody enrolled locks every staff member out
+ * of the API. Rollout order: enable MFA in the Supabase dashboard, get staff
+ * enrolled, then set this to true.
+ *
+ * Enforced here rather than only in admin-ui because the API is directly
+ * callable; a UI-only check is decoration.
+ */
+export function ensureMfaSatisfied(user: CurrentUser): void {
+  if (process.env.REQUIRE_MFA_FOR_STAFF !== 'true') return;
+  if (!isInternal(user.roles)) return;
+  if (user.aal === 'aal2') return;
+
+  throw new Error(
+    'Multi-factor authentication is required for staff accounts. Sign in again and complete the second factor.',
+  );
 }
 
 /**
