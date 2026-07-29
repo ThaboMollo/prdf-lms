@@ -639,6 +639,127 @@ async function main() {
       `db=${JSON.stringify(dbSpatial)} app=${JSON.stringify([...SPATIAL_TYPES].sort())}`);
   }
 
+  // ---------------------------------------------- error classification
+  // docs/validation-spec.md §A3. The filter used to infer the HTTP status by
+  // substring-matching the thrown message, so an error's WORDING was its status
+  // code. Running every throw site in the repo through those rules, 18 of 38
+  // fell through to 500 + a Sentry alert — for ordinary user errors, with the
+  // message replaced by "Internal server error" so the caller learned nothing.
+  //
+  // These assert on the status specifically, NOT `>= 400`. A `>= 400` check
+  // passes on a 500, which is exactly how this went unnoticed.
+  r.section('errors carry the right status, not one inferred from their wording');
+  {
+    // Was 500: "Only a SuperAdmin can perform this action." matched no rule.
+    // Admin is an ELEVATED role, so granting it requires SuperAdmin — a plain
+    // Admin must be refused. The attempt fails, so no state changes and the
+    // role-management section is unaffected.
+    const roleGrant = await call(`/api/admin/users/${GRANTEE}/roles/Admin`, adminToken, {
+      method: 'POST',
+    });
+    r.check('an Admin granting Admin is 403, not 500',
+      roleGrant.status === 403, `got ${roleGrant.status}`);
+
+    // Was 500: "User cannot access this application." contains 'cannot access',
+    // which DID match — this one guards the rule that was already right.
+    // RLS hides B's row, so getOne() sees nothing and returns null, which Nest
+    // serialises as a 200 with an empty body. Poor hygiene — "not found" ought
+    // to be 404 — but not a leak, and the fix is an API-shape change rather
+    // than an error-classification one. What must hold is that it is never a
+    // 500 and never carries data. See docs/validation-spec.md §A3.
+    const foreign = await call(`/api/applications/${APP_B}`, clientAToken);
+    const foreignBody = await foreign.text();
+    r.check("another client's application never returns 500",
+      foreign.status !== 500, `got ${foreign.status}`);
+    r.check("...and carries no data", !foreignBody.includes('B purpose'),
+      foreignBody.slice(0, 80));
+
+    // Was 500: "Only Draft applications can be submitted." matched nothing.
+    // APP_A is Approved, so this is a state conflict, not bad input.
+    const resubmit = await call(`/api/applications/${APP_A}/submit`, staffToken, {
+      method: 'POST', body: JSON.stringify({ note: null }),
+    });
+    r.check('submitting a non-Draft application is 409, not 500',
+      resubmit.status === 409, `got ${resubmit.status}`);
+    const resubmitBody = await resubmit.json().catch(() => ({}));
+    r.check('...and says why, rather than "Internal server error"',
+      typeof resubmitBody.message === 'string' && !/internal server error/i.test(resubmitBody.message),
+      JSON.stringify(resubmitBody.message));
+
+    // Was 500: "Disbursement amount must be greater than zero." matched nothing.
+    // Now 400 AND attributed to the field, so the form can highlight it.
+    const zeroDisburse = await call(`/api/loans/${LOAN}/disburse`, staffToken, {
+      method: 'POST', body: JSON.stringify({ amount: 0 }),
+    });
+    r.check('a zero disbursement is 400, not 500', zeroDisburse.status === 400, `got ${zeroDisburse.status}`);
+
+    // Product limits are checked at SUBMIT, not at create — the schema's
+    // trigger deliberately exempts Draft rows so autosaving partial data never
+    // fails. So the draft is created first, then submitted.
+    //
+    // A dedicated borrower: uniq_active_draft_per_client allows one active draft
+    // per client, and every other client in this suite already has one — the
+    // unique violation would fire first and mask what is being tested.
+    const LIMIT_USER = '22222222-0000-0000-0000-00000000000e';
+    await withDb(DB_URL, async (db) => {
+      await db.query(`insert into auth.users (id, email) values ($1,'limits@test')`, [LIMIT_USER]);
+      await db.query(
+        `insert into public.clients (id, user_id, business_name)
+         values ('33333333-0000-0000-0000-00000000000e', $1, 'Limits Ltd')`,
+        [LIMIT_USER],
+      );
+    });
+    const limitToken = await issuer.mint(LIMIT_USER);
+    const overDraft = await call('/api/applications', limitToken, {
+      method: 'POST',
+      body: JSON.stringify({ requestedAmount: 999999999, termMonths: 12, purpose: 'Working capital' }),
+    });
+    const overDraftId = (await overDraft.json().catch(() => ({})))?.id;
+    const overLimit = await call(`/api/applications/${overDraftId}/submit`, limitToken, {
+      method: 'POST', body: JSON.stringify({ note: null }),
+    });
+    const overBody = await overLimit.json().catch(() => ({}));
+
+    r.check('a product-limit breach is 400, not 500',
+      overLimit.status === 400, `got ${overLimit.status} ${JSON.stringify(overBody).slice(0, 140)}`);
+    r.check('...and says which limit was breached, not "Internal server error"',
+      typeof overBody.message === 'string' && !/internal server error/i.test(overBody.message),
+      JSON.stringify(overBody.message));
+    // The payoff of DomainError carrying a field: a rule enforced deep in a
+    // service reaches the form the same way a DTO rejection does, so the
+    // frontend needs no second code path to display it.
+    r.check('...and is attributed to requestedAmount, like a DTO error',
+      (overBody.errors ?? []).some((e) => e.field === 'requestedAmount'),
+      JSON.stringify(overBody.errors ?? overBody).slice(0, 200));
+
+    // A rule enforced ONLY by the database, with no service-level check in
+    // front of it: uniq_active_draft_per_client. LIMIT_USER's draft still
+    // exists (the submit above failed), so a second create violates it.
+    //
+    // This arrives as a Postgres 23505 and nothing else catches it, so it is
+    // the assertion that covers the SQLSTATE branch. It was observed returning
+    // a bare 500 during this work — a double-clicked "Save draft" would have
+    // shown the user "Internal server error" and raised a Sentry alert.
+    const duplicateDraft = await call('/api/applications', limitToken, {
+      method: 'POST',
+      body: JSON.stringify({ requestedAmount: 300000, termMonths: 12, purpose: 'Working capital' }),
+    });
+    const duplicateBody = await duplicateDraft.json().catch(() => ({}));
+    r.check('a duplicate draft is 409, not 500',
+      duplicateDraft.status === 409, `got ${duplicateDraft.status}`);
+    // The constraint's own text names the constraint and its columns, which
+    // describes the schema to anyone who can trigger it. Only P0001 RAISE
+    // messages — written for humans — are passed through verbatim.
+    r.check('...and does not leak the constraint name',
+      !JSON.stringify(duplicateBody).includes('uniq_active_draft_per_client'),
+      JSON.stringify(duplicateBody).slice(0, 160));
+
+    // The one that must NOT become a 4xx: a deployment fault has to alert.
+    // Only 500s reach Sentry, so misclassifying this hides an outage.
+    const noSecret = await fetch(`${api.baseUrl}/internal/cron/notification-sweep`, { method: 'POST' });
+    r.check('an unauthenticated cron call never returns 2xx', noSecret.status >= 400, `got ${noSecret.status}`);
+  }
+
   // ------------------------------------------------------ audit trail
   r.section('money movements are audited');
   {

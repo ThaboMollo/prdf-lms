@@ -1,4 +1,5 @@
 import type { DatabaseService } from '../database/database.service';
+import { PermissionError } from '../common/errors';
 
 export const STAFF_ROLES = ['SuperAdmin', 'Admin', 'LoanOfficer'] as const;
 export const ASSIGNED_ROLES = ['Intern', 'Originator'] as const;
@@ -39,9 +40,9 @@ export function ensureMfaSatisfied(user: CurrentUser): void {
   if (!isInternal(user.roles)) return;
   if (user.aal === 'aal2') return;
 
-  throw new Error(
+  throw new PermissionError(
     'Multi-factor authentication is required for staff accounts. Sign in again and complete the second factor.',
-  );
+  )
 }
 
 /**
@@ -88,21 +89,21 @@ export function isClient(roles: string[]): boolean {
 }
 
 export function ensureStaff(roles: string[]): void {
-  if (!isStaff(roles)) throw new Error('Only Admin or LoanOfficer can perform this action.');
+  if (!isStaff(roles)) throw new PermissionError('Only Admin or LoanOfficer can perform this action.')
 }
 
 export function ensureInternal(roles: string[]): void {
-  if (!isInternal(roles)) throw new Error('Only internal users can perform this action.');
+  if (!isInternal(roles)) throw new PermissionError('Only internal users can perform this action.')
 }
 
 export function ensureAdmin(roles: string[]): void {
-  if (!hasRole(roles, 'Admin')) throw new Error('Only Admin users can manage admin access.');
+  if (!hasRole(roles, 'Admin')) throw new PermissionError('Only Admin users can manage admin access.')
 }
 
 export function ensureAdminOrSuper(roles: string[]): void {
-  if (!hasAnyRole(roles, 'Admin', 'SuperAdmin')) throw new Error('Only Admin or SuperAdmin users can manage admin access.');
+  if (!hasAnyRole(roles, 'Admin', 'SuperAdmin')) throw new PermissionError('Only Admin or SuperAdmin users can manage admin access.')
 }
 
 export function ensureSuperAdmin(roles: string[]): void {
-  if (!hasRole(roles, 'SuperAdmin')) throw new Error('Only a SuperAdmin can perform this action.');
+  if (!hasRole(roles, 'SuperAdmin')) throw new PermissionError('Only a SuperAdmin can perform this action.')
 }

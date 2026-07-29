@@ -1,4 +1,4 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable, InternalServerErrorException, Logger, UnauthorizedException } from '@nestjs/common';
 
 /**
  * Deliberately separate from SupabaseAuthGuard, not a shared guard with a
@@ -17,7 +17,15 @@ export class CronSecretGuard implements CanActivate {
     const secret = process.env.CRON_SECRET;
 
     if (!secret) {
-      throw new Error('CRON_SECRET is required to use the internal cron endpoints');
+      // A missing CRON_SECRET is a deployment fault, not a caller error, so it
+      // must alert rather than answer. Thrown as an explicit 500: the message
+      // used to contain "required", which the filter's substring rules matched
+      // as a 400 — telling an unauthenticated prober that the secret is not
+      // configured, and never raising the alert that would get it fixed.
+      new Logger(CronSecretGuard.name).error(
+        'CRON_SECRET is not set — internal cron endpoints cannot authenticate callers.',
+      );
+      throw new InternalServerErrorException();
     }
     if (!authHeader?.startsWith('Bearer ') || authHeader.slice(7) !== secret) {
       throw new UnauthorizedException('Invalid cron secret');

@@ -1,14 +1,17 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { CurrentUser, fetchUserRoles, hasAnyRole, hasRole, isStaff, ASSIGNED_ROLES } from '../auth/roles.helper';
 import { randomUUID } from 'crypto';
 import axios from 'axios';
 import { currentTenant } from '../tenancy/request-context';
+import { ConflictError, NotFoundError, PermissionError, ValidationError } from '../common/errors';
 
 const BUCKET = 'loan-documents';
 
 @Injectable()
 export class DocumentsService {
+  private readonly logger = new Logger(DocumentsService.name);
+
   constructor(private readonly db: DatabaseService) {}
 
   /**
@@ -31,7 +34,7 @@ export class DocumentsService {
 
   async createRequirement(actor: CurrentUser, body: { loanProductId?: string; requiredAtStatus: string; docType: string; isRequired: boolean }) {
     const roles = await fetchUserRoles(this.db, actor.userId);
-    if (!isStaff(roles)) throw new Error('Only Admin or LoanOfficer can perform document compliance actions.');
+    if (!isStaff(roles)) throw new PermissionError('Only Admin or LoanOfficer can perform document compliance actions.')
     const id = randomUUID();
     await this.db.execute(
       `insert into public.document_requirements (id, loan_product_id, required_at_status, doc_type, is_required, created_at) values ($1,$2,$3,$4,$5,now())`,
@@ -45,12 +48,12 @@ export class DocumentsService {
 
   async verifyDocument(actor: CurrentUser, applicationId: string, documentId: string, status: string, note?: string) {
     const roles = await fetchUserRoles(this.db, actor.userId);
-    if (!isStaff(roles)) throw new Error('Only Admin or LoanOfficer can perform document compliance actions.');
+    if (!isStaff(roles)) throw new PermissionError('Only Admin or LoanOfficer can perform document compliance actions.')
     const affected = await this.db.execute(
       `update public.loan_documents set status=$1, verification_note=$2, verified_by=$3, verified_at=now() where id=$4 and application_id=$5`,
       [status, note ?? null, actor.userId, documentId, applicationId],
     );
-    if (affected === 0) throw new Error('Document not found for application.');
+    if (affected === 0) throw new NotFoundError('Document not found for application.')
     await this.db.execute(
       `insert into public.audit_log (id, entity, entity_id, action, actor_user_id, at, metadata) values ($1,'loan_documents',$2,'VerifyDocument',$3,now(),$4::jsonb)`,
       [randomUUID(), documentId, actor.userId, JSON.stringify({ status, note })],
@@ -69,7 +72,7 @@ export class DocumentsService {
     if (isStaff(roles)) return proj;
     if (hasAnyRole(roles, ...ASSIGNED_ROLES) && proj.assignedToUserId === actor.userId) return proj;
     if (hasRole(roles, 'Client') && proj.clientOwnerUserId === actor.userId) return proj;
-    throw new Error('User cannot access this application.');
+    throw new PermissionError('User cannot access this application.')
   }
 
   /**
@@ -87,9 +90,9 @@ export class DocumentsService {
     );
     if (!proj) throw new NotFoundException('Application not found.');
     if (!(hasRole(roles, 'Client') && proj.clientOwnerUserId === actor.userId)) {
-      throw new Error('Only the applicant can delete a document.');
+      throw new PermissionError('Only the applicant can delete a document.')
     }
-    if (proj.status !== 'Draft') throw new Error('Documents can only be deleted while the application is a Draft.');
+    if (proj.status !== 'Draft') throw new ConflictError('Documents can only be deleted while the application is a Draft.')
 
     const doc = await this.db.queryOne<{ storage_path: string }>(
       `select storage_path from public.loan_documents where id = $1 and application_id = $2`,
@@ -99,7 +102,7 @@ export class DocumentsService {
 
     await this.deleteStorageObject(doc.storage_path);
     const affected = await this.db.execute(`delete from public.loan_documents where id = $1`, [documentId]);
-    if (affected === 0) throw new Error('Document was not deleted.');
+    if (affected === 0) throw new ConflictError('Document was not deleted.')
     await this.db.execute(
       `insert into public.audit_log (id, entity, entity_id, action, actor_user_id, at, metadata) values ($1,'loan_documents',$2,'DeleteDocument',$3,now(),$4::jsonb)`,
       [randomUUID(), documentId, actor.userId, JSON.stringify({ applicationId })],
@@ -150,7 +153,10 @@ export class DocumentsService {
     );
 
     const signedURL = response.data?.signedURL;
-    if (!signedURL) throw new Error('Supabase response did not include a signed URL.');
+    if (!signedURL) {
+      this.logger.error('Supabase sign response contained no signedURL.');
+      throw new InternalServerErrorException();
+    }
     // Real-world responses have been observed as both a full absolute URL
     // and a bucket-relative path depending on version — handle both rather
     // than assume one.

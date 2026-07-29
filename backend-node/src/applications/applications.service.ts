@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { CurrentUser, fetchUserRoles, hasRole, hasAnyRole, isStaff, ASSIGNED_ROLES } from '../auth/roles.helper';
 import { LoanProductsService, LoanProduct } from '../loan-products/loan-products.service';
@@ -11,6 +11,7 @@ import { randomUUID } from 'crypto';
 import axios from 'axios';
 import { currentTenant } from '../tenancy/request-context';
 import { LIMITS } from '../common/generated-constraints';
+import { ConflictError, PermissionError, ValidationError } from '../common/errors';
 
 const LOAN_STATUS_TRANSITIONS: Record<string, string[]> = {
   Draft: ['Submitted'],
@@ -35,6 +36,8 @@ interface SecurityProjection {
 
 @Injectable()
 export class ApplicationsService {
+  private readonly logger = new Logger(ApplicationsService.name);
+
   constructor(
     private readonly db: DatabaseService,
     private readonly loanProducts: LoanProductsService,
@@ -92,7 +95,7 @@ export class ApplicationsService {
     if (isStaff(roles)) return;
     if (hasAnyRole(roles, ...ASSIGNED_ROLES) && proj.assignedToUserId === userId) return;
     if (hasRole(roles, 'Client') && proj.clientOwnerUserId === userId) return;
-    throw new Error('User cannot access this application.');
+    throw new PermissionError('User cannot access this application.')
   }
 
   /**
@@ -106,19 +109,25 @@ export class ApplicationsService {
       return;
     }
     if (!(requestedAmount >= product.minAmount && requestedAmount <= product.maxAmount)) {
-      throw new Error(`Requested amount must be between ${product.minAmount} and ${product.maxAmount}.`);
+      throw new ValidationError(
+        `Requested amount must be between ${product.minAmount} and ${product.maxAmount}.`,
+        'requestedAmount',
+      )
     }
     if (!(termMonths >= product.minTermMonths && termMonths <= product.maxTermMonths)) {
-      throw new Error(`Term months must be between ${product.minTermMonths} and ${product.maxTermMonths}.`);
+      throw new ValidationError(
+        `Term months must be between ${product.minTermMonths} and ${product.maxTermMonths}.`,
+        'termMonths',
+      )
     }
   }
 
   private ensureTransitionAllowed(roles: string[], fromStatus: string, toStatus: string) {
     if (fromStatus === toStatus) return;
     const allowed = LOAN_STATUS_TRANSITIONS[fromStatus] ?? [];
-    if (!allowed.includes(toStatus)) throw new Error(`Invalid status transition: ${fromStatus} -> ${toStatus}.`);
+    if (!allowed.includes(toStatus)) throw new ValidationError(`Invalid status transition: ${fromStatus} -> ${toStatus}.`)
     if (toStatus === 'Submitted') return;
-    if (!isStaff(roles)) throw new Error('Only LoanOfficer/Admin can perform this status transition.');
+    if (!isStaff(roles)) throw new PermissionError('Only LoanOfficer/Admin can perform this status transition.')
   }
 
   private async getById(applicationId: string) {
@@ -199,8 +208,8 @@ export class ApplicationsService {
     const assignedTo = body.assignedToUserId ?? null;
 
     if (hasAnyRole(roles, ...ASSIGNED_ROLES)) {
-      if (!assignedTo || assignedTo !== actor.userId) throw new Error('Intern/Originator can only create applications assigned to themselves.');
-      if (!clientId) throw new Error('ClientId is required for intern/originator-created applications.');
+      if (!assignedTo || assignedTo !== actor.userId) throw new PermissionError('Intern/Originator can only create applications assigned to themselves.')
+      if (!clientId) throw new ValidationError('ClientId is required for intern/originator-created applications.', 'clientId')
     } else if (hasRole(roles, 'Client')) {
       if (clientId) {
         const owns = await this.db.queryOne<{ exists: boolean }>(
@@ -220,17 +229,23 @@ export class ApplicationsService {
           [clientId, actor.userId, body.businessName, body.registrationNo ?? null, body.address ?? null],
         );
       }
-      if (!clientId) throw new Error('Could not resolve client profile. Provide business info.');
+      if (!clientId) throw new ValidationError('Could not resolve client profile. Provide business info.')
     } else if (isStaff(roles)) {
-      if (!clientId) throw new Error('ClientId is required for staff-created applications.');
+      if (!clientId) throw new ValidationError('ClientId is required for staff-created applications.', 'clientId')
     } else {
-      throw new Error('Role not allowed to create applications.');
+      throw new PermissionError('Role not allowed to create applications.')
     }
 
     await this.patchClientProfile(clientId, body);
 
     const product = await this.loanProducts.getActiveProduct();
-    if (!product) throw new Error('No active loan product is configured.');
+    if (!product) {
+      // Operational fault, not caller error: with no active product NOBODY can
+      // apply. A 400 would blame the applicant and, because only 500s reach
+      // Sentry, the outage would never alert.
+      this.logger.error('No active loan product is configured — applications cannot be created.');
+      throw new InternalServerErrorException();
+    }
 
     const appId = randomUUID();
     await this.db.execute(
@@ -256,7 +271,7 @@ export class ApplicationsService {
     this.ensureCanAccess(roles, actor.userId, proj);
 
     if (proj.status !== 'Draft') {
-      if (!isStaff(roles)) throw new Error('Only staff can reassign non-draft applications.');
+      if (!isStaff(roles)) throw new PermissionError('Only staff can reassign non-draft applications.')
       await this.db.execute(`update public.loan_applications set assigned_to_user_id = $1 where id = $2`, [body.assignedToUserId ?? null, applicationId]);
       await this.insertAuditLog(applicationId, 'ReassignApplication', actor.userId, { assignedToUserId: body.assignedToUserId });
       return this.getById(applicationId);
@@ -346,11 +361,11 @@ export class ApplicationsService {
     const proj = await this.getSecurityProjection(applicationId);
     if (!proj) return;
     if (!(hasRole(roles, 'Client') && proj.clientOwnerUserId === actor.userId)) {
-      throw new Error('Only the applicant can delete their own draft application.');
+      throw new PermissionError('Only the applicant can delete their own draft application.')
     }
-    if (proj.status !== 'Draft') throw new Error('Only Draft applications can be deleted.');
+    if (proj.status !== 'Draft') throw new ConflictError('Only Draft applications can be deleted.')
     const affected = await this.db.execute(`delete from public.loan_applications where id = $1`, [applicationId]);
-    if (affected === 0) throw new Error('Application was not deleted.');
+    if (affected === 0) throw new ConflictError('Application was not deleted.')
     await this.insertAuditLog(applicationId, 'DeleteDraftApplication', actor.userId, {});
   }
 
@@ -376,7 +391,7 @@ export class ApplicationsService {
       [loanProductId, applicationId],
     );
     if (rows.length) {
-      throw new Error(`Cannot submit: missing required document(s): ${rows.map((r) => r.doc_type).join(', ')}.`);
+      throw new ValidationError(`Cannot submit: missing required document(s): ${rows.map((r) => r.doc_type).join(', ')}.`)
     }
   }
 
@@ -440,7 +455,7 @@ export class ApplicationsService {
     const proj = await this.getSecurityProjection(applicationId);
     if (!proj) return null;
     this.ensureCanAccess(roles, actor.userId, proj);
-    if (proj.status !== 'Draft') throw new Error('Only Draft applications can be submitted.');
+    if (proj.status !== 'Draft') throw new ConflictError('Only Draft applications can be submitted.')
 
     const completeness = await this.db.queryOne<{ businessName: string | null; purpose: string | null }>(
       `select c.business_name as "businessName", la.purpose
@@ -618,7 +633,12 @@ export class ApplicationsService {
     });
 
     const token = response.data?.token;
-    if (!token) throw new Error('Supabase response did not include signed upload token.');
+    if (!token) {
+      // Upstream (Supabase Storage) misbehaving — the caller did nothing wrong
+      // and can do nothing about it. Must alert, must not echo detail outward.
+      this.logger.error('Supabase sign-upload response contained no token.');
+      throw new InternalServerErrorException();
+    }
     return `${endpoint}?token=${encodeURIComponent(token)}`;
   }
 }

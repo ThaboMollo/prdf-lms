@@ -234,7 +234,7 @@ Each step is independently shippable and leaves the app working.
 3. ~~**C2 + C3** — hook + `FieldError` in `ui-kit`; adopt on **one** form and verify end to end before spreading.~~ **Done.** `packages/ui-kit/hooks/useFormErrors.ts`; 21 assertions in `packages/ui-kit/test-form-errors.mjs`, wired into CI. Adopted on RegisterPage, ApplyPage and admin-ui LoanDetailsPage; the rest of the §7 inventory still to go.
 4. ~~**A4 + B** — tighten DTOs against shared constraints.~~ **Done.** `packages/domain/constraints.ts` is the single source; `backend-node/scripts/generate-constraints.mjs` mirrors it into src with a CI drift check. 20 new assertions in the API integration suite (73 total).
 5. ~~**D** — `<NumericInput>`, rolled out per the §7 table.~~ **Done.** `packages/ui-kit/components/NumericInput.tsx`; 47 assertions in `packages/ui-kit/test-numeric-input.mjs`, wired into CI. No raw `type="number"` remains in either app.
-6. **A3** — typed domain errors, migrating services incrementally behind the deprecated fallback.
+6. ~~**A3** — typed domain errors, migrating services incrementally behind the deprecated fallback.~~ **Done.** `backend-node/src/common/errors.ts`; every service throw site migrated; 12 new assertions in the API integration suite (85 total).
 
 Step 4 before step 3 is the ordering mistake to avoid: tightening server rules while the frontend still swallows the response means users get a generic failure with no indication of which field is wrong.
 
@@ -325,3 +325,44 @@ Parsing and formatting are exported separately from the component so they are te
 Converted: `requestedAmount`, `termMonths`, `monthlyRevenue`, `yearsInOperation`, `numberOfEmployees`, `saCitizenshipPercentage`, `disburseAmount`, `repaymentAmount`, `nfsDuration`. The corresponding state moved from `number` (or a string) to `number | null`, so an empty field is absence rather than zero all the way through to the API — where `@IsOptional()` skips null and `patchClientProfile` writes a real NULL to a nullable column.
 
 **Still outstanding from §6:** `registrationNo` is deliberately left unconstrained. The spec says to confirm the real CIPC format first, and over-restricting a registration number locks legitimate businesses out of the product — worse than under-restricting a field the API already length-checks. `sarsTaxPin` keeps its length rule rather than a digit pattern for the same reason.
+
+### A3 as built
+
+`ValidationError` (400), `PermissionError` (403), `NotFoundError` (404) and `ConflictError` (409) live in `backend-node/src/common/errors.ts` as plain `Error` subclasses — deliberately not Nest `HttpException`s, so services stay unaware of HTTP. The filter maps them by **type**. `ValidationError` optionally carries a `field`, which the filter emits as the §2 `errors` array, so a rule enforced deep in a service reaches the form exactly the way a DTO rejection does.
+
+**How bad the substring inference actually was.** Running all 38 thrown messages in the repo through the old rules: **18 fell through to 500 and raised a Sentry alert**, for ordinary user errors — and the 500 branch replaces the message, so the caller got `"Internal server error"` with nothing to act on.
+
+| Message | Was | Now |
+|---|---|---|
+| `Only a SuperAdmin can perform this action.` | 500 + alert | 403 |
+| `Only Draft applications can be submitted.` | 500 + alert | 409 |
+| `Only the applicant can delete a document.` | 500 + alert | 403 |
+| `Disbursement amount must be greater than zero.` | 500 + alert | 400, on `amount` |
+| `Requested amount must be between X and Y.` | 500 + alert | 400, on `requestedAmount` |
+| `Role not allowed to create applications.` | 500 + alert | 403 |
+
+Confirmed by deleting the `DomainError` branch and re-running: an Admin granting Admin, submitting a non-Draft, and a product-limit breach all return **500 "Internal server error"**.
+
+**The larger half: rules the database enforces.** A big part of this schema states its rules in PL/pgSQL, and those never pass through a service throw at all — they arrive as a SQLSTATE. Under prose matching they were classified essentially at random:
+
+| Database RAISE | Was |
+|---|---|
+| `Requested amount % is outside the allowed range` | 500 (no keyword matched) |
+| `Term % months is outside the allowed range` | 500 |
+| `Unsupported role assignment` | 500 |
+| `Admin role required` | 400 (matched `'required'`, should be 403) |
+| `Invalid status transition: % -> %` | 400 (matched `'invalid'` — right by luck) |
+
+`databaseRuleStatus()` now decides on SQLSTATE class, which is machine-assigned and stable: `42501` → 403, `23505` → 409, other `23xxx` → 400, `P0xxx` → 400.
+
+That also fixes a bug seen live during this work: a duplicate active draft (`uniq_active_draft_per_client`, a `23505`) returned a bare **500**. A double-clicked "Save draft" would have shown "Internal server error" and paged someone.
+
+**Only `P0001` messages are passed through verbatim.** They are written for humans (`Requested amount 9999 is outside the allowed range (50000 - 500000)`). Constraint-violation text is not — it names the constraint and its columns, which describes the schema to anyone who can trigger one — so those get a generic message. Asserted.
+
+**Three errors were reclassified back to 500 on purpose.** `No active loan product is configured`, and both `Supabase response did not include …` cases, are operational faults, not caller errors. A 400 would blame the user, and since only 500s reach Sentry, the outage would never alert. They now log the specific reason and return a bare `InternalServerErrorException`.
+
+Same reasoning for `CRON_SECRET is required to use the internal cron endpoints`: it matched `'required'` and returned **400 with that message to an unauthenticated caller**, telling a prober the secret was unset while never raising the alert that would get it fixed.
+
+**The deprecated fallback remains**, marked as such. Every throw site in the repo has been migrated; it exists only so a service added without the typed errors degrades to the old behaviour rather than becoming an unexplained 500. Delete once nothing reaches it.
+
+**Known wart, deliberately left.** `getOne()` returns `null` when RLS hides a row, which Nest serialises as **200 with an empty body** rather than 404. It leaks nothing, and the suite asserts both that it is never a 500 and that it carries no data — but changing it is an API-shape decision (the frontends would start seeing a thrown `ApiError` where they currently get `null`), not an error-classification one.

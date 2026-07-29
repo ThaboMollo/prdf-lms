@@ -9,6 +9,15 @@ import {
 import { Request, Response } from 'express';
 import * as Sentry from '@sentry/node';
 import { requestContext } from '../tenancy/request-context';
+import { DomainError, DomainErrorCode } from './errors';
+
+/** The error's TYPE decides the status — never its wording. */
+const DOMAIN_ERROR_STATUS: Record<DomainErrorCode, HttpStatus> = {
+  validation: HttpStatus.BAD_REQUEST,
+  permission: HttpStatus.FORBIDDEN,
+  not_found: HttpStatus.NOT_FOUND,
+  conflict: HttpStatus.CONFLICT,
+};
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -41,6 +50,32 @@ export class AllExceptionsFilter implements ExceptionFilter {
         const { message: _message, statusCode: _statusCode, error: _error, ...rest } = body;
         extra = rest;
       }
+    } else if (exception instanceof DomainError) {
+      // Explicit mapping. See src/common/errors.ts for what the substring
+      // rules below were doing to these — 18 of 38 thrown messages in this
+      // codebase returned 500 and raised a Sentry alert for ordinary user
+      // errors, with the message replaced by "Internal server error".
+      status = DOMAIN_ERROR_STATUS[exception.code];
+      message = exception.message;
+      // A service-level rule that names a field reports it exactly the way DTO
+      // validation does (§2), so the frontend needs no second code path.
+      if (exception.field) {
+        extra = { errors: [{ field: exception.field, message: exception.message, code: exception.code }] };
+      }
+    } else if (databaseRuleStatus(exception) !== null) {
+      // Business rules enforced by the SCHEMA, not by a service. The status is
+      // decided by SQLSTATE class — a machine-assigned code — rather than by
+      // the prose of the RAISE, which is what left these classified at random:
+      //
+      //   'Requested amount % is outside the allowed range'  -> 500 (no keyword)
+      //   'Term % months is outside the allowed range'       -> 500 (no keyword)
+      //   'Unsupported role assignment'                      -> 500 (no keyword)
+      //   'Admin role required'                              -> 400 ('required')
+      //   'Invalid status transition: % -> %'                -> 400 ('invalid')
+      //
+      // Only the last two landed anywhere sensible, and only by accident.
+      status = databaseRuleStatus(exception)!;
+      message = safeDatabaseMessage(exception, status);
     } else if (isInfrastructureError(exception)) {
       // Checked BEFORE the message matching below, and deliberately so.
       //
@@ -62,6 +97,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
         (exception as Error).stack,
       );
     } else if (exception instanceof Error) {
+      // DEPRECATED substring fallback. Every throw site in this repo has been
+      // migrated to the typed errors above; this remains only so that a service
+      // added without them degrades to the old behaviour rather than becoming
+      // an unexplained 500. Delete once nothing reaches it.
+      //
+      // Do not extend these rules. They are why the wording of an error was
+      // also its status code.
       const msg = exception.message.toLowerCase();
       if (msg.includes('unauthorized') || msg.includes('cannot access') || msg.includes('only admin') || msg.includes('only staff') || msg.includes('only internal') || msg.includes('only loanofficer')) {
         status = HttpStatus.FORBIDDEN;
@@ -90,6 +132,53 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     response.status(status).json({ statusCode: status, message, path: request.url, ...extra });
   }
+}
+
+/**
+ * Status for a rule the DATABASE enforced, or null if this isn't one.
+ *
+ * PL/pgSQL `raise exception` and integrity constraints are how a large part of
+ * this schema states its rules — status transitions, product limits, required
+ * documents, immutable columns. They reach the filter as ordinary Errors
+ * carrying a SQLSTATE, so classifying them on that code is both stable and
+ * honest, where matching their English was neither.
+ */
+function databaseRuleStatus(exception: unknown): HttpStatus | null {
+  if (!(exception instanceof Error)) return null;
+  const code = (exception as { code?: unknown }).code;
+  if (typeof code !== 'string') return null;
+
+  // 42501 insufficient_privilege — RLS or an explicit privilege check refused.
+  if (code === '42501') return HttpStatus.FORBIDDEN;
+
+  // 23505 unique_violation — the row already exists. Retrying unchanged will
+  // not help, but refetching and reconciling will, which is what 409 means.
+  // This is also what turned a double-submitted draft into a bare 500.
+  if (code === '23505') return HttpStatus.CONFLICT;
+
+  // Remaining 23xxx (foreign key, not-null, check) are malformed input.
+  if (/^23/.test(code)) return HttpStatus.BAD_REQUEST;
+
+  // P0xxx — PL/pgSQL RAISE. Every business rule in this schema surfaces here.
+  if (/^P0/.test(code)) return HttpStatus.BAD_REQUEST;
+
+  return null;
+}
+
+/**
+ * What to show the caller for a database-enforced rule.
+ *
+ * P0001 messages are written for humans ("Requested amount 9999 is outside the
+ * allowed range (50000 - 500000) for this loan product") and are safe to show.
+ * Constraint violations are NOT — their text carries constraint and column
+ * names, which describes the schema to anyone who can trigger one.
+ */
+function safeDatabaseMessage(exception: unknown, status: HttpStatus): string {
+  const code = (exception as { code?: string }).code ?? '';
+  if (/^P0/.test(code)) return (exception as Error).message;
+  if (status === HttpStatus.CONFLICT) return 'That record already exists.';
+  if (status === HttpStatus.FORBIDDEN) return 'You do not have permission to perform this action.';
+  return 'That request could not be completed. Please check the values and try again.';
 }
 
 /**

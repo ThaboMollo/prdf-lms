@@ -3,6 +3,7 @@ import { DatabaseService } from '../database/database.service';
 import { CurrentUser, ensureAdminOrSuper, ensureSuperAdmin } from '../auth/roles.helper';
 import { currentTenant } from '../tenancy/request-context';
 import axios from 'axios';
+import { PermissionError, ValidationError } from '../common/errors';
 
 // SuperAdmin is deliberately absent: it is the out-of-band platform-owner
 // capability, not a role that can be granted or revoked through the app.
@@ -68,7 +69,7 @@ export class AdminService {
     if (ELEVATED_ROLES.includes(roleName)) {
       ensureSuperAdmin(actor.roles);
       if (actor.userId === targetUserId) {
-        throw new Error(`You cannot revoke your own ${roleName} access.`);
+        throw new ValidationError(`You cannot revoke your own ${roleName} access.`)
       }
     } else {
       ensureAdminOrSuper(actor.roles);
@@ -103,9 +104,9 @@ export class AdminService {
     ensureSuperAdmin(actor.roles);
 
     if (actor.userId === targetUserId) {
-      throw new Error(
+      throw new PermissionError(
         'You cannot reset your own MFA. Ask another SuperAdmin — a self-service reset would let anyone with your password remove your second factor.',
-      );
+      )
     }
 
     const tenant = currentTenant();

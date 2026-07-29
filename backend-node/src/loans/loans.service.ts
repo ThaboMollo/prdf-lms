@@ -4,6 +4,7 @@ import { CurrentUser, fetchUserRoles, isStaff, hasAnyRole, hasRole, ASSIGNED_ROL
 import { randomUUID } from 'crypto';
 import { PoolClient } from 'pg';
 import { DEFAULT_ANNUAL_RATE_PA, monthlyInterest, roundCents } from '../common/interest';
+import { ConflictError, PermissionError, ValidationError } from '../common/errors';
 
 @Injectable()
 export class LoansService {
@@ -63,14 +64,14 @@ export class LoansService {
     );
     if (!proj) return null;
     if (!isStaff(roles) && !(hasAnyRole(roles, ...ASSIGNED_ROLES) && proj.assigned_to_user_id === actor.userId) && !(hasRole(roles, 'Client') && proj.client_owner_user_id === actor.userId)) {
-      throw new Error('User cannot access this loan.');
+      throw new PermissionError('User cannot access this loan.')
     }
     return this.getLoanDetails(loanId);
   }
 
   async disburse(actor: CurrentUser, loanId: string, body: { amount: number; reference?: string }) {
     const roles = await fetchUserRoles(this.db, actor.userId);
-    if (!isStaff(roles)) throw new Error('Only Admin or LoanOfficer can perform this action.');
+    if (!isStaff(roles)) throw new PermissionError('Only Admin or LoanOfficer can perform this action.')
 
     await this.db.withTransaction(async (client: PoolClient) => {
       const loanResult = await client.query(
@@ -79,10 +80,10 @@ export class LoansService {
       );
       const loan = loanResult.rows[0];
       if (!loan) return null;
-      if (loan.status !== 'PendingDisbursement' && loan.status !== 'Disbursed') throw new Error(`Loan status ${loan.status} cannot be disbursed.`);
+      if (loan.status !== 'PendingDisbursement' && loan.status !== 'Disbursed') throw new ValidationError(`Loan status ${loan.status} cannot be disbursed.`)
 
       const amount = Math.min(body.amount, parseFloat(loan.outstanding_principal));
-      if (amount <= 0) throw new Error('Disbursement amount must be greater than zero.');
+      if (amount <= 0) throw new ValidationError('Disbursement amount must be greater than zero.', 'amount')
 
       await client.query(
         `insert into public.disbursements (id, loan_id, amount, disbursed_at, disbursed_by, reference) values ($1,$2,$3,now(),$4,$5)`,
@@ -115,7 +116,7 @@ export class LoansService {
 
   async recordRepayment(actor: CurrentUser, loanId: string, body: { amount: number; paidAt?: string; paymentReference?: string }) {
     const roles = await fetchUserRoles(this.db, actor.userId);
-    if (!isStaff(roles)) throw new Error('Only Admin or LoanOfficer can perform this action.');
+    if (!isStaff(roles)) throw new PermissionError('Only Admin or LoanOfficer can perform this action.')
 
     await this.db.withTransaction(async (client: PoolClient) => {
       const loanResult = await client.query(
@@ -124,7 +125,7 @@ export class LoansService {
       );
       const loan = loanResult.rows[0];
       if (!loan) return null;
-      if (loan.status === 'Closed') throw new Error('Closed loan cannot accept repayments.');
+      if (loan.status === 'Closed') throw new ConflictError('Closed loan cannot accept repayments.')
 
       const outstanding = parseFloat(loan.outstanding_principal);
       const principalComponent = Math.min(body.amount, outstanding);

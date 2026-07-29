@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { CurrentUser, fetchUserRoles, isStaff, hasAnyRole, hasRole, ASSIGNED_ROLES } from '../auth/roles.helper';
 import { randomUUID } from 'crypto';
+import { NotFoundError, PermissionError } from '../common/errors';
 
 @Injectable()
 export class TasksService {
@@ -27,15 +28,15 @@ export class TasksService {
 
   async create(actor: CurrentUser, body: { applicationId: string; title: string; assignedTo?: string; dueDate?: string }) {
     const roles = await fetchUserRoles(this.db, actor.userId);
-    if (!hasAnyRole(roles, 'Admin', 'LoanOfficer', 'Intern', 'Originator')) throw new Error('Only internal users can create tasks.');
+    if (!hasAnyRole(roles, 'Admin', 'LoanOfficer', 'Intern', 'Originator')) throw new PermissionError('Only internal users can create tasks.')
 
     const proj = await this.db.queryOne<{ id: string; assigned_to_user_id: string | null; client_owner_user_id: string | null }>(
       `select la.id, la.assigned_to_user_id, c.user_id as client_owner_user_id from public.loan_applications la join public.clients c on c.id=la.client_id where la.id=$1`,
       [body.applicationId],
     );
-    if (!proj) throw new Error('Application not found.');
+    if (!proj) throw new NotFoundError('Application not found.')
     if (!isStaff(roles) && !(hasAnyRole(roles, ...ASSIGNED_ROLES) && proj.assigned_to_user_id === actor.userId) && !(hasRole(roles, 'Client') && proj.client_owner_user_id === actor.userId)) {
-      throw new Error('User cannot access this application.');
+      throw new PermissionError('User cannot access this application.')
     }
 
     const taskId = randomUUID();
@@ -69,7 +70,7 @@ export class TasksService {
     );
     if (!proj) return null;
     if (!isStaff(roles) && task.assigned_to !== actor.userId && !(hasAnyRole(roles, ...ASSIGNED_ROLES) && proj.assigned_to_user_id === actor.userId) && !(hasRole(roles, 'Client') && proj.client_owner_user_id === actor.userId)) {
-      throw new Error('User cannot access this application.');
+      throw new PermissionError('User cannot access this application.')
     }
     await this.db.execute(
       `update public.tasks set title=coalesce($1, title), assigned_to=$2, due_date=$3 where id=$4`,
