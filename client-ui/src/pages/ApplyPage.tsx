@@ -10,6 +10,7 @@ import { CardSkeleton } from '../components/shared/Skeletons'
 import { WizardProgress } from '../components/shared/WizardProgress'
 import { FileDropzone } from '../components/shared/FileDropzone'
 import { FieldError, fieldErrorAttrs, focusFirstInvalidField } from '../components/shared/FieldError'
+import { NumericInput } from '../components/shared/NumericInput'
 import { LoanCalculator } from '../components/shared/LoanCalculator'
 import { AddressFields, type AddressValue } from '../components/shared/AddressFields'
 import { WizardCostCard } from '../components/shared/WizardCostCard'
@@ -659,7 +660,9 @@ function Step1({
     isHdp: initial?.isHdp ?? false,
     isRural: initial?.isRural ?? false,
     isBlackWomenOwned: initial?.isBlackWomenOwned ?? false,
-    saCitizenshipPercentage: initial?.saCitizenshipPercentage?.toString() ?? '',
+    // null, not '' — NumericInput holds a real value and an empty field is
+    // absence, not zero. See packages/ui-kit/components/NumericInput.tsx.
+    saCitizenshipPercentage: initial?.saCitizenshipPercentage ?? null,
     isDirectorOperational: initial?.isDirectorOperational ?? false,
     cipcRegistered: initial?.cipcRegistered ?? false,
     sarsTaxPin: initial?.sarsTaxPin ?? '',
@@ -694,7 +697,9 @@ function Step1({
       isDisabled: form.isDisabled,
       isHdp: form.isHdp,
       isBlackWomenOwned: form.isBlackWomenOwned,
-      saCitizenshipPercentage: Number(form.saCitizenshipPercentage || 0),
+      // Passed through as-is. The old `Number(x || 0)` turned an untouched
+      // field into a recorded 0% — the schema now rejects null instead.
+      saCitizenshipPercentage: form.saCitizenshipPercentage as number,
       isDirectorOperational: form.isDirectorOperational,
       cipcRegistered: form.cipcRegistered,
       sarsTaxPin: form.sarsTaxPin,
@@ -734,6 +739,12 @@ function Step1({
   function set(key: keyof typeof form) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setForm((prev) => ({ ...prev, [key]: e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value }))
+  }
+
+  // NumericInput hands back a parsed value rather than a DOM event, so it needs
+  // its own setter — `set` reads e.target.value and would store a string.
+  function setNumber(key: keyof typeof form) {
+    return (value: number | null) => setForm((prev) => ({ ...prev, [key]: value }))
   }
 
   return (
@@ -790,7 +801,16 @@ function Step1({
               </div>
               <div className="form-field">
                 <label htmlFor="saCitizenshipPercentage">% SA National Ownership</label>
-                <input type="number" min="0" max="100" id="saCitizenshipPercentage" {...fieldErrorAttrs('saCitizenshipPercentage', errors.saCitizenshipPercentage)} value={form.saCitizenshipPercentage} onChange={set('saCitizenshipPercentage')} placeholder="100" />
+                <NumericInput
+                  field="saCitizenshipPercentage"
+                  mode="integer"
+                  min={0}
+                  max={100}
+                  value={form.saCitizenshipPercentage}
+                  error={errors.saCitizenshipPercentage}
+                  onChange={setNumber('saCitizenshipPercentage')}
+                  placeholder="100"
+                />
                 <FieldError field="saCitizenshipPercentage" message={errors.saCitizenshipPercentage} />
               </div>
               <div className="form-field">
@@ -873,18 +893,18 @@ function Step2({
   savingDraft: boolean
 }) {
   const [form, setForm] = useState({
-    monthlyRevenue: initial?.monthlyRevenue?.toString() ?? '',
-    yearsInOperation: initial?.yearsInOperation?.toString() ?? '',
-    numberOfEmployees: initial?.numberOfEmployees?.toString() ?? '',
+    monthlyRevenue: initial?.monthlyRevenue ?? null,
+    yearsInOperation: initial?.yearsInOperation ?? null,
+    numberOfEmployees: initial?.numberOfEmployees ?? null,
     bankName: initial?.bankName ?? '',
   })
   const [errors, setErrors] = useState<Partial<Record<keyof Step2Data, string>>>({})
 
   function buildSnapshot(): Step2Data {
     return {
-      monthlyRevenue: Number(form.monthlyRevenue) || 0,
-      yearsInOperation: Number(form.yearsInOperation) || 0,
-      numberOfEmployees: Number(form.numberOfEmployees) || 0,
+      monthlyRevenue: form.monthlyRevenue as number,
+      yearsInOperation: form.yearsInOperation as number,
+      numberOfEmployees: form.numberOfEmployees as number,
       bankName: form.bankName,
     }
   }
@@ -922,6 +942,12 @@ function Step2({
       setForm((prev) => ({ ...prev, [key]: e.target.value }))
   }
 
+  // NumericInput hands back a parsed value rather than a DOM event, so it needs
+  // its own setter — `set` reads e.target.value and would store a string.
+  function setNumber(key: keyof typeof form) {
+    return (value: number | null) => setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
   return (
     <div className="wizard-body">
       <h2>Financial Information</h2>
@@ -931,12 +957,28 @@ function Step2({
         <div className="form-two-col">
           <div className="form-field">
             <label htmlFor="monthlyRevenue">Average monthly revenue (R)</label>
-            <input id="monthlyRevenue" {...fieldErrorAttrs('monthlyRevenue', errors.monthlyRevenue)} type="number" min={0} value={form.monthlyRevenue} onChange={set('monthlyRevenue')} placeholder="150000" />
+            <NumericInput
+              field="monthlyRevenue"
+              mode="currency"
+              min={0}
+              value={form.monthlyRevenue}
+              error={errors.monthlyRevenue}
+              onChange={setNumber('monthlyRevenue')}
+              placeholder="150000"
+            />
             <FieldError field="monthlyRevenue" message={errors.monthlyRevenue} />
           </div>
           <div className="form-field">
             <label htmlFor="yearsInOperation">Years in operation</label>
-            <input id="yearsInOperation" {...fieldErrorAttrs('yearsInOperation', errors.yearsInOperation)} type="number" min={0} value={form.yearsInOperation} onChange={set('yearsInOperation')} placeholder="3" />
+            <NumericInput
+              field="yearsInOperation"
+              mode="integer"
+              min={0}
+              value={form.yearsInOperation}
+              error={errors.yearsInOperation}
+              onChange={setNumber('yearsInOperation')}
+              placeholder="3"
+            />
             <FieldError field="yearsInOperation" message={errors.yearsInOperation} />
           </div>
         </div>
@@ -944,7 +986,15 @@ function Step2({
         <div className="form-two-col">
           <div className="form-field">
             <label htmlFor="numberOfEmployees">Number of employees</label>
-            <input id="numberOfEmployees" {...fieldErrorAttrs('numberOfEmployees', errors.numberOfEmployees)} type="number" min={1} value={form.numberOfEmployees} onChange={set('numberOfEmployees')} placeholder="12" />
+            <NumericInput
+              field="numberOfEmployees"
+              mode="integer"
+              min={1}
+              value={form.numberOfEmployees}
+              error={errors.numberOfEmployees}
+              onChange={setNumber('numberOfEmployees')}
+              placeholder="12"
+            />
             <FieldError field="numberOfEmployees" message={errors.numberOfEmployees} />
           </div>
         </div>

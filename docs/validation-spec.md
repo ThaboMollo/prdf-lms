@@ -233,7 +233,7 @@ Each step is independently shippable and leaves the app working.
 2. ~~**C1** — `ApiError` in `packages/domain`, both apps parse it. Still no visual change, but errors stop being stringified.~~ **Done.** `packages/domain/api-error.ts`; 24 assertions in `packages/domain/test-api-error.mjs`, wired into CI.
 3. ~~**C2 + C3** — hook + `FieldError` in `ui-kit`; adopt on **one** form and verify end to end before spreading.~~ **Done.** `packages/ui-kit/hooks/useFormErrors.ts`; 21 assertions in `packages/ui-kit/test-form-errors.mjs`, wired into CI. Adopted on RegisterPage, ApplyPage and admin-ui LoanDetailsPage; the rest of the §7 inventory still to go.
 4. ~~**A4 + B** — tighten DTOs against shared constraints.~~ **Done.** `packages/domain/constraints.ts` is the single source; `backend-node/scripts/generate-constraints.mjs` mirrors it into src with a CI drift check. 20 new assertions in the API integration suite (73 total).
-5. **D** — `<NumericInput>`, rolled out per the §7 table.
+5. ~~**D** — `<NumericInput>`, rolled out per the §7 table.~~ **Done.** `packages/ui-kit/components/NumericInput.tsx`; 47 assertions in `packages/ui-kit/test-numeric-input.mjs`, wired into CI. No raw `type="number"` remains in either app.
 6. **A3** — typed domain errors, migrating services incrementally behind the deprecated fallback.
 
 Step 4 before step 3 is the ordering mistake to avoid: tightening server rules while the frontend still swallows the response means users get a generic failure with no indication of which field is wrong.
@@ -307,3 +307,21 @@ Every row in §1.2 is now closed. `AddressFields` and the wizard's industry drop
 **Open policy question — not a technical one.** That completeness check covers only what *both* intake paths collect. admin-ui's staff-assisted flow (`CreateAssistedClientDto`) captures business name, registration number and address; it never collects `industry`, `province`, `spatialType`, `gender`, `saCitizenshipPercentage`, `sarsTaxPin`, `bankName` or `numberOfEmployees`, all of which the borrower wizard requires. Requiring them at submit would block staff from submitting anything they captured. **Whether staff should be able to submit an application without BEE/demographic data is a business decision** — these are the fields the DFI reports on. If the answer is no, the fix is to add them to the staff-assisted form, not to relax the wizard.
 
 **Also guarded:** the suite now asserts the `province` and `spatial_type` CHECK constraints in the database match the generated `@IsIn` lists. Those are two independent definitions of one rule and can drift either way — a value the DTO accepts but the CHECK rejects becomes a 500 at write time (confirmed by sabotage), and one the CHECK accepts but the DTO rejects is a dropdown option nobody can submit.
+
+### D as built
+
+`NumericInput` renders `type="text"` with `inputMode`, not `type="number"`. That is the whole point: `type="number"` reports `value === ''` for any content it considers invalid, and the app's `Number(e.target.value)` turned that into **0**. On `requestedAmount` that is a silent, plausible-looking wrong figure rather than a visible error — no message, no empty field, just a different number than the user typed.
+
+The component filters input to the mode's shape as it is typed, emits `number | null` (never `NaN`, never `''`, never a coerced 0), and keeps the in-progress text in local state so a half-typed `1.` is not rewritten under the caret. `currency` groups thousands, but only while unfocused — reformatting mid-keystroke moves the caret and is worse than no grouping.
+
+Parsing and formatting are exported separately from the component so they are testable without a DOM, which is where all 47 assertions live.
+
+**Two decisions worth knowing about:**
+
+**A typed comma becomes a decimal point.** en-ZA formats numbers as `1 234 567,89`, so a South African user reaching for the decimal separator may well type `,`. Dropping it silently would turn `1,5` into `15` — off by a factor of ten with nothing to indicate it. The field still *displays* `.`, because mixing separators in an editable field is a trap.
+
+**`z.coerce.number()` had to go with it.** Verified against the app's own zod: `z.coerce.number().min(0).safeParse(null)` **passes, with 0**. The wizard's numeric fields now use `z.number({ message })`, which rejects null with real prose. `yearsInOperation` is the field this mattered most for — its minimum is 0, so a coerced null validated cleanly as "0 years in operation" instead of being caught. `saCitizenshipPercentage` was worse still: `Number(form.saCitizenshipPercentage || 0)` recorded **0% SA ownership** for a field the user never touched, and that is BEE data the DFI reports on.
+
+Converted: `requestedAmount`, `termMonths`, `monthlyRevenue`, `yearsInOperation`, `numberOfEmployees`, `saCitizenshipPercentage`, `disburseAmount`, `repaymentAmount`, `nfsDuration`. The corresponding state moved from `number` (or a string) to `number | null`, so an empty field is absence rather than zero all the way through to the API — where `@IsOptional()` skips null and `patchClientProfile` writes a real NULL to a nullable column.
+
+**Still outstanding from §6:** `registrationNo` is deliberately left unconstrained. The spec says to confirm the real CIPC format first, and over-restricting a registration number locks legitimate businesses out of the product — worse than under-restricting a field the API already length-checks. `sarsTaxPin` keeps its length rule rather than a digit pattern for the same reason.

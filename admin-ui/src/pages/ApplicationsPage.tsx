@@ -22,6 +22,18 @@ import { createNotesUseCases } from '../logic/usecases/notes'
 import { createNfsUseCases } from '../logic/usecases/nfs'
 import { createTasksUseCases } from '../logic/usecases/tasks'
 import { createApplicationSchema, statusChangeSchema, uploadSchema, type CreateApplicationFormData } from '../features/applications/validation'
+import { NumericInput } from '../components/shared/NumericInput'
+
+/**
+ * The wizard's in-progress state. The numeric fields are nullable here but not
+ * in CreateApplicationFormData, because an empty field is not a zero — that
+ * distinction is the whole point of NumericInput. createApplicationSchema
+ * coerces and rejects at parse time, so null never reaches the API.
+ */
+type WizardDraft = Omit<CreateApplicationFormData, 'requestedAmount' | 'termMonths'> & {
+  requestedAmount: number | null
+  termMonths: number | null
+}
 import { ConsentModal } from '../components/shared/ConsentModal'
 import type { ConsentPayload } from '../features/consent/consentItems'
 import { EmptyState } from '../components/shared/EmptyState'
@@ -77,13 +89,14 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
   const [docFile, setDocFile] = useState<File | null>(null)
   const [infoRequestNote, setInfoRequestNote] = useState('')
   const [nfsType, setNfsType] = useState('Mentorship')
-  const [nfsDuration, setNfsDuration] = useState(1)
+  // null while the field is empty — distinct from 0 hours.
+  const [nfsDuration, setNfsDuration] = useState<number | null>(1)
   const [nfsDate, setNfsDate] = useState('')
   const [nfsNotes, setNfsNotes] = useState('')
   const [wizardStep, setWizardStep] = useState(1)
   const [consentOpen, setConsentOpen] = useState(false)
   const detailRef = useRef<HTMLDivElement | null>(null)
-  const [wizardValues, setWizardValues] = useState<CreateApplicationFormData>({
+  const [wizardValues, setWizardValues] = useState<WizardDraft>({
     businessName: '',
     registrationNo: '',
     address: '',
@@ -358,7 +371,7 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
   const createNfsMutation = useMutation({
     mutationFn: async () => {
       if (!detailsQuery.data?.clientId) throw new Error('Client context missing.')
-      if (!nfsType || !nfsDate || nfsDuration <= 0) throw new Error('Please fill all required NFS fields.')
+      if (!nfsType || !nfsDate || nfsDuration === null || nfsDuration <= 0) throw new Error('Please fill all required NFS fields.')
       return nfsUseCases.createNfs({
         clientId: detailsQuery.data.clientId,
         applicationId: selectedApplicationId ?? undefined,
@@ -710,8 +723,8 @@ function SlaBadge({ status, submittedAt }: { status: LoanApplicationStatus, subm
 
 type ClientWizardProps = {
   wizardStep: number
-  values: CreateApplicationFormData
-  setValues: Dispatch<SetStateAction<CreateApplicationFormData>>
+  values: WizardDraft
+  setValues: Dispatch<SetStateAction<WizardDraft>>
   onContinue: () => void
   onBack: () => void
   onCreate: () => void
@@ -757,14 +770,28 @@ function ClientWizard({
 
       {wizardStep === 2 ? (
         <div className="form-grid">
-          <label>
-            Requested amount
-            <input type="number" value={values.requestedAmount} onChange={(e) => setValues((prev) => ({ ...prev, requestedAmount: Number(e.target.value) }))} />
-          </label>
-          <label>
-            Term (months)
-            <input type="number" value={values.termMonths} onChange={(e) => setValues((prev) => ({ ...prev, termMonths: Number(e.target.value) }))} />
-          </label>
+          {/* NumericInput assigns the id, so the label references it rather
+              than wrapping — see packages/ui-kit/components/FieldError.tsx. */}
+          <div className="field-block">
+            <label htmlFor="requestedAmount">Requested amount</label>
+            <NumericInput
+              field="requestedAmount"
+              mode="currency"
+              min={0}
+              value={values.requestedAmount}
+              onChange={(next) => setValues((prev) => ({ ...prev, requestedAmount: next }))}
+            />
+          </div>
+          <div className="field-block">
+            <label htmlFor="termMonths">Term (months)</label>
+            <NumericInput
+              field="termMonths"
+              mode="integer"
+              min={1}
+              value={values.termMonths}
+              onChange={(next) => setValues((prev) => ({ ...prev, termMonths: next }))}
+            />
+          </div>
           <label>
             Purpose
             <input value={values.purpose} onChange={(e) => setValues((prev) => ({ ...prev, purpose: e.target.value }))} />
@@ -837,8 +864,8 @@ type ApplicationDetailProps = {
   notePending: boolean
   nfsType: string
   setNfsType: (value: string) => void
-  nfsDuration: number
-  setNfsDuration: (value: number) => void
+  nfsDuration: number | null
+  setNfsDuration: (value: number | null) => void
   nfsDate: string
   setNfsDate: (value: string) => void
   nfsNotes: string
@@ -1248,10 +1275,16 @@ function NfsTab(props: ApplicationDetailProps) {
             <option value="Other">Other</option>
           </select>
         </label>
-        <label>
-          Duration (hours)
-          <input type="number" step="0.5" value={props.nfsDuration} onChange={(e) => props.setNfsDuration(Number(e.target.value))} />
-        </label>
+        <div className="field-block">
+          <label htmlFor="nfsDuration">Duration (hours)</label>
+          <NumericInput
+            field="nfsDuration"
+            mode="decimal"
+            min={0}
+            value={props.nfsDuration}
+            onChange={props.setNfsDuration}
+          />
+        </div>
         <label>
           Date provided
           <input type="date" value={props.nfsDate} onChange={(e) => props.setNfsDate(e.target.value)} />
@@ -1260,7 +1293,7 @@ function NfsTab(props: ApplicationDetailProps) {
           Notes
           <textarea value={props.nfsNotes} onChange={(e) => props.setNfsNotes(e.target.value)} rows={3} />
         </label>
-        <button className="btn" type="button" onClick={props.onCreateNfs} disabled={props.nfsPending || !props.nfsDate || props.nfsDuration <= 0}>
+        <button className="btn" type="button" onClick={props.onCreateNfs} disabled={props.nfsPending || !props.nfsDate || !props.nfsDuration || props.nfsDuration <= 0}>
           {props.nfsPending ? 'Logging...' : 'Log Session'}
         </button>
       </div>

@@ -9,6 +9,7 @@ import { formatCurrency, formatDateTime } from '../lib/format'
 import { paginateItems, parsePageParam } from '../lib/pagination'
 import { createLoansUseCases } from '../logic/usecases/loans'
 import { useFormErrors, FieldError, fieldErrorAttrs, fieldDomId, type FieldErrorMap } from '../hooks/useFormErrors'
+import { NumericInput } from '../components/shared/NumericInput'
 
 type LoanDetailsPageProps = {
   session: Session
@@ -23,9 +24,10 @@ export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
   const { loanId } = useParams<{ loanId: string }>()
   const accessToken = session.access_token
   const loansUseCases = useMemo(() => createLoansUseCases(accessToken), [accessToken])
-  const [disburseAmount, setDisburseAmount] = useState(0)
+  // null, not 0: an empty amount field is not a request to move R0.
+  const [disburseAmount, setDisburseAmount] = useState<number | null>(null)
   const [disburseReference, setDisburseReference] = useState('')
-  const [repaymentAmount, setRepaymentAmount] = useState(0)
+  const [repaymentAmount, setRepaymentAmount] = useState<number | null>(null)
   const [repaymentReference, setRepaymentReference] = useState('')
 
   // One instance per form. They previously shared a single `formError`, so a
@@ -50,8 +52,8 @@ export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
   // server remains the control — this only saves a round trip. The key must be
   // `amount`, matching the DTO property, so a client rejection and a server
   // rejection land on the same input.
-  function validateAmount(amount: number, outstanding?: number): FieldErrorMap {
-    if (!Number.isFinite(amount) || amount <= 0) {
+  function validateAmount(amount: number | null, outstanding?: number): FieldErrorMap {
+    if (amount === null || !Number.isFinite(amount) || amount <= 0) {
       return { amount: 'Enter an amount greater than zero.' }
     }
     if (outstanding !== undefined && amount > outstanding) {
@@ -62,7 +64,7 @@ export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
 
   async function onDisburse() {
     const result = await disburseForm.submit(
-      () => loansUseCases.disburseLoan(loanId!, disburseAmount, disburseReference),
+      () => loansUseCases.disburseLoan(loanId!, disburseAmount!, disburseReference),
       { validate: () => validateAmount(disburseAmount) }
     )
     if (result !== undefined) {
@@ -72,7 +74,7 @@ export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
 
   async function onRecordRepayment() {
     const result = await repaymentForm.submit(
-      () => loansUseCases.recordRepayment(loanId!, repaymentAmount, repaymentReference),
+      () => loansUseCases.recordRepayment(loanId!, repaymentAmount!, repaymentReference),
       { validate: () => validateAmount(repaymentAmount, loanQuery.data?.outstandingPrincipal) }
     )
     if (result !== undefined) {
@@ -129,14 +131,14 @@ export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
               <h2>Disburse Loan</h2>
               <div className="field-block">
                 <label htmlFor={fieldDomId('amount', 'disburse')}>Amount</label>
-                <input
-                  id={fieldDomId('amount', 'disburse')}
-                  {...fieldErrorAttrs('amount', disburseForm.fieldErrors.amount, 'disburse')}
-                  type="number"
-                  inputMode="decimal"
+                <NumericInput
+                  field="amount"
+                  idPrefix="disburse"
+                  mode="currency"
                   min={0}
                   value={disburseAmount}
-                  onChange={(e) => { setDisburseAmount(Number(e.target.value)); disburseForm.clearField('amount') }}
+                  error={disburseForm.fieldErrors.amount}
+                  onChange={(next) => { setDisburseAmount(next); disburseForm.clearField('amount') }}
                 />
                 <FieldError field="amount" idPrefix="disburse" message={disburseForm.fieldErrors.amount} />
               </div>
@@ -163,14 +165,14 @@ export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
               <h2>Record Repayment</h2>
               <div className="field-block">
                 <label htmlFor={fieldDomId('amount', 'repayment')}>Amount</label>
-                <input
-                  id={fieldDomId('amount', 'repayment')}
-                  {...fieldErrorAttrs('amount', repaymentForm.fieldErrors.amount, 'repayment')}
-                  type="number"
-                  inputMode="decimal"
+                <NumericInput
+                  field="amount"
+                  idPrefix="repayment"
+                  mode="currency"
                   min={0}
                   value={repaymentAmount}
-                  onChange={(e) => { setRepaymentAmount(Number(e.target.value)); repaymentForm.clearField('amount') }}
+                  error={repaymentForm.fieldErrors.amount}
+                  onChange={(next) => { setRepaymentAmount(next); repaymentForm.clearField('amount') }}
                 />
                 <FieldError field="amount" idPrefix="repayment" message={repaymentForm.fieldErrors.amount} />
               </div>

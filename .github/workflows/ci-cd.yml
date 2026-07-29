@@ -233,6 +233,13 @@ jobs:
       - name: Test form error routing
         run: node packages/ui-kit/test-form-errors.mjs
 
+      # Numeric input parsing (docs/validation-spec.md §D). Guards the failure
+      # that made this component necessary: type="number" reports '' for content
+      # it dislikes, and Number('') is 0 — a silent, plausible wrong figure on a
+      # loan amount rather than a visible error.
+      - name: Test numeric input parsing
+        run: node packages/ui-kit/test-numeric-input.mjs
+
       - name: Install admin UI
         run: npm ci
         working-directory: admin-ui

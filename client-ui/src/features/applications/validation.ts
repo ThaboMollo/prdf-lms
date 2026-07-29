@@ -34,8 +34,12 @@ export const step1Schema = z.object({
   isHdp: z.boolean(),
   isRural: z.boolean(),
   isBlackWomenOwned: z.boolean(),
-  saCitizenshipPercentage: z.coerce
-    .number()
+  // z.number, NOT z.coerce.number. NumericInput emits `number | null`, and
+  // coerce turns null into 0 — which would record "0% SA ownership" for a field
+  // the user simply never filled in. That is BEE data the DFI reports on, so a
+  // silent zero is worse than a rejection.
+  saCitizenshipPercentage: z
+    .number({ message: 'Enter the percentage of SA ownership' })
     .min(LIMITS.saCitizenshipPercentage.min)
     .max(LIMITS.saCitizenshipPercentage.max, 'Cannot exceed 100%'),
   isDirectorOperational: z.boolean(),
@@ -45,13 +49,17 @@ export const step1Schema = z.object({
 })
 
 export const step2Schema = z.object({
-  monthlyRevenue: z.coerce.number().positive('Monthly revenue must be greater than 0'),
-  yearsInOperation: z.coerce
-    .number()
+  monthlyRevenue: z
+    .number({ message: 'Enter your average monthly revenue' })
+    .positive('Monthly revenue must be greater than 0'),
+  // The one that most needs z.number: its minimum is 0, so a coerced null would
+  // pass validation as "0 years in operation" rather than being caught.
+  yearsInOperation: z
+    .number({ message: 'Enter how long the business has operated' })
     .min(LIMITS.yearsInOperation.min, 'Cannot be negative')
     .max(LIMITS.yearsInOperation.max),
-  numberOfEmployees: z.coerce
-    .number()
+  numberOfEmployees: z
+    .number({ message: 'Enter the number of employees' })
     .int()
     .min(LIMITS.numberOfEmployees.min, 'Must have at least 1 employee'),
   bankName: z.string().trim().min(LIMITS.bankName.minLength, 'Bank name is required'),
@@ -69,12 +77,12 @@ export function createStep3Schema(limits: {
   maxTermMonths: number
 }) {
   return z.object({
-    requestedAmount: z.coerce
-      .number()
+    requestedAmount: z
+      .number({ message: 'Enter how much you want to borrow' })
       .min(limits.minAmount, `Minimum loan amount is R${limits.minAmount.toLocaleString('en-ZA')}`)
       .max(limits.maxAmount, `Maximum loan amount is R${limits.maxAmount.toLocaleString('en-ZA')}`),
-    termMonths: z.coerce
-      .number()
+    termMonths: z
+      .number({ message: 'Enter a repayment term' })
       .int()
       .min(limits.minTermMonths, `Minimum ${limits.minTermMonths} month${limits.minTermMonths === 1 ? '' : 's'}`)
       .max(limits.maxTermMonths, `Maximum ${limits.maxTermMonths} months`),
