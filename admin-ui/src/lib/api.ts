@@ -18,7 +18,6 @@ export type AdminAccessListItem = {
   email: string | null
   roles: string[]
   isAdmin: boolean
-  isSuperAdmin: boolean
   isInternal: boolean
   canGrant: boolean
   canRevoke: boolean
@@ -32,7 +31,7 @@ export type AdminAccessMutationResult = {
   isAdmin: boolean
 }
 
-export type AssignableRole = 'Client' | 'Intern' | 'Originator' | 'LoanOfficer' | 'Admin' | 'SuperAdmin'
+export type AssignableRole = 'Client' | 'Intern' | 'Originator' | 'LoanOfficer' | 'Admin'
 
 export type ApplicationSummary = {
   id: string

@@ -2,7 +2,9 @@
 
 export type AppRole = (typeof APP_ROLES)[number]
 
-const rolePriority: AppRole[] = ['SuperAdmin', 'Admin', 'LoanOfficer', 'Originator', 'Intern', 'Client']
+// SuperAdmin is an internal authorization capability, not a user-facing app
+// role. Its inherited Admin role is what the UI should present.
+const rolePriority: AppRole[] = ['Admin', 'LoanOfficer', 'Originator', 'Intern', 'Client']
 
 export function normalizeRole(value: string): AppRole | null {
   const clean = value.trim().toLowerCase()

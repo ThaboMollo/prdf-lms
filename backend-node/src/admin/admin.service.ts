@@ -5,14 +5,10 @@ import { currentTenant } from '../tenancy/request-context';
 import axios from 'axios';
 import { PoolClient } from 'pg';
 
-const KNOWN_ROLES = ['SuperAdmin', 'Admin', 'LoanOfficer', 'Intern', 'Originator', 'Client'];
-// Mirrors the old admin_access_assign_role/admin_access_remove_role RPCs
-// (infra/supabase/migrations/20260723180000_baseline.sql:486-680) exactly:
-// "granted/revoked by a SuperAdmin; everything else requires Admin or
-// above. SuperAdmin implies Admin." These two get last-holder/self-revoke
-// protection and a stricter actor gate; the other four are managed as
-// casually as they always were.
-const ELEVATED_ROLES = ['SuperAdmin', 'Admin'];
+// SuperAdmin is deliberately absent: it is the out-of-band platform-owner
+// capability, not a role that can be granted or revoked through the app.
+const KNOWN_ROLES = ['Admin', 'LoanOfficer', 'Intern', 'Originator', 'Client'];
+const ELEVATED_ROLES = ['Admin'];
 const INTERNAL_ROLES = ['SuperAdmin', 'Admin', 'LoanOfficer', 'Originator', 'Intern'];
 
 @Injectable()
@@ -52,10 +48,12 @@ export class AdminService {
     const adminCount = rows.filter((r) => r.roles.includes('Admin')).length;
 
     return rows
+      // The platform-owner account and capability are outside user-managed
+      // access control and must not be exposed by this screen/API.
+      .filter((row) => !row.roles.includes('SuperAdmin'))
       .map((row) => ({
         row,
         isAdmin: row.roles.includes('Admin'),
-        isSuperAdmin: row.roles.includes('SuperAdmin'),
         isInternal: row.roles.some((r) => INTERNAL_ROLES.includes(r)),
       }))
       .filter(({ isAdmin, isInternal }) => {
@@ -65,7 +63,7 @@ export class AdminService {
         if (normalizedFilter === 'non-admins') return isInternal && !isAdmin;
         return true;
       })
-      .map(({ row, isAdmin, isSuperAdmin, isInternal }) => {
+      .map(({ row, isAdmin, isInternal }) => {
         const isSelf = row.userid === actor.userId;
         const isLastAdmin = isAdmin && adminCount <= 1;
 
@@ -75,7 +73,6 @@ export class AdminService {
           email: row.email,
           roles: row.roles,
           isAdmin,
-          isSuperAdmin,
           isInternal,
           canGrant: actorIsSuperAdmin && !isAdmin,
           canRevoke: actorIsSuperAdmin && isAdmin && !isSelf && !isLastAdmin,
@@ -128,12 +125,11 @@ export class AdminService {
 
     return this.db.withTransaction(async (client: PoolClient) => {
       const target = await this.loadTarget(client, targetUserId);
+      if (target.roles.includes('SuperAdmin')) {
+        throw new BadRequestException('The platform owner is not managed through user access.');
+      }
 
       await this.setRole(client, targetUserId, roleName);
-      // SuperAdmin implies Admin — granting SuperAdmin also grants Admin.
-      if (roleName === 'SuperAdmin') {
-        await this.setRole(client, targetUserId, 'Admin');
-      }
 
       const afterRoles = await this.currentRoles(client, targetUserId);
 
@@ -142,7 +138,7 @@ export class AdminService {
         [targetUserId, actor.userId, JSON.stringify({ role: roleName, targetEmail: target.email, priorRoles: target.roles, resultingRoles: afterRoles })],
       );
 
-      return { userId: targetUserId, roles: afterRoles, isAdmin: afterRoles.includes('Admin'), isSuperAdmin: afterRoles.includes('SuperAdmin') };
+      return { userId: targetUserId, roles: afterRoles, isAdmin: afterRoles.includes('Admin') };
     });
   }
 
@@ -159,13 +155,11 @@ export class AdminService {
 
     return this.db.withTransaction(async (client: PoolClient) => {
       const target = await this.loadTarget(client, targetUserId);
-      if (!target.roles.includes(roleName)) {
-        return { userId: targetUserId, roles: target.roles, isAdmin: target.roles.includes('Admin'), isSuperAdmin: target.roles.includes('SuperAdmin') };
+      if (target.roles.includes('SuperAdmin')) {
+        throw new BadRequestException('The platform owner is not managed through user access.');
       }
-
-      // SuperAdmin implies Admin — Admin can't be removed while SuperAdmin is still held.
-      if (roleName === 'Admin' && target.roles.includes('SuperAdmin')) {
-        throw new Error('Remove SuperAdmin before removing Admin.');
+      if (!target.roles.includes(roleName)) {
+        return { userId: targetUserId, roles: target.roles, isAdmin: target.roles.includes('Admin') };
       }
 
       if (ELEVATED_ROLES.includes(roleName)) {
@@ -188,7 +182,7 @@ export class AdminService {
         [targetUserId, actor.userId, JSON.stringify({ role: roleName, targetEmail: target.email, priorRoles: target.roles, resultingRoles: afterRoles })],
       );
 
-      return { userId: targetUserId, roles: afterRoles, isAdmin: afterRoles.includes('Admin'), isSuperAdmin: afterRoles.includes('SuperAdmin') };
+      return { userId: targetUserId, roles: afterRoles, isAdmin: afterRoles.includes('Admin') };
     });
   }
 

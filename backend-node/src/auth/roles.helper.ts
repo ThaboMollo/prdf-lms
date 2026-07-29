@@ -57,8 +57,8 @@ export async function fetchUserRoles(db: DatabaseService, userId: string): Promi
     [userId],
   );
   const roles = [...new Set(rows.map((r) => r.name))];
-  // Keep legacy SuperAdmin-only accounts functional. New assignments persist
-  // both roles, but authorization must still honour the inheritance rule.
+  // SuperAdmin is the hidden platform-owner capability. It inherits Admin at
+  // runtime without creating a user-manageable Admin assignment.
   if (hasRole(roles, 'SuperAdmin') && !hasRole(roles, 'Admin')) roles.push('Admin');
   return roles;
 }

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { CurrentUser, ensureInternal } from '../auth/roles.helper';
 
-const ASSIGNABLE_ROLE_NAMES = ['SuperAdmin', 'Admin', 'LoanOfficer', 'Originator', 'Intern'];
+const ASSIGNABLE_ROLE_NAMES = ['Admin', 'LoanOfficer', 'Originator', 'Intern'];
 
 @Injectable()
 export class UsersService {

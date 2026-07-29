@@ -32,9 +32,9 @@ type PendingAction =
   // challenge screen without a SuperAdmin clearing their factors here.
   | { type: 'reset-mfa'; user: AdminAccessListItem }
 
-const ALL_ROLES: AssignableRole[] = ['Client', 'Intern', 'Originator', 'LoanOfficer', 'Admin', 'SuperAdmin']
-const ELEVATED_ROLES: AssignableRole[] = ['Admin', 'SuperAdmin']
-const ROLE_OPTIONS = ['SuperAdmin', 'Admin', 'LoanOfficer', 'Originator', 'Intern', 'Client'] as const
+const ALL_ROLES: AssignableRole[] = ['Client', 'Intern', 'Originator', 'LoanOfficer', 'Admin']
+const ELEVATED_ROLES: AssignableRole[] = ['Admin']
+const ROLE_OPTIONS = ['Admin', 'LoanOfficer', 'Originator', 'Intern', 'Client'] as const
 const PAGE_SIZE = 10
 
 export function UserAccessPage({ session, me }: UserAccessPageProps) {
@@ -98,7 +98,6 @@ export function UserAccessPage({ session, me }: UserAccessPageProps) {
     return {
       visibleUsers: items.length,
       admins: items.filter((item) => item.isAdmin).length,
-      superAdmins: items.filter((item) => item.isSuperAdmin).length
     }
   }, [accessQuery.data])
 
@@ -130,12 +129,12 @@ export function UserAccessPage({ session, me }: UserAccessPageProps) {
         title="User Access"
         subtitle={
           isSuperAdmin
-            ? 'Assign or remove any role, including Admin and SuperAdmin, for any registered user.'
+            ? 'Manage application roles for registered users. Platform ownership is managed outside the app.'
             : 'Assign or remove standard internal roles. Only a SuperAdmin can manage Admin access.'
         }
       />
 
-      <div className="grid-three">
+      <div className="grid-two">
         <article className="kpi-card">
           <p className="kpi-label">Visible Users</p>
           <p className="kpi-value">{summary.visibleUsers}</p>
@@ -143,10 +142,6 @@ export function UserAccessPage({ session, me }: UserAccessPageProps) {
         <article className="kpi-card">
           <p className="kpi-label">Admins</p>
           <p className="kpi-value">{summary.admins}</p>
-        </article>
-        <article className="kpi-card">
-          <p className="kpi-label">Super Admins</p>
-          <p className="kpi-value">{summary.superAdmins}</p>
         </article>
       </div>
 
