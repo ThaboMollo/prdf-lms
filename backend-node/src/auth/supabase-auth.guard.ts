@@ -5,30 +5,27 @@ import {
   UnauthorizedException,
   Logger,
 } from '@nestjs/common';
-import type { createRemoteJWKSet, JWTPayload } from 'jose';
+import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 import { DatabaseService } from '../database/database.service';
 import { CurrentUser, fetchUserRoles, ensureMfaSatisfied } from './roles.helper';
 
-// jose v6 ships ESM-only (no "require" export condition) — a static
-// `import ... from 'jose'` compiles to `require('jose')` under this
-// project's CommonJS output and throws ERR_REQUIRE_ESM in Vercel's function
-// runtime (it worked locally only because that Node build happens to support
-// synchronous require(esm)). A literal `await import('jose')` doesn't fix
-// this either — tsc downlevels dynamic import() to a require() wrapped in
-// Promise.resolve() when the target module is CommonJS, hitting the same
-// error. Routing through `new Function` hides the import() from tsc's
-// static transform entirely, so the emitted code calls Node's real
-// asynchronous ESM loader instead.
-const dynamicImport = new Function('specifier', 'return import(specifier)') as (
-  specifier: string,
-) => Promise<typeof import('jose')>;
-
-let joseModule: typeof import('jose') | null = null;
-
-async function getJose(): Promise<typeof import('jose')> {
-  if (!joseModule) joseModule = await dynamicImport('jose');
-  return joseModule;
-}
+// jose is pinned to v4 deliberately. v4 publishes a "require" export
+// condition (real CommonJS); v5+ is ESM-only.
+//
+// The previous approach imported jose v6 through
+// `new Function('specifier', 'return import(specifier)')` to stop tsc
+// downlevelling the dynamic import() into a require() and throwing
+// ERR_REQUIRE_ESM. It worked locally — and broke production completely.
+// Vercel's file tracer (@vercel/nft) decides what to include in the lambda by
+// statically scanning for require()/import(). Hiding the import from tsc also
+// hid it from nft, so jose was never deployed. Every authenticated request
+// then failed inside the guard with "Cannot find package 'jose'", which the
+// catch below reported as "Invalid or expired token" — a misleading 401 that
+// looked like an auth problem for days.
+//
+// A plain static import on a CJS-capable version avoids both traps: tsc emits
+// require('jose'), Node loads it synchronously, and nft sees the reference and
+// bundles it.
 
 // Module-scope, not per-guard-instance or per-request: jose fetches the JWKS
 // once and caches/auto-refreshes it internally. Constructing this inside the
@@ -38,11 +35,10 @@ async function getJose(): Promise<typeof import('jose')> {
 // request.
 let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
 
-async function getJwks(): Promise<ReturnType<typeof createRemoteJWKSet>> {
+function getJwks(): ReturnType<typeof createRemoteJWKSet> {
   if (jwks) return jwks;
   const url = process.env.SUPABASE_URL;
   if (!url) throw new Error('SUPABASE_URL is required');
-  const { createRemoteJWKSet } = await getJose();
   jwks = createRemoteJWKSet(new URL(`${url.replace(/\/$/, '')}/auth/v1/.well-known/jwks.json`));
   return jwks;
 }
@@ -65,8 +61,7 @@ export class SupabaseAuthGuard implements CanActivate {
     let payload: JWTPayload;
     try {
       const audience = process.env.SUPABASE_JWT_AUDIENCE || 'authenticated';
-      const { jwtVerify } = await getJose();
-      const result = await jwtVerify(token, await getJwks(), { audience });
+      const result = await jwtVerify(token, getJwks(), { audience });
       payload = result.payload;
     } catch (err) {
       this.logger.warn(`JWT verification failed: ${err instanceof Error ? err.message : err}`);
