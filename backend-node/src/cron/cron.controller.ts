@@ -1,6 +1,12 @@
-import { All, Controller, HttpCode, Logger, UseGuards } from '@nestjs/common';
+import { All, Controller, HttpCode, HttpException, HttpStatus, Logger, UseGuards } from '@nestjs/common';
 import { CronSecretGuard } from '../auth/cron-secret.guard';
 import { NotificationsService } from '../notifications/notifications.service';
+import { TenantRegistryService } from '../tenancy/tenant-registry.service';
+import { runForTenant } from '../tenancy/request-context';
+
+type TenantSweepResult =
+  | { slug: string; ok: true; created: { arrears: number; tasks: number; staleApplications: number } }
+  | { slug: string; ok: false; error: string };
 
 // Accepts any HTTP method via @All(): Vercel's own documentation is
 // inconsistent about which method Cron actually sends (historically GET,
@@ -14,14 +20,82 @@ import { NotificationsService } from '../notifications/notifications.service';
 export class CronController {
   private readonly logger = new Logger(CronController.name);
 
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(
+    private readonly notificationsService: NotificationsService,
+    private readonly registry: TenantRegistryService,
+  ) {}
 
+  /**
+   * Runs the reminder sweep for every tenant (docs/multi-tenant-spec.md §W5).
+   *
+   * This route is excluded from TenantResolverMiddleware — it belongs to no
+   * single tenant, so it establishes context explicitly per tenant via
+   * runForTenant().
+   *
+   * Two properties it must have, both learned the hard way:
+   *
+   *   Per-tenant isolation. One tenant's database being unreachable must not
+   *   stop the others being swept, so each is wrapped separately.
+   *
+   *   No silent success. It reports what it actually created per tenant and
+   *   returns non-2xx if ANY tenant failed. Returning 200 with the failure
+   *   buried in the body is precisely how this endpoint sat green for months
+   *   while never reaching the API at all — a scheduled job that cannot fail
+   *   visibly is not a scheduled job.
+   */
   @All('notification-sweep')
   @HttpCode(200)
   async notificationSweep() {
-    this.logger.log('Running notification sweep...');
-    await this.notificationsService.runReminderScans();
+    const tenants = this.registry.all();
+    this.logger.log(`Running notification sweep across ${tenants.length} tenant(s)...`);
+
+    const results: TenantSweepResult[] = [];
+
+    for (const tenant of tenants) {
+      try {
+        const created = await runForTenant(tenant, () => this.notificationsService.runReminderScans());
+        results.push({ slug: tenant.slug, ok: true, created });
+        this.logger.log(
+          `[${tenant.slug}] swept: ${created.arrears} arrears, ${created.tasks} task, ` +
+            `${created.staleApplications} stale-application notification(s) created`,
+        );
+      } catch (err) {
+        const error = err instanceof Error ? err.message : String(err);
+        results.push({ slug: tenant.slug, ok: false, error });
+        // Logged at error level so it reaches Sentry/Vercel logs even though
+        // the loop deliberately continues.
+        this.logger.error(`[${tenant.slug}] sweep FAILED: ${error}`);
+      }
+    }
+
+    const failed = results.filter((r) => !r.ok);
+    const totals = results.reduce(
+      (acc, r) =>
+        r.ok
+          ? {
+              arrears: acc.arrears + r.created.arrears,
+              tasks: acc.tasks + r.created.tasks,
+              staleApplications: acc.staleApplications + r.created.staleApplications,
+            }
+          : acc,
+      { arrears: 0, tasks: 0, staleApplications: 0 },
+    );
+
+    const body = {
+      ok: failed.length === 0,
+      tenants: results,
+      totals,
+      sweptAt: new Date().toISOString(),
+    };
+
+    if (failed.length > 0) {
+      this.logger.error(`Notification sweep completed with ${failed.length} failed tenant(s).`);
+      // Non-2xx on purpose: the scheduled caller asserts a 200, so a partial
+      // failure must fail the job rather than hide inside a 200 body.
+      throw new HttpException(body, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
     this.logger.log('Notification sweep complete.');
-    return { ok: true };
+    return body;
   }
 }

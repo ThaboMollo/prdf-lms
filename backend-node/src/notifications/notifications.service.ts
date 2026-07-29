@@ -25,8 +25,16 @@ export class NotificationsService {
     );
   }
 
-  async runReminderScans() {
-    await this.db.execute(`
+  /**
+   * Returns how many notifications each scan actually created.
+   *
+   * Previously returned nothing, so "the sweep ran" and "the sweep did
+   * something" were indistinguishable — which is exactly how this endpoint
+   * sat green for months while never reaching the API at all (see the X1
+   * incident). Counts make the difference observable.
+   */
+  async runReminderScans(): Promise<{ arrears: number; tasks: number; staleApplications: number }> {
+    const arrears = await this.db.execute(`
       insert into public.notifications (id, user_id, channel, type, title, message, status, payload, created_at, sent_at)
       select gen_random_uuid(), c.user_id, 'InApp', 'ArrearsReminder', 'Repayment overdue',
              'Your repayment is overdue. Please make payment as soon as possible.',
@@ -42,7 +50,7 @@ export class NotificationsService {
             and (n.payload->>'loanId')::uuid=l.id and n.created_at::date=current_date
         )`);
 
-    await this.db.execute(`
+    const tasks = await this.db.execute(`
       insert into public.notifications (id, user_id, channel, type, title, message, status, payload, created_at, sent_at)
       select gen_random_uuid(), t.assigned_to, 'InApp', 'TaskReminder', 'Task reminder',
              'You have an open task due soon.',
@@ -55,7 +63,7 @@ export class NotificationsService {
             and (n.payload->>'taskId')::uuid=t.id and n.created_at::date=current_date
         )`);
 
-    await this.db.execute(`
+    const staleApplications = await this.db.execute(`
       insert into public.notifications (id, user_id, channel, type, title, message, status, payload, created_at, sent_at)
       select gen_random_uuid(), coalesce(la.assigned_to_user_id, c.user_id), 'InApp', 'StaleApplicationFollowUp',
              'Application follow-up', 'This application has been pending follow-up for over 7 days.',
@@ -71,5 +79,7 @@ export class NotificationsService {
             and (n.payload->>'applicationId')::uuid=la.id
             and n.created_at::date=current_date
         )`);
+
+    return { arrears, tasks, staleApplications };
   }
 }

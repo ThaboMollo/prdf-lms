@@ -142,6 +142,7 @@ async function main() {
       TENANT_B_SERVICE_ROLE_KEY: 'service-key-b',
       TENANT_B_DB_URL: DB_B,
       TENANT_B_DOMAINS: 'b.localhost',
+      CRON_SECRET: 'test-cron-secret',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -238,6 +239,68 @@ async function main() {
     // A request the registry cannot place must fail, never fall back.
     const res = await call('/api/loan-products/active', { headers: { Host: 'unroutable.example' } });
     check('an unroutable request is refused', res.status === 404 || res.status >= 400, `got ${res.status}`);
+  }
+
+  console.log('');
+  console.log('--- cron sweep spans every tenant, with per-tenant isolation ---');
+  {
+    const res = await call('/internal/cron/notification-sweep', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer test-cron-secret' },
+    });
+    const body = await res.json();
+    check('sweep succeeds with all tenants healthy', res.status === 200, `got ${res.status}`);
+    check('sweep reports every tenant', (body?.tenants ?? []).length === 2, `got ${(body?.tenants ?? []).length}`);
+    check('sweep reports per-tenant counts, not just ok', body?.tenants?.every((t) => t.created), '');
+    check('sweep is rejected without the cron secret', (await call('/internal/cron/notification-sweep', { method: 'POST' })).status === 401);
+  }
+
+  console.log('');
+  console.log('--- one tenant failing must not abort the others ---');
+  {
+    // A second instance where tenant B's database does not exist. Tenant A
+    // must still be swept, and the overall response must be non-2xx so the
+    // scheduled caller fails loudly rather than reporting a green 200.
+    const brokenPort = 3197;
+    const broken = spawn('node', ['dist/main.js'], {
+      cwd: new URL('..', import.meta.url).pathname,
+      env: {
+        ...process.env,
+        PORT: String(brokenPort),
+        DATABASE_SSL: 'false',
+        CRON_SECRET: 'test-cron-secret',
+        TENANTS: 'a,b',
+        TENANT_A_ISSUER: ISSUER_A,
+        TENANT_A_SUPABASE_URL: `http://localhost:${PORT_A}`,
+        TENANT_A_SERVICE_ROLE_KEY: 'k',
+        TENANT_A_DB_URL: DB_A,
+        TENANT_A_DOMAINS: 'a.localhost',
+        TENANT_B_ISSUER: ISSUER_B,
+        TENANT_B_SUPABASE_URL: `http://localhost:${PORT_B}`,
+        TENANT_B_SERVICE_ROLE_KEY: 'k',
+        TENANT_B_DB_URL: 'postgresql://prdf_test_owner:prdf_owner_pw@localhost:5432/does_not_exist',
+        TENANT_B_DOMAINS: 'b.localhost',
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    cleanup.push(async () => broken.kill());
+    for (let i = 0; i < 50; i++) {
+      try { if ((await fetch(`http://localhost:${brokenPort}/health`)).ok) break; } catch {}
+      await new Promise((r) => setTimeout(r, 200));
+    }
+
+    const res = await fetch(`http://localhost:${brokenPort}/internal/cron/notification-sweep`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer test-cron-secret' },
+    });
+    const body = await res.json();
+    const tenants = body?.tenants ?? body?.message?.tenants ?? [];
+    const a = tenants.find((t) => t.slug === 'a');
+    const b = tenants.find((t) => t.slug === 'b');
+
+    check('a broken tenant does not abort the healthy one', a?.ok === true, `tenant a: ${JSON.stringify(a)}`);
+    check('the broken tenant is reported as failed', b?.ok === false, `tenant b: ${JSON.stringify(b)}`);
+    check('a partial failure returns non-2xx, not a green 200', res.status >= 500, `got ${res.status}`);
   }
 
   console.log('');
