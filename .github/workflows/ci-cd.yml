@@ -145,5 +145,21 @@ jobs:
               fail=1
             fi
           done
-          [ "$fail" -eq 0 ] && echo "Single React copy confirmed in both bundles."
+
+          # Every bare specifier imported by a source-consumed package must be
+          # in each app's vite `dedupe` list — those packages have no
+          # node_modules of their own, so Vite has nothing to resolve against
+          # otherwise. A missing entry either fails the build outright
+          # ("Could not resolve X imported by ui-kit") or, if it happens to
+          # resolve elsewhere, silently duplicates a singleton.
+          imports=$(grep -rhoE "from '[^.'][^']*'" packages/ui-kit packages/client-core packages/domain packages/tenant-config --include='*.ts' --include='*.tsx' 2>/dev/null | sed "s/from '//;s/'//" | sort -u)
+          for app in client-ui admin-ui; do
+            for imp in $imports; do
+              if ! grep -q "'$imp'" $app/vite.config.ts; then
+                echo "$app/vite.config.ts is missing '$imp' from resolve.dedupe (imported by packages/*)"
+                fail=1
+              fi
+            done
+          done
+          [ "$fail" -eq 0 ] && echo "dedupe list covers all package imports."
           exit $fail

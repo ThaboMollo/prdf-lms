@@ -16,7 +16,26 @@ export default defineConfig({
     // while still building cleanly. Their peers are now marked optional so
     // npm stops doing that; this is the backstop so it cannot come back
     // silently.
-    dedupe: ['react', 'react-dom', 'react-router-dom', '@tanstack/react-query'],
+    // Must list EVERY bare specifier imported by packages/* that are consumed
+    // as source (ui-kit, client-core, domain, tenant-config). Those packages
+    // deliberately have no node_modules of their own — installing deps there is
+    // what produced a duplicate React — so Vite has nothing to resolve against
+    // when walking up from their directory. `dedupe` forces resolution from
+    // this app's root, which fixes resolution AND guarantees a single copy.
+    //
+    // Omitting one is not a subtle bug: the build fails outright with
+    // "Could not resolve <pkg> imported by ui-kit". Keep in sync with:
+    //   grep -rhoE "from '[^.'][^']*'" packages/ui-kit packages/client-core \
+    //     packages/domain packages/tenant-config --include='*.ts*' | sort -u
+    dedupe: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      '@tanstack/react-query',
+      '@sentry/react',
+      '@supabase/supabase-js',
+      'zod',
+    ],
   },
   server: {
     fs: {
