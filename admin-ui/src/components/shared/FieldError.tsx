@@ -1,4 +1,4 @@
-// Shared with admin-ui — see packages/ui-kit/components/FieldError.tsx
+// Shared with client-ui — see packages/ui-kit/components/FieldError.tsx
 export {
   FieldError,
   fieldErrorId,

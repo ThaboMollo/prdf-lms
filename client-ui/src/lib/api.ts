@@ -1,7 +1,13 @@
 import { env } from './config/env'
+import { parseApiResponse, ApiError } from '../../../packages/domain/api-error'
 import type { LoanApplicationStatus } from '../../../packages/domain/status'
 
 export type { LoanApplicationStatus }
+
+// Re-exported so pages can narrow with `catch (e) { if (e instanceof ApiError) }`
+// without reaching across into packages/domain themselves.
+export { ApiError }
+export type { FieldError } from '../../../packages/domain/api-error'
 
 export type MeResponse = {
   userId: string
@@ -217,23 +223,10 @@ function authHeaders(accessToken: string): HeadersInit {
   }
 }
 
-async function parseResponse<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    let details = ''
-    try {
-      details = await response.text()
-    } catch {
-      details = ''
-    }
-    throw new Error(`API ${response.status}: ${details || response.statusText}`)
-  }
-
-  if (response.status === 204) {
-    return undefined as T
-  }
-
-  return response.json() as Promise<T>
-}
+// Shared with the other app — see packages/domain/api-error.ts. Preserves the
+// server's field-level `errors` instead of stringifying the body, which is what
+// lets a form show a message against the input that caused it.
+const parseResponse = parseApiResponse
 
 export async function fetchMe(accessToken: string): Promise<MeResponse> {
   const response = await fetch(`${apiBaseUrl}/me`, {

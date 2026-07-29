@@ -83,13 +83,30 @@ This shape is additive — `statusCode`/`message`/`path` keep their current mean
 
 ## 3. Workstream A — Backend emits structured errors
 
-**A1. Custom `exceptionFactory` on `ValidationPipe`** (`create-app.ts`)
+**A1. Custom `exceptionFactory` on `ValidationPipe`** ✅ **DONE 2026-07-29**
+
+`backend-node/src/common/validation-errors.ts`, wired in `create-app.ts`. Emits the §2 contract; nested/array fields get dotted paths; only the first constraint per field is reported (one bad number can trip `isNumber`, `isPositive` and `min` at once, and three messages under one input is noise). `forbidNonWhitelisted` rejections are attributed to the offending property with code `unknown`. 6 assertions in the API integration suite verify the shape survives to the wire.
+
+Wire response now:
+
+```jsonc
+{ "statusCode": 400,
+  "message": "Please correct the highlighted fields.",
+  "errors": [
+    { "field": "requestedAmount", "message": "requestedAmount must be a positive number", "code": "min" },
+    { "field": "termMonths",      "message": "termMonths must not be less than 1",        "code": "min" }
+  ] }
+```
+
+<details><summary>Original plan</summary>
 
 Replace the default with one that walks `ValidationError[]`, recurses through `children` to build dotted paths, and throws a `BadRequestException` carrying the contract above. Take the first constraint per field to avoid a wall of messages for one input; keep the constraint key as `code`.
 
 Keep `whitelist: true` and `forbidNonWhitelisted: true`. Note that `forbidNonWhitelisted` produces `property X should not exist` errors — map those to `field: X, code: 'unknown'` rather than letting them surface as prose.
 
-**A2. Teach `AllExceptionsFilter` to pass `errors` through**
+</details>
+
+**A2. Teach `AllExceptionsFilter` to pass `errors` through** ✅ **DONE** (landed during multi-tenant step 6 — the cron sweep's per-tenant results were being flattened the same way)
 
 Currently the filter reads only `.message` off the response body. Read `.errors` as well and include it when present; default to `[]` otherwise, so the contract holds for every 4xx.
 
@@ -212,11 +229,35 @@ Build-passing is not evidence here; that lesson has been expensive on this proje
 
 Each step is independently shippable and leaves the app working.
 
-1. **A1 + A2** — backend emits `errors`; nothing consumes it yet. Zero user-visible change.
-2. **C1** — `ApiError` in `packages/domain`, both apps parse it. Still no visual change, but errors stop being stringified.
-3. **C2 + C3** — hook + `FieldError` in `ui-kit`; adopt on **one** form (Register — smallest) and verify end to end before spreading.
+1. ~~**A1 + A2** — backend emits `errors`; nothing consumes it yet. Zero user-visible change.~~ **Done.** `backend-node/src/common/validation-errors.ts`; 6 assertions in `test-api-integration.mjs`.
+2. ~~**C1** — `ApiError` in `packages/domain`, both apps parse it. Still no visual change, but errors stop being stringified.~~ **Done.** `packages/domain/api-error.ts`; 24 assertions in `packages/domain/test-api-error.mjs`, wired into CI.
+3. **C2 + C3** — hook + `FieldError` in `ui-kit`; adopt on **one** form (Register — smallest) and verify end to end before spreading. **C3 done** (see below); **C2 outstanding.**
 4. **A4 + B** — tighten DTOs against shared constraints. Do this *after* step 3, so newly-enforced rejections already have somewhere to display.
 5. **D** — `<NumericInput>`, rolled out per the §7 table.
 6. **A3** — typed domain errors, migrating services incrementally behind the deprecated fallback.
 
 Step 4 before step 3 is the ordering mistake to avoid: tightening server rules while the frontend still swallows the response means users get a generic failure with no indication of which field is wrong.
+
+### C3 as built
+
+`packages/ui-kit/components/FieldError.tsx` exports four things, re-exported through each app's `components/shared/FieldError.tsx` (the convention the other shared components already follow):
+
+| Export | Purpose |
+|---|---|
+| `FieldError` | The message. Now takes `field` so it can carry a stable id. |
+| `fieldErrorAttrs(field, message)` | Spread onto the input — emits `aria-invalid` + `aria-describedby`, nothing when valid. |
+| `focusFirstInvalidField(errors)` | Moves focus, resolving *document* order rather than object-key order. |
+| `fieldErrorId(field)` | The id both sides agree on. |
+
+**The convention this rests on:** an input's `id` === its error key === the DTO property the backend reports in `errors[].field`. One name end to end is what lets a server rejection reach the right input without a lookup table.
+
+Adopted so far:
+
+- **ApplyPage** — all 13 fields wired with aria attributes; focus moves to the first invalid field on each of the three step validations; server `errors` from submit are listed on the review step (those inputs aren't mounted there, so they can't be highlighted in place).
+- **RegisterPage** — full client-side validation with per-field messages, SA mobile-number pattern, errors clearing on edit, and Supabase Auth errors attributed to a field where the prose allows it. This is the one place matching on English is unavoidable: `supabase.auth.signUp` is not our API and returns no structured `errors`. Unmatched messages fall back to the banner rather than being guessed onto a field.
+
+Also added: `input[aria-invalid='true']` alongside `:user-invalid` in both apps' CSS. `:user-invalid` only covers constraints the *browser* can check, so without it a server-rejected field showed its message while still looking valid.
+
+Still to adopt: the admin-ui forms in §7, `LoginPage` (both apps), `AddressFields`.
+
+**One structural gotcha, if you extend this to forms built like RegisterPage was.** A `<label>` that *wraps* its input must not also contain the `FieldError`. Per the accessible-name spec, a label's contents (other than the wrapped control) become part of the input's accessible name — so a nested error both renames the field and gets announced twice, once as the name and once via `aria-describedby`. RegisterPage was restructured to `.field-block > (label.form-field + FieldError)` for this reason. ApplyPage was already safe, using a `div.form-field` with a sibling `<label htmlFor>`.

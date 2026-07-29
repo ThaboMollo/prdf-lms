@@ -230,9 +230,16 @@ summary:focus-visible {
 /* ----------------------------------------------------------------
    Phase 3B: Validation States (:user-invalid)
    ---------------------------------------------------------------- */
+/* [aria-invalid] is set by fieldErrorAttrs() for errors the *server* reported.
+   :user-invalid only covers constraints the browser can check itself, so
+   without this a rejected submit would show the message but leave the input
+   styled as valid. */
 input:user-invalid,
 select:user-invalid,
-textarea:user-invalid {
+textarea:user-invalid,
+input[aria-invalid='true'],
+select[aria-invalid='true'],
+textarea[aria-invalid='true'] {
   border-color: var(--danger);
   box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.12);
 }
@@ -2088,6 +2095,17 @@ input[type="range"]::-moz-range-thumb {
   font-family: var(--font-caption);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+/* Wraps a .form-field and its .field-error as one unit.
+   The error has to sit OUTSIDE the <label>: per the accessible-name spec a
+   label's contents (other than the control it wraps) become part of the
+   input's name, so an error nested inside would both rename the field and get
+   announced a second time via aria-describedby. */
+.field-block {
+  display: grid;
+  gap: 0.3rem;
+  align-content: start;
 }
 
 .field-error {

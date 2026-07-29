@@ -2,13 +2,14 @@ import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Session } from '@supabase/supabase-js'
-import type { ApplicationDocument, CreateApplicationInput, MeResponse } from '../lib/api'
+import type { ApplicationDocument, CreateApplicationInput, MeResponse, FieldError as FieldErrorItem } from '../lib/api'
+import { ApiError } from '../lib/api'
 import { useCalculator } from '../contexts/CalculatorContext'
 import { useToast } from '../components/shared/ToastProvider'
 import { CardSkeleton } from '../components/shared/Skeletons'
 import { WizardProgress } from '../components/shared/WizardProgress'
 import { FileDropzone } from '../components/shared/FileDropzone'
-import { FieldError } from '../components/shared/FieldError'
+import { FieldError, fieldErrorAttrs, focusFirstInvalidField } from '../components/shared/FieldError'
 import { LoanCalculator } from '../components/shared/LoanCalculator'
 import { AddressFields, type AddressValue } from '../components/shared/AddressFields'
 import { WizardCostCard } from '../components/shared/WizardCostCard'
@@ -183,6 +184,7 @@ export function ApplyPage({ session }: ApplyPageProps) {
 
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [submitFieldErrors, setSubmitFieldErrors] = useState<FieldErrorItem[]>([])
   const [consentOpen, setConsentOpen] = useState(false)
 
   // ---- Draft persistence (save & resume) ----
@@ -480,6 +482,11 @@ export function ApplyPage({ session }: ApplyPageProps) {
 
       navigate('/status')
     } catch (err) {
+      // The server may have rejected specific fields. Those inputs live on
+      // steps 1-3 and aren't mounted here on the review step, so they can't be
+      // highlighted in place — list them instead, rather than collapsing a
+      // precise "monthlyRevenue must be a number" into a generic banner.
+      setSubmitFieldErrors(err instanceof ApiError ? err.errors : [])
       setSubmitError(err instanceof Error ? err.message : 'Submission failed. Please try again.')
       setSubmitting(false)
       setConsentOpen(false)
@@ -589,6 +596,7 @@ export function ApplyPage({ session }: ApplyPageProps) {
               loanProduct={loanProduct}
               submitting={submitting}
               submitError={submitError}
+              submitFieldErrors={submitFieldErrors}
               onBack={() => dispatch({ type: 'PREV' })}
               onOpenConsent={() => {
                 setSubmitError(null)
@@ -718,6 +726,9 @@ function Step1({
         fieldErrors[key] = issue.message
       }
       setErrors(fieldErrors)
+      // Without this a rejected "Continue" leaves the screen unchanged and the
+      // offending field may be scrolled off above — the user sees nothing happen.
+      focusFirstInvalidField(fieldErrors)
       return
     }
     setErrors({})
@@ -740,20 +751,20 @@ function Step1({
           <div className="form-field">
             <label htmlFor="businessName">Business name</label>
             <input
-              id="businessName"
+              id="businessName" {...fieldErrorAttrs('businessName', errors.businessName)}
               value={form.businessName}
               onChange={set('businessName')}
               placeholder="Acme Enterprises (Pty) Ltd"
             />
-            <FieldError message={errors.businessName} />
+            <FieldError field="businessName" message={errors.businessName} />
           </div>
           <div className="form-field">
             <label htmlFor="industry">Industry</label>
-            <select id="industry" value={form.industry} onChange={set('industry')}>
+            <select id="industry" {...fieldErrorAttrs('industry', errors.industry)} value={form.industry} onChange={set('industry')}>
               <option value="">Select your industry…</option>
               {INDUSTRIES.map((i) => <option key={i} value={i}>{i}</option>)}
             </select>
-            <FieldError message={errors.industry} />
+            <FieldError field="industry" message={errors.industry} />
           </div>
         </div>
 
@@ -774,27 +785,27 @@ function Step1({
             <div className="form-two-col">
               <div className="form-field">
                 <label htmlFor="gender">Primary Director Gender</label>
-                <select id="gender" value={form.gender} onChange={set('gender')}>
+                <select id="gender" {...fieldErrorAttrs('gender', errors.gender)} value={form.gender} onChange={set('gender')}>
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
                   <option value="Prefer not to say">Prefer not to say</option>
                 </select>
-                <FieldError message={errors.gender} />
+                <FieldError field="gender" message={errors.gender} />
               </div>
               <div className="form-field">
                 <label htmlFor="saCitizenshipPercentage">% SA National Ownership</label>
-                <input type="number" min="0" max="100" id="saCitizenshipPercentage" value={form.saCitizenshipPercentage} onChange={set('saCitizenshipPercentage')} placeholder="100" />
-                <FieldError message={errors.saCitizenshipPercentage} />
+                <input type="number" min="0" max="100" id="saCitizenshipPercentage" {...fieldErrorAttrs('saCitizenshipPercentage', errors.saCitizenshipPercentage)} value={form.saCitizenshipPercentage} onChange={set('saCitizenshipPercentage')} placeholder="100" />
+                <FieldError field="saCitizenshipPercentage" message={errors.saCitizenshipPercentage} />
               </div>
               <div className="form-field">
                 <label htmlFor="spatialType">Where does the business operate?</label>
-                <select id="spatialType" value={form.spatialType} onChange={set('spatialType')}>
+                <select id="spatialType" {...fieldErrorAttrs('spatialType', errors.spatialType)} value={form.spatialType} onChange={set('spatialType')}>
                   <option value="">Select location type…</option>
                   <option value="Rural">Rural</option>
                   <option value="Township">Township</option>
                   <option value="City">City / Urban</option>
                 </select>
-                <FieldError message={errors.spatialType} />
+                <FieldError field="spatialType" message={errors.spatialType} />
               </div>
             </div>
 
@@ -811,22 +822,22 @@ function Step1({
           <div className="form-field">
             <label htmlFor="registrationNo">CIPC Registration Number</label>
             <input
-              id="registrationNo"
+              id="registrationNo" {...fieldErrorAttrs('registrationNo', errors.registrationNo)}
               value={form.registrationNo}
               onChange={set('registrationNo')}
               placeholder="2021/123456/07"
             />
-            <FieldError message={errors.registrationNo} />
+            <FieldError field="registrationNo" message={errors.registrationNo} />
           </div>
           <div className="form-field">
             <label htmlFor="sarsTaxPin">SARS Tax Pin</label>
             <input
-              id="sarsTaxPin"
+              id="sarsTaxPin" {...fieldErrorAttrs('sarsTaxPin', errors.sarsTaxPin)}
               value={form.sarsTaxPin}
               onChange={set('sarsTaxPin')}
               placeholder="1234567890"
             />
-            <FieldError message={errors.sarsTaxPin} />
+            <FieldError field="sarsTaxPin" message={errors.sarsTaxPin} />
           </div>
         </div>
 
@@ -901,6 +912,9 @@ function Step2({
         fieldErrors[key] = issue.message
       }
       setErrors(fieldErrors)
+      // Without this a rejected "Continue" leaves the screen unchanged and the
+      // offending field may be scrolled off above — the user sees nothing happen.
+      focusFirstInvalidField(fieldErrors)
       return
     }
     setErrors({})
@@ -921,31 +935,31 @@ function Step2({
         <div className="form-two-col">
           <div className="form-field">
             <label htmlFor="monthlyRevenue">Average monthly revenue (R)</label>
-            <input id="monthlyRevenue" type="number" min={0} value={form.monthlyRevenue} onChange={set('monthlyRevenue')} placeholder="150000" />
-            <FieldError message={errors.monthlyRevenue} />
+            <input id="monthlyRevenue" {...fieldErrorAttrs('monthlyRevenue', errors.monthlyRevenue)} type="number" min={0} value={form.monthlyRevenue} onChange={set('monthlyRevenue')} placeholder="150000" />
+            <FieldError field="monthlyRevenue" message={errors.monthlyRevenue} />
           </div>
           <div className="form-field">
             <label htmlFor="yearsInOperation">Years in operation</label>
-            <input id="yearsInOperation" type="number" min={0} value={form.yearsInOperation} onChange={set('yearsInOperation')} placeholder="3" />
-            <FieldError message={errors.yearsInOperation} />
+            <input id="yearsInOperation" {...fieldErrorAttrs('yearsInOperation', errors.yearsInOperation)} type="number" min={0} value={form.yearsInOperation} onChange={set('yearsInOperation')} placeholder="3" />
+            <FieldError field="yearsInOperation" message={errors.yearsInOperation} />
           </div>
         </div>
 
         <div className="form-two-col">
           <div className="form-field">
             <label htmlFor="numberOfEmployees">Number of employees</label>
-            <input id="numberOfEmployees" type="number" min={1} value={form.numberOfEmployees} onChange={set('numberOfEmployees')} placeholder="12" />
-            <FieldError message={errors.numberOfEmployees} />
+            <input id="numberOfEmployees" {...fieldErrorAttrs('numberOfEmployees', errors.numberOfEmployees)} type="number" min={1} value={form.numberOfEmployees} onChange={set('numberOfEmployees')} placeholder="12" />
+            <FieldError field="numberOfEmployees" message={errors.numberOfEmployees} />
           </div>
         </div>
 
         <div className="form-field">
           <label htmlFor="bankName">Business bank</label>
-          <select id="bankName" value={form.bankName} onChange={set('bankName')}>
+          <select id="bankName" {...fieldErrorAttrs('bankName', errors.bankName)} value={form.bankName} onChange={set('bankName')}>
             <option value="">Select your bank…</option>
             {SA_BANKS.map((b) => <option key={b} value={b}>{b}</option>)}
           </select>
-          <FieldError message={errors.bankName} />
+          <FieldError field="bankName" message={errors.bankName} />
         </div>
       </div>
 
@@ -1014,6 +1028,9 @@ function Step3({
         fieldErrors[key] = issue.message
       }
       setErrors(fieldErrors)
+      // Without this a rejected "Continue" leaves the screen unchanged and the
+      // offending field may be scrolled off above — the user sees nothing happen.
+      focusFirstInvalidField(fieldErrors)
       return
     }
     setErrors({})
@@ -1035,24 +1052,24 @@ function Step3({
       <div className="stack" style={{ marginTop: '1.5rem' }}>
         <div className="form-field">
           <label htmlFor="loanPurposeCategory">How do we fund you?</label>
-          <select id="loanPurposeCategory" value={loanPurposeCategory} onChange={(e) => setLoanPurposeCategory(e.target.value)}>
+          <select id="loanPurposeCategory" {...fieldErrorAttrs('loanPurposeCategory', errors.loanPurposeCategory)} value={loanPurposeCategory} onChange={(e) => setLoanPurposeCategory(e.target.value)}>
             <option value="">Select a category…</option>
             {LOAN_PURPOSES.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
-          <FieldError message={errors.loanPurposeCategory} />
+          <FieldError field="loanPurposeCategory" message={errors.loanPurposeCategory} />
         </div>
 
         <div className="form-field">
           <label htmlFor="purpose">Tell us more about how you'll use the funds</label>
           <textarea
-            id="purpose"
+            id="purpose" {...fieldErrorAttrs('purpose', errors.purpose)}
             value={purpose}
             onChange={(e) => setPurpose(e.target.value)}
             rows={3}
             placeholder="e.g. Purchase two new delivery vehicles to expand our logistics capacity…"
             style={{ resize: 'vertical', borderRadius: '12px', width: '100%' }}
           />
-          <FieldError message={errors.purpose} />
+          <FieldError field="purpose" message={errors.purpose} />
         </div>
       </div>
 
@@ -1165,6 +1182,7 @@ function Step5({
   loanProduct,
   submitting,
   submitError,
+  submitFieldErrors,
   onBack,
   onOpenConsent,
 }: {
@@ -1174,6 +1192,7 @@ function Step5({
   loanProduct: LoanProduct | undefined
   submitting: boolean
   submitError: string | null
+  submitFieldErrors: FieldErrorItem[]
   onBack: () => void
   onOpenConsent: () => void
 }) {
@@ -1272,6 +1291,13 @@ function Step5({
         data privacy (POPIA) consent, policy acknowledgements, and Terms &amp; Conditions.
       </p>
       {submitError && <p className="text-error" role="alert" style={{ marginTop: '0.5rem' }}>{submitError}</p>}
+      {submitFieldErrors.length > 0 && (
+        <ul className="text-error" style={{ marginTop: '0.25rem', paddingLeft: '1.1rem' }}>
+          {submitFieldErrors.map((e) => (
+            <li key={e.field}>{e.message}</li>
+          ))}
+        </ul>
+      )}
       {missingDocuments.length > 0 && (
         <p className="text-error" role="alert" style={{ marginTop: '0.5rem' }}>
           Upload all required documents before submitting.

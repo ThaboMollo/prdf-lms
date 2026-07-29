@@ -2,6 +2,7 @@ import { ForbiddenException, INestApplication, ValidationPipe } from '@nestjs/co
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AllExceptionsFilter } from './common/exception.filter';
 import { TenantRegistryService } from './tenancy/tenant-registry.service';
+import { validationExceptionFactory } from './common/validation-errors';
 
 /**
  * Shared CORS/exception-filter/validation/OpenAPI config for the app
@@ -75,6 +76,11 @@ export function configureApp(app: INestApplication): void {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      // Preserves which FIELD failed (docs/validation-spec.md §A1). The default
+      // factory flattens class-validator's per-property errors into English
+      // sentences, so the frontend could only ever show a banner — even though
+      // the backend knew exactly which input was wrong.
+      exceptionFactory: validationExceptionFactory,
     }),
   );
 

@@ -209,6 +209,14 @@ jobs:
       - name: Test tenant resolution
         run: node packages/tenant-config/test-resolution.mjs
 
+      # Field-level error parsing (docs/validation-spec.md §C1). Guards the
+      # regression this replaced: stringifying the response body into an Error
+      # message, which silently discarded the server's per-field `errors` and
+      # left every form able to show only a banner. Same esbuild dependency as
+      # the step above.
+      - name: Test API error parsing
+        run: node packages/domain/test-api-error.mjs
+
       - name: Install admin UI
         run: npm ci
         working-directory: admin-ui

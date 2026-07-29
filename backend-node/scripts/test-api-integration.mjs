@@ -36,6 +36,10 @@ const ISSUER_PORT = 9111;
 const STAFF = '11111111-0000-0000-0000-000000000001';
 const CLIENT_A = '22222222-0000-0000-0000-000000000001';
 const CLIENT_B = '22222222-0000-0000-0000-000000000002';
+const ADMIN = '11111111-0000-0000-0000-000000000002';
+const SUPER = '11111111-0000-0000-0000-000000000003';
+// Role-grant target, kept separate so mutating it can't affect other sections.
+const GRANTEE = '22222222-0000-0000-0000-000000000009';
 
 const r = createRecorder();
 const cleanup = createCleanup();
@@ -75,16 +79,18 @@ async function setupDatabase() {
 async function seed() {
   await withDb(DB_URL, async (db) => {
     await db.query(
-      `insert into auth.users (id, email) values ($1,'staff@test'),($2,'a@test'),($3,'b@test')`,
-      [STAFF, CLIENT_A, CLIENT_B],
+      `insert into auth.users (id, email) values ($1,'staff@test'),($2,'a@test'),($3,'b@test'),($4,'admin@test'),($5,'super@test'),($6,'grantee@test')`,
+      [STAFF, CLIENT_A, CLIENT_B, ADMIN, SUPER, GRANTEE],
     );
-    // The signup trigger grants Client to everyone; staff must not keep it.
-    await db.query(`delete from public.user_roles where user_id = $1`, [STAFF]);
-    await db.query(
-      `insert into public.user_roles (user_id, role_id)
-       select $1, id from public.roles where name = 'LoanOfficer'`,
-      [STAFF],
-    );
+    // The signup trigger grants Client to everyone; internal users must not
+    // keep it, or a test could pass because they were treated as a borrower.
+    await db.query(`delete from public.user_roles where user_id = any($1)`, [[STAFF, ADMIN, SUPER]]);
+    for (const [userId, role] of [[STAFF, 'LoanOfficer'], [ADMIN, 'Admin'], [SUPER, 'SuperAdmin']]) {
+      await db.query(
+        `insert into public.user_roles (user_id, role_id) select $1, id from public.roles where name = $2`,
+        [userId, role],
+      );
+    }
 
     await db.query(
       `insert into public.clients (id, user_id, business_name)
@@ -146,6 +152,8 @@ async function main() {
   cleanup.add(() => { if (process.env.DEBUG_API) console.log(api.log.join('')); });
 
   const staffToken = await issuer.mint(STAFF);
+  const adminToken = await issuer.mint(ADMIN);
+  const superToken = await issuer.mint(SUPER);
   const clientAToken = await issuer.mint(CLIENT_A);
   const clientBToken = await issuer.mint(CLIENT_B);
 
@@ -308,6 +316,127 @@ async function main() {
       method: 'POST', body: JSON.stringify({ toStatus: 'NotAStatus' }),
     });
     r.check('an unknown status value is rejected', bogus.status === 400, `got ${bogus.status}`);
+  }
+
+  // ------------------------------------------------------------ documents
+  r.section('document uploads (the S2 cross-client exposure)');
+  {
+    const badType = await call(`/api/applications/${APP_A}/documents/presign-upload`, clientAToken, {
+      method: 'POST', body: JSON.stringify({ docType: 'IDDocument', fileName: 'evil.exe', contentType: 'application/pdf' }),
+    });
+    r.check('a disallowed file extension is refused before any URL is minted',
+      badType.status === 400, `got ${badType.status}`);
+
+    const badMime = await call(`/api/applications/${APP_A}/documents/presign-upload`, clientAToken, {
+      method: 'POST', body: JSON.stringify({ docType: 'IDDocument', fileName: 'ok.pdf', contentType: 'application/x-msdownload' }),
+    });
+    r.check('a disallowed content type is refused even with an allowed extension',
+      badMime.status === 400, `got ${badMime.status}`);
+
+    // The exposure itself: recording a document row on YOUR application that
+    // points at ANOTHER application's object key. The ownership check would
+    // pass (the row really is yours) and the download URL is signed with the
+    // service role key, which bypasses storage RLS.
+    const foreignPath = await call(`/api/applications/${APP_A}/documents/confirm`, clientAToken, {
+      method: 'POST',
+      body: JSON.stringify({ docType: 'IDDocument', storagePath: `applications/${APP_B}/stolen.pdf` }),
+    });
+    r.check("a storage path belonging to another application is refused",
+      foreignPath.status === 400, `got ${foreignPath.status}`);
+
+    const traversal = await call(`/api/applications/${APP_A}/documents/confirm`, clientAToken, {
+      method: 'POST',
+      body: JSON.stringify({ docType: 'IDDocument', storagePath: `applications/${APP_A}/../${APP_B}/x.pdf` }),
+    });
+    r.check('a traversing storage path is refused', traversal.status === 400, `got ${traversal.status}`);
+
+    const ok = await call(`/api/applications/${APP_A}/documents/confirm`, clientAToken, {
+      method: 'POST',
+      body: JSON.stringify({ docType: 'IDDocument', storagePath: `applications/${APP_A}/abc-id.pdf` }),
+    });
+    r.check("a borrower's own storage path is accepted", ok.status === 200 || ok.status === 201, `got ${ok.status}`);
+  }
+
+  // -------------------------------------------------------- role management
+  r.section('role management (the "any Admin could grant Admin" regression)');
+  {
+    const byClient = await call(`/api/admin/users/${GRANTEE}/roles/Intern`, clientAToken, { method: 'POST' });
+    r.check('a borrower cannot grant any role', byClient.status >= 400, `got ${byClient.status}`);
+
+    const byOfficer = await call(`/api/admin/users/${GRANTEE}/roles/Intern`, staffToken, { method: 'POST' });
+    r.check('a LoanOfficer cannot grant roles', byOfficer.status >= 400, `got ${byOfficer.status}`);
+
+    const adminGrantsIntern = await call(`/api/admin/users/${GRANTEE}/roles/Intern`, adminToken, { method: 'POST' });
+    r.check('an Admin can grant a non-elevated role', adminGrantsIntern.status === 200 || adminGrantsIntern.status === 201,
+      `got ${adminGrantsIntern.status}`);
+
+    const adminGrantsAdmin = await call(`/api/admin/users/${GRANTEE}/roles/Admin`, adminToken, { method: 'POST' });
+    r.check('an Admin CANNOT grant Admin — SuperAdmin only', adminGrantsAdmin.status >= 400,
+      `got ${adminGrantsAdmin.status}`);
+
+    const superGrantsAdmin = await call(`/api/admin/users/${GRANTEE}/roles/Admin`, superToken, { method: 'POST' });
+    r.check('a SuperAdmin can grant Admin', superGrantsAdmin.status === 200 || superGrantsAdmin.status === 201,
+      `got ${superGrantsAdmin.status}`);
+
+    const stillAdmin = await withDb(DB_URL, (db) => db.query(
+      `select r.name from public.user_roles ur join public.roles r on r.id=ur.role_id where ur.user_id=$1`, [GRANTEE]));
+    const names = stillAdmin.rows.map((x) => x.name);
+    r.check('the grant actually persisted', names.includes('Admin'), names.join(','));
+  }
+
+  // -------------------------------------------------------------- reports
+  r.section('reports are scoped by role, not global for everyone');
+  {
+    const staffPortfolio = await (await call('/api/reports/portfolio', staffToken)).json();
+    r.check('staff see the whole portfolio', Number(staffPortfolio?.totalLoans) === 1,
+      JSON.stringify(staffPortfolio));
+
+    const clientBPortfolio = await (await call('/api/reports/portfolio', clientBToken)).json();
+    r.check("a borrower with no loans sees an empty portfolio, not the lender's",
+      Number(clientBPortfolio?.totalLoans) === 0, JSON.stringify(clientBPortfolio));
+
+    const clientAPortfolio = await (await call('/api/reports/portfolio', clientAToken)).json();
+    r.check('a borrower sees only their own loan', Number(clientAPortfolio?.totalLoans) === 1,
+      JSON.stringify(clientAPortfolio));
+
+    const audit = await call('/api/reports/audit', clientAToken);
+    r.check('a borrower cannot read the audit log', audit.status >= 400, `got ${audit.status}`);
+  }
+
+  // ------------------------------------------------- validation contract
+  r.section('validation errors arrive attached to the field that caused them');
+  {
+    const res = await call('/api/applications', clientAToken, {
+      method: 'POST',
+      body: JSON.stringify({ requestedAmount: 'not-a-number', termMonths: -5, purpose: 'x' }),
+    });
+    const body = await res.json();
+
+    r.check('an invalid payload is a 400', res.status === 400, `got ${res.status}`);
+    r.check('the response carries a structured errors array',
+      Array.isArray(body.errors), JSON.stringify(body).slice(0, 160));
+
+    const fields = (body.errors ?? []).map((e) => e.field);
+    r.check('the offending field names survive to the wire',
+      fields.includes('requestedAmount') && fields.includes('termMonths'), fields.join(','));
+
+    r.check('each error carries a stable machine code, not just prose',
+      (body.errors ?? []).every((e) => typeof e.code === 'string' && e.code.length > 0),
+      JSON.stringify(body.errors));
+
+    r.check('a human-readable summary is still present for a banner',
+      typeof body.message === 'string' && body.message.length > 0, `message=${body.message}`);
+
+    // forbidNonWhitelisted rejects unknown properties; that must be
+    // attributable too, not surfaced as anonymous prose.
+    const unknown = await call('/api/applications', clientAToken, {
+      method: 'POST',
+      body: JSON.stringify({ requestedAmount: 300000, termMonths: 12, purpose: 'valid', notAField: 1 }),
+    });
+    const unknownBody = await unknown.json();
+    r.check('an unknown property is reported against its own field name',
+      (unknownBody.errors ?? []).some((e) => e.field === 'notAField'),
+      JSON.stringify(unknownBody.errors));
   }
 
   // ------------------------------------------------------ audit trail
