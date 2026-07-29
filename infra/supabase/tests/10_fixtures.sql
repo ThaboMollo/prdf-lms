@@ -43,10 +43,9 @@ from (values
   ('bbbbbbbb-0000-0000-0000-000000000002'::uuid, 'Intern'),
   ('bbbbbbbb-0000-0000-0000-000000000003'::uuid, 'Intern'),
   ('cccccccc-0000-0000-0000-000000000001'::uuid, 'Admin'),
-  -- SuperAdmin implies Admin — the invariant enforced by the role-management
-  -- RPCs. Mirrored here so tests reflect a real SuperAdmin's row set.
-  ('cccccccc-0000-0000-0000-000000000002'::uuid, 'SuperAdmin'),
-  ('cccccccc-0000-0000-0000-000000000002'::uuid, 'Admin')
+  -- Platform ownership is represented only by SuperAdmin. Admin capability
+  -- is inherited by is_in_role(), never duplicated as a managed role row.
+  ('cccccccc-0000-0000-0000-000000000002'::uuid, 'SuperAdmin')
 ) as u(id, role_name)
 join public.roles r on r.name = u.role_name
 on conflict do nothing;

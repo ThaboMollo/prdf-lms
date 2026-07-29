@@ -2,33 +2,19 @@ import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { CurrentUser, ensureInternal } from '../auth/roles.helper';
 
-const ASSIGNABLE_ROLE_NAMES = ['Admin', 'LoanOfficer', 'Originator', 'Intern'];
-
 @Injectable()
 export class UsersService {
   constructor(private readonly db: DatabaseService) {}
 
-  /**
-   * Staff eligible for application assignment — mirrors the inline
-   * user_roles -> roles -> profiles join admin-ui's ApplicationsPage ran
-   * directly against Supabase.
-   */
+  /** Staff eligible for application assignment. */
   async listAssignable(actor: CurrentUser) {
     // The admin UI exposes application/task assignment to every internal
     // role. Interns and Originators therefore need to be able to resolve the
     // same assignee list as Admins and Loan Officers.
     ensureInternal(actor.roles);
     const rows = await this.db.query<{ userId: string; fullName: string | null; roles: string[] }>(
-      `select u.id as "userId", p.full_name as "fullName",
-              coalesce(array_agg(distinct r.name) filter (where r.name is not null), '{}'::text[]) as roles
-       from auth.users u
-       join public.user_roles ur on ur.user_id = u.id
-       join public.roles r on r.id = ur.role_id
-       left join public.profiles p on p.user_id = u.id
-       group by u.id, p.full_name
-       having bool_or(r.name = any($1::text[]))
-       order by coalesce(p.full_name, u.id::text)`,
-      [ASSIGNABLE_ROLE_NAMES],
+      `select user_id as "userId", full_name as "fullName", roles
+       from public.list_assignable_users()`,
     );
     return rows.map((r) => ({ userId: r.userId, name: r.fullName ?? r.userId, roles: r.roles }));
   }

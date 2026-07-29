@@ -62,6 +62,59 @@ jobs:
           fi
           ./infra/scripts/migrate-all.sh --status
 
+
+  # Business logic and authorization through the real HTTP surface (item T2).
+  # Boots the actual API against a real Postgres with real signed tokens — the
+  # authorization bugs found in this project were all invisible to unit-level
+  # reasoning and only showed up end to end.
+  api-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Create test roles
+        run: |
+          psql -d postgres -c "create role prdf_test_owner login createdb password 'prdf_owner_pw';" || true
+          psql -d postgres -c "do \$\$ begin
+            if not exists (select 1 from pg_roles where rolname='authenticated') then create role authenticated nologin noinherit; end if;
+            if not exists (select 1 from pg_roles where rolname='anon') then create role anon nologin noinherit; end if;
+            if not exists (select 1 from pg_roles where rolname='service_role') then create role service_role nologin noinherit; end if;
+          end \$\$;"
+
+      - name: Install API
+        run: npm ci
+        working-directory: backend-node
+
+      - name: Build API
+        run: npm run build
+        working-directory: backend-node
+
+      - name: Run API integration suite
+        run: node scripts/test-api-integration.mjs
+        working-directory: backend-node
+
   build-test:
     runs-on: ubuntu-latest
     steps:

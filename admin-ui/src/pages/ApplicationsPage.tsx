@@ -449,10 +449,21 @@ export function ApplicationsPage({ session, me }: ApplicationsPageProps) {
 
         {applicationsQuery.isLoading ? <ListSkeleton rows={8} /> : null}
 
-        {!applicationsQuery.isLoading && !filteredApplications.length ? (
+        {applicationsQuery.isError ? (
+          <div className="stack-sm" role="alert">
+            <p className="text-error">
+              Could not load applications. {applicationsQuery.error instanceof Error ? applicationsQuery.error.message : ''}
+            </p>
+            <button className="btn btn-secondary" type="button" onClick={() => void applicationsQuery.refetch()}>
+              Retry
+            </button>
+          </div>
+        ) : null}
+
+        {!applicationsQuery.isLoading && !applicationsQuery.isError && !filteredApplications.length ? (
           <EmptyState title="No matching applications" message="Adjust filters or create a new draft application." />
         ) : null}
-        {filteredApplications.length ? (
+        {!applicationsQuery.isError && filteredApplications.length ? (
           <>
             <div className="table-wrap desktop-only">
               <table>

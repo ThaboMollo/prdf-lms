@@ -185,13 +185,23 @@ commit;
 -- =============================================================================
 -- §6.6 #4 — only a SuperAdmin can grant Admin
 -- =============================================================================
+begin;
+select public.test_login('cccccccc-0000-0000-0000-000000000002');  -- SuperAdmin only
+select pg_temp.check_that(
+  'SuperAdmin inherits Admin RLS and reads all applications',
+  public.is_in_role(auth.uid(), 'Admin') and (select count(*) = 3 from public.loan_applications),
+  (select format('inherits_admin=%s, saw %s of 3', public.is_in_role(auth.uid(), 'Admin'), count(*))
+     from public.loan_applications)
+);
+commit;
+
 -- Regression: backend-node's AdminService once let any Admin grant Admin.
 -- This is the database-side backstop for that rule.
 begin;
 select public.test_login('cccccccc-0000-0000-0000-000000000001');  -- plain Admin
 select pg_temp.check_blocked(
   'plain Admin cannot grant Admin',
-  $sql$select public.admin_access_assign_role('aaaaaaaa-0000-0000-0000-000000000002', 'Admin')$sql$
+  $sql$select public.admin_access_assign_managed_role('aaaaaaaa-0000-0000-0000-000000000002', 'Admin')$sql$
 );
 commit;
 
@@ -202,18 +212,21 @@ begin;
 select public.test_login('cccccccc-0000-0000-0000-000000000002');  -- SuperAdmin
 select pg_temp.check_error_unlike(
   'SuperAdmin CAN grant Admin',
-  $sql$select public.admin_access_assign_role('aaaaaaaa-0000-0000-0000-000000000003', 'Admin')$sql$,
+  $sql$select public.admin_access_assign_managed_role('aaaaaaaa-0000-0000-0000-000000000003', 'Admin')$sql$,
   '%only%'
 );
 commit;
 
--- Invariant: granting SuperAdmin implies Admin.
+-- SuperAdmin is an out-of-band owner capability, never app-managed.
 begin;
 select public.test_login('cccccccc-0000-0000-0000-000000000002');  -- SuperAdmin
-select public.admin_access_assign_role('aaaaaaaa-0000-0000-0000-000000000002', 'SuperAdmin');
-select pg_temp.check_that(
-  'granting SuperAdmin also grants Admin',
-  public.is_in_role('aaaaaaaa-0000-0000-0000-000000000002', 'Admin')
+select pg_temp.check_blocked(
+  'SuperAdmin cannot be granted through managed access',
+  $sql$select public.admin_access_assign_managed_role('aaaaaaaa-0000-0000-0000-000000000002', 'SuperAdmin')$sql$
+);
+select pg_temp.check_blocked(
+  'legacy direct role mutation RPC is not executable',
+  $sql$select public.admin_access_assign_role('aaaaaaaa-0000-0000-0000-000000000002', 'SuperAdmin')$sql$
 );
 commit;
 

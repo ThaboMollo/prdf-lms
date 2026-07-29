@@ -103,8 +103,20 @@ function isInfrastructureError(exception: unknown): boolean {
   const code = (exception as { code?: unknown }).code;
   if (typeof code !== 'string' || !code) return false;
 
-  // Postgres SQLSTATE, e.g. 3D000 (invalid_catalog_name), 28P01 (bad password),
-  // 57P03 (cannot_connect_now).
+  // Postgres SQLSTATE. Two classes are deliberately EXCLUDED because they are
+  // the database enforcing application rules, not the platform failing:
+  //
+  //   P0xxx — PL/pgSQL RAISE. Every business rule in this schema surfaces this
+  //           way: "Invalid status transition", "missing required document(s)",
+  //           "Cannot approve application". Treating those as infrastructure
+  //           returned 500 to the user and raised a Sentry alert for what is
+  //           ordinary, expected rejection.
+  //   23xxx — integrity constraint violations (unique, foreign key, check).
+  //           A duplicate or a bad reference is a caller problem.
+  //
+  // What remains is genuine platform failure: 08 connection, 3D missing
+  // database, 28 bad credentials, 53 out of resources, 57 shutdown, XX internal.
+  if (/^(P0|23)/.test(code)) return false;
   if (/^[0-9A-Z]{5}$/.test(code)) return true;
 
   // Node system errors: ECONNREFUSED, ENOTFOUND, ETIMEDOUT, EAI_AGAIN, ...

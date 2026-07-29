@@ -11,6 +11,18 @@ import { TenantRegistryService } from './tenancy/tenant-registry.service';
  * call, and rejects entrypoints that only delegate to it transitively.
  */
 export function configureApp(app: INestApplication): void {
+  // Authenticated API responses are user-specific and change frequently.
+  // Express ETags were producing 304 responses for these JSON endpoints;
+  // after a Safari tab reload/crash the cached body may be unavailable, which
+  // leaves the frontend trying to parse an empty response. Never cache them.
+  app.getHttpAdapter().getInstance().disable('etag');
+  app.use((req: { headers: Record<string, unknown> }, res: { setHeader: (name: string, value: string) => void }, next: () => void) => {
+    if (req.headers.authorization) {
+      res.setHeader('Cache-Control', 'private, no-store, max-age=0');
+    }
+    next();
+  });
+
   const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? 'http://localhost:5173,http://localhost:5174')
     .split(',')
     .map((o) => o.trim())

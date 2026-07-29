@@ -202,7 +202,16 @@ export function UserAccessPage({ session, me }: UserAccessPageProps) {
         </div>
 
         {accessQuery.isLoading ? <p>Loading access data...</p> : null}
-        {accessQuery.isError ? <p className="text-error">Could not load user access data.</p> : null}
+        {accessQuery.isError ? (
+          <div className="stack-sm" role="alert">
+            <p className="text-error">
+              Could not load user access data. {accessQuery.error instanceof Error ? accessQuery.error.message : ''}
+            </p>
+            <button className="btn btn-secondary" type="button" onClick={() => void accessQuery.refetch()}>
+              Retry
+            </button>
+          </div>
+        ) : null}
 
         {!accessQuery.isLoading && !accessQuery.isError && !(accessQuery.data?.length ?? 0) ? (
           <EmptyState title="No matching users" message="Adjust your search or filters to find another user." />

@@ -76,7 +76,29 @@ export function DashboardPage({ session, me }: DashboardPageProps) {
         </div>
       ) : null}
 
-      {!appsQuery.isLoading ? (
+      {(appsQuery.isError || tasksQuery.isError || notificationsQuery.isError) ? (
+        <div className="card stack-sm" role="alert">
+          <p className="text-error">
+            Some dashboard data could not be loaded.
+            {appsQuery.error instanceof Error ? ` Applications: ${appsQuery.error.message}` : ''}
+            {tasksQuery.error instanceof Error ? ` Tasks: ${tasksQuery.error.message}` : ''}
+            {notificationsQuery.error instanceof Error ? ` Notifications: ${notificationsQuery.error.message}` : ''}
+          </p>
+          <button
+            className="btn btn-secondary"
+            type="button"
+            onClick={() => {
+              void appsQuery.refetch()
+              void tasksQuery.refetch()
+              void notificationsQuery.refetch()
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      ) : null}
+
+      {!appsQuery.isLoading && !appsQuery.isError && !tasksQuery.isError ? (
         <DashboardContent
           role={primaryRole}
           applications={applications}
