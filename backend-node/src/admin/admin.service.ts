@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { CurrentUser, ensureAdminOrSuper, ensureSuperAdmin, hasRole } from '../auth/roles.helper';
+import { currentTenant } from '../tenancy/request-context';
+import axios from 'axios';
 import { PoolClient } from 'pg';
 
 const KNOWN_ROLES = ['SuperAdmin', 'Admin', 'LoanOfficer', 'Intern', 'Originator', 'Client'];
@@ -188,5 +190,61 @@ export class AdminService {
 
       return { userId: targetUserId, roles: afterRoles, isAdmin: afterRoles.includes('Admin'), isSuperAdmin: afterRoles.includes('SuperAdmin') };
     });
+  }
+
+  /**
+   * Delete every MFA factor for a user, so they can enrol again from scratch.
+   *
+   * This is the ONLY recovery path from an MFA lockout. Supabase has no
+   * self-service reset: a staff member who loses or wipes their authenticator
+   * cannot get past the challenge screen, and once REQUIRE_MFA_FOR_STAFF is on
+   * they lose API access entirely. Without this endpoint, that is permanent.
+   *
+   * SuperAdmin only, and never self-service — resetting your own factor would
+   * make MFA trivially bypassable by anyone who has your password, which is
+   * precisely the thing it exists to stop.
+   *
+   * Deliberately audited with the factor count: this action lowers an
+   * account's assurance level, so it must be visible in the audit log
+   * afterwards, not merely permitted.
+   */
+  async resetMfa(actor: CurrentUser, targetUserId: string) {
+    ensureSuperAdmin(actor.roles);
+
+    if (actor.userId === targetUserId) {
+      throw new Error(
+        'You cannot reset your own MFA. Ask another SuperAdmin — a self-service reset would let anyone with your password remove your second factor.',
+      );
+    }
+
+    const tenant = currentTenant();
+    const base = tenant.supabaseUrl.replace(/\/$/, '');
+    const headers = {
+      Authorization: `Bearer ${tenant.serviceRoleKey}`,
+      apikey: tenant.serviceRoleKey,
+      'Content-Type': 'application/json',
+    };
+
+    // The admin factor list/delete endpoints are the only way to remove a
+    // factor on another user's behalf; the client-side mfa.unenroll() acts on
+    // the caller's own session.
+    const listed = await axios.get(`${base}/auth/v1/admin/users/${targetUserId}/factors`, { headers });
+    const factors: Array<{ id: string }> = listed.data?.factors ?? listed.data ?? [];
+
+    for (const factor of factors) {
+      await axios.delete(`${base}/auth/v1/admin/users/${targetUserId}/factors/${factor.id}`, { headers });
+    }
+
+    const target = await this.db.queryOne<{ email: string | null }>(
+      `select email from public.profiles where user_id = $1`,
+      [targetUserId],
+    );
+
+    await this.db.execute(
+      `insert into public.audit_log (entity, entity_id, action, actor_user_id, metadata) values ('UserAccess', $1, 'MfaReset', $2, $3::jsonb)`,
+      [targetUserId, actor.userId, JSON.stringify({ targetEmail: target?.email ?? null, factorsRemoved: factors.length })],
+    );
+
+    return { userId: targetUserId, factorsRemoved: factors.length };
   }
 }

@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { Observable, defer, firstValueFrom } from 'rxjs';
 import { DatabaseService } from './database.service';
-import { rlsContext } from './rls-context';
+import { requestContext } from '../tenancy/request-context';
 
 /**
  * Defense in depth: opens a transaction per request, sets the caller's JWT
@@ -58,7 +58,24 @@ export class RlsTransactionInterceptor implements NestInterceptor {
         ]);
         await client.query('set local role authenticated');
 
-        const result = await rlsContext.run(client, () => firstValueFrom(next.handle()));
+        // Attach to the EXISTING context object rather than nesting a second
+        // AsyncLocalStorage: TenantResolverMiddleware already established
+        // { tenant } for this request, and the tenant must stay visible to
+        // everything downstream. Mutating the same store keeps one context.
+        const store = requestContext.getStore();
+        if (!store) {
+          throw new Error('RlsTransactionInterceptor ran without a tenant context.');
+        }
+        store.client = client;
+
+        let result: unknown;
+        try {
+          result = await firstValueFrom(next.handle());
+        } finally {
+          // Release the reference so a pooled client can never leak into a
+          // later request that reuses this context object.
+          store.client = undefined;
+        }
 
         await client.query('COMMIT');
         return result;

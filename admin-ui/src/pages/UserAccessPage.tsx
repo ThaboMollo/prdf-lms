@@ -9,6 +9,7 @@ import { useToast } from '../components/shared/ToastProvider'
 import {
   assignUserRole,
   removeUserRole,
+  resetUserMfa,
   listAdminUserAccess,
   type AssignableRole,
   type AdminAccessFilter,
@@ -26,6 +27,10 @@ type UserAccessPageProps = {
 type PendingAction =
   | { type: 'assign'; user: AdminAccessListItem; role: AssignableRole }
   | { type: 'remove'; user: AdminAccessListItem; role: AssignableRole }
+  // The only recovery path from an MFA lockout: Supabase has no self-service
+  // reset, so a staff member who loses their authenticator cannot get past the
+  // challenge screen without a SuperAdmin clearing their factors here.
+  | { type: 'reset-mfa'; user: AdminAccessListItem }
 
 const ALL_ROLES: AssignableRole[] = ['Client', 'Intern', 'Originator', 'LoanOfficer', 'Admin', 'SuperAdmin']
 const ELEVATED_ROLES: AssignableRole[] = ['Admin', 'SuperAdmin']
@@ -65,17 +70,20 @@ export function UserAccessPage({ session, me }: UserAccessPageProps) {
   })
 
   const mutation = useMutation({
-    mutationFn: async (action: PendingAction) =>
-      action.type === 'assign'
-        ? assignUserRole(accessToken, action.user.userId, action.role)
-        : removeUserRole(accessToken, action.user.userId, action.role),
+    mutationFn: async (action: PendingAction) => {
+      if (action.type === 'assign') return assignUserRole(accessToken, action.user.userId, action.role)
+      if (action.type === 'remove') return removeUserRole(accessToken, action.user.userId, action.role)
+      return resetUserMfa(accessToken, action.user.userId)
+    },
     onSuccess: (_result, action) => {
       queryClient.invalidateQueries({ queryKey: ['admin-user-access'] })
       queryClient.invalidateQueries({ queryKey: ['me'] })
       toast.push(
         action.type === 'assign'
           ? `${displayName(action.user)} now has the ${action.role} role.`
-          : `Removed the ${action.role} role from ${displayName(action.user)}.`,
+          : action.type === 'remove'
+            ? `Removed the ${action.role} role from ${displayName(action.user)}.`
+            : `Cleared MFA for ${displayName(action.user)}. They will be asked to enrol again at next sign-in.`,
         'success'
       )
       setPendingAction(null)
@@ -291,6 +299,21 @@ export function UserAccessPage({ session, me }: UserAccessPageProps) {
                         >
                           Assign
                         </button>
+                        {/* Only a SuperAdmin can clear another user's MFA, and
+                            never their own — a self-service reset would let
+                            anyone holding your password strip your second
+                            factor, which defeats the control entirely. */}
+                        {isSuperAdmin && user.userId !== session.user.id ? (
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            disabled={mutation.isPending}
+                            title="Clear this user's authenticators so they can enrol a new device"
+                            onClick={() => setPendingAction({ type: 'reset-mfa', user })}
+                          >
+                            Reset MFA
+                          </button>
+                        ) : null}
                       </div>
                     )}
                   </td>
@@ -320,12 +343,16 @@ export function UserAccessPage({ session, me }: UserAccessPageProps) {
                 <h2 id="user-access-dialog-title">
                   {pendingAction.type === 'assign'
                     ? `Assign ${pendingAction.role} role`
-                    : `Remove ${pendingAction.role} role`}
+                    : pendingAction.type === 'remove'
+                      ? `Remove ${pendingAction.role} role`
+                      : 'Reset multi-factor authentication'}
                 </h2>
                 <p>
                   {pendingAction.type === 'assign'
                     ? `This will add the ${pendingAction.role} role while preserving all existing roles.`
-                    : `This will remove only the ${pendingAction.role} role and leave the user's other roles unchanged.`}
+                    : pendingAction.type === 'remove'
+                      ? `This will remove only the ${pendingAction.role} role and leave the user's other roles unchanged.`
+                      : 'This clears every authenticator registered to this user, so they can enrol a new device. Their roles are unchanged. Only do this once you are confident who you are talking to — it lowers the account to password-only until they re-enrol.'}
                 </p>
               </div>
             </header>

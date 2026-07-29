@@ -26,6 +26,15 @@ export class AdminController {
     return this.adminService.assignRole(user, userId, roleName);
   }
 
+  /**
+   * The only recovery path from an MFA lockout — see AdminService.resetMfa.
+   * SuperAdmin only.
+   */
+  @Delete(':userId/mfa')
+  resetMfa(@GetCurrentUser() user: CurrentUser, @Param('userId') userId: string) {
+    return this.adminService.resetMfa(user, userId);
+  }
+
   @Delete(':userId/roles/:roleName')
   removeRole(@GetCurrentUser() user: CurrentUser, @Param('userId') userId: string, @Param('roleName') roleName: string) {
     return this.adminService.removeRole(user, userId, roleName);

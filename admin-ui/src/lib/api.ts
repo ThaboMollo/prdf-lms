@@ -355,6 +355,19 @@ export async function removeUserRole(accessToken: string, userId: string, role: 
   return parseResponse<AdminAccessMutationResult>(response)
 }
 
+/**
+ * Clear a user's MFA factors so they can enrol again. SuperAdmin only.
+ * This is the only recovery path from an MFA lockout — Supabase has no
+ * self-service reset.
+ */
+export async function resetUserMfa(accessToken: string, userId: string): Promise<{ userId: string; factorsRemoved: number }> {
+  const response = await fetch(`${apiBaseUrl}/api/admin/users/${userId}/mfa`, {
+    method: 'DELETE',
+    headers: authHeaders(accessToken)
+  })
+  return parseResponse<{ userId: string; factorsRemoved: number }>(response)
+}
+
 export async function createApplication(accessToken: string, input: CreateApplicationInput): Promise<ApplicationDetails> {
   const response = await fetch(`${apiBaseUrl}/api/applications`, {
     method: 'POST',

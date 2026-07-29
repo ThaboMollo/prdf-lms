@@ -75,6 +75,14 @@ jobs:
         run: node scripts/test-mfa-enforcement.mjs
         working-directory: backend-node
 
+      # Tenancy guard rails (docs/multi-tenant-spec.md §4/§5). These assert the
+      # refusal paths — half-configured tenants, ambiguous issuers, guessed
+      # resolution, default pools. Every one of those is a route to reading the
+      # wrong tenant's database.
+      - name: Test tenancy guard rails
+        run: node scripts/test-tenancy.mjs
+        working-directory: backend-node
+
       - name: Install client UI
         run: npm ci
         working-directory: client-ui

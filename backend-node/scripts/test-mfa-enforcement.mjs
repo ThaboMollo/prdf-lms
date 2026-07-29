@@ -69,6 +69,59 @@ expect('Client at aal1 is allowed', { flag: 'true', roles: ['Client'], aal: 'aal
 expect('Client with no aal claim is allowed', { flag: 'true', roles: ['Client'], aal: undefined }, false);
 expect('user with no roles is allowed', { flag: 'true', roles: [], aal: undefined }, false);
 
+
+// --- MFA reset authorisation -------------------------------------------------
+// The only recovery path from an MFA lockout, so it is powerful: it lowers an
+// account to password-only. Two properties matter — SuperAdmin only, and never
+// self-service (resetting your own factor would let anyone with your password
+// strip your second factor, defeating the control).
+const { AdminService } = require('../dist/admin/admin.service.js');
+const { runForTenant } = require('../dist/tenancy/request-context.js');
+
+const FAKE_TENANT = {
+  slug: 'test', issuer: 'https://test/auth/v1', supabaseUrl: 'https://unreachable.invalid',
+  serviceRoleKey: 'k', databaseUrl: 'd', domains: [],
+};
+const stubDb = {
+  queryOne: async () => null,
+  execute: async () => 1,
+  withTransaction: async (fn) => fn({ query: async () => ({ rows: [] }) }),
+};
+
+async function expectResetRefused(name, roles, actorId, targetId, shouldRefuse) {
+  let refused = false;
+  let message = '';
+  try {
+    const svc = new AdminService(stubDb);
+    await runForTenant(FAKE_TENANT, () =>
+      svc.resetMfa({ userId: actorId, email: 'e@test', fullName: null, roles }, targetId),
+    );
+  } catch (error) {
+    refused = true;
+    message = error.message;
+  }
+  // A DNS/network failure against the unreachable host means authorisation
+  // ALLOWED the call through — that is the "permitted" outcome here.
+  const refusedByAuthz =
+    refused && !/ENOTFOUND|getaddrinfo|ECONN|Invalid URL|fetch failed|socket/i.test(message);
+
+  if (refusedByAuthz === shouldRefuse) {
+    passed++;
+    console.log(`ok     | ${name}`);
+  } else {
+    failed++;
+    console.log(`NOT OK | ${name} — expected ${shouldRefuse ? 'refusal' : 'permitted'}`);
+  }
+}
+
+console.log('');
+console.log('--- MFA reset is SuperAdmin-only and never self-service ---');
+await expectResetRefused('plain Admin cannot reset another user\'s MFA', ['Admin'], 'a1', 'u2', true);
+await expectResetRefused('LoanOfficer cannot reset MFA', ['LoanOfficer'], 'a1', 'u2', true);
+await expectResetRefused('Client cannot reset MFA', ['Client'], 'a1', 'u2', true);
+await expectResetRefused('SuperAdmin cannot reset their OWN MFA', ['SuperAdmin', 'Admin'], 'same', 'same', true);
+await expectResetRefused('SuperAdmin CAN reset another user', ['SuperAdmin', 'Admin'], 'a1', 'u2', false);
+
 console.log('');
 console.log(`passed=${passed} failed=${failed}`);
 process.exit(failed > 0 ? 1 : 0);

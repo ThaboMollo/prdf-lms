@@ -1,7 +1,9 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { DatabaseModule } from './database/database.module';
+import { TenancyModule } from './tenancy/tenancy.module';
+import { TenantResolverMiddleware } from './tenancy/tenant-resolver.middleware';
 import { RlsTransactionInterceptor } from './database/rls-transaction.interceptor';
 import { AuthModule } from './auth/auth.module';
 import { HealthController } from './health/health.controller';
@@ -22,6 +24,7 @@ import { UsersModule } from './users/users.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    TenancyModule,
     DatabaseModule,
     AuthModule,
     AdminModule,
@@ -45,4 +48,14 @@ import { UsersModule } from './users/users.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  /**
+   * Tenant resolution runs before guards on EVERY route, including the health
+   * check and the cron endpoint — a route that reaches the database without a
+   * tenant in context should fail loudly rather than fall back to a default
+   * (docs/multi-tenant-spec.md §4, invariant 5).
+   */
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(TenantResolverMiddleware).forRoutes('*');
+  }
+}
