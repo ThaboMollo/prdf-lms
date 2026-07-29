@@ -1,38 +1,60 @@
 import { z } from 'zod'
+import {
+  GENDERS,
+  INDUSTRIES,
+  LIMITS,
+  SA_PROVINCES,
+  SPATIAL_TYPES,
+} from '../../../../packages/domain/constraints'
+
+// Rules come from packages/domain/constraints.ts, the same definition the API's
+// DTOs are generated from (docs/validation-spec.md workstream B). Before this,
+// the client rules and the server rules were written independently and the
+// server's were the looser of the two — which made them the ones that mattered,
+// since the API is directly callable.
 
 // ----------------------------------------------------------------
 // Wizard step schemas (5-step application flow)
 // ----------------------------------------------------------------
 
 export const step1Schema = z.object({
-  businessName: z.string().trim().min(2, 'Business name is required'),
-  registrationNo: z.string().trim().min(4, 'Registration number is required'),
-  industry: z.string().min(1, 'Please select an industry'),
+  businessName: z.string().trim().min(LIMITS.businessName.minLength, 'Business name is required'),
+  registrationNo: z.string().trim().min(LIMITS.registrationNo.minLength, 'Registration number is required'),
+  industry: z.enum(INDUSTRIES, { message: 'Please select an industry' }),
   addressLine1: z.string().trim().min(1, 'Address line 1 is required'),
   addressLine2: z.string().default(''),
   city: z.string().trim().min(1, 'City is required'),
-  province: z.string().min(1, 'Please select a province'),
+  province: z.enum(SA_PROVINCES, { message: 'Please select a province' }),
   country: z.string().trim().min(1, 'Country is required').default('South Africa'),
-  gender: z.enum(['Male', 'Female', 'Prefer not to say']),
-  spatialType: z.enum(['Rural', 'Township', 'City'], {
+  gender: z.enum(GENDERS),
+  spatialType: z.enum(SPATIAL_TYPES, {
     message: 'Please select where the business operates',
   }),
   isDisabled: z.boolean(),
   isHdp: z.boolean(),
   isRural: z.boolean(),
   isBlackWomenOwned: z.boolean(),
-  saCitizenshipPercentage: z.coerce.number().min(0).max(100, 'Cannot exceed 100%'),
+  saCitizenshipPercentage: z.coerce
+    .number()
+    .min(LIMITS.saCitizenshipPercentage.min)
+    .max(LIMITS.saCitizenshipPercentage.max, 'Cannot exceed 100%'),
   isDirectorOperational: z.boolean(),
   cipcRegistered: z.boolean(),
-  sarsTaxPin: z.string().trim().min(5, 'Tax pin is required'),
+  sarsTaxPin: z.string().trim().min(LIMITS.sarsTaxPin.minLength, 'Tax pin is required'),
   insolventOrDebtReview: z.boolean()
 })
 
 export const step2Schema = z.object({
   monthlyRevenue: z.coerce.number().positive('Monthly revenue must be greater than 0'),
-  yearsInOperation: z.coerce.number().min(0, 'Cannot be negative').max(100),
-  numberOfEmployees: z.coerce.number().int().min(1, 'Must have at least 1 employee'),
-  bankName: z.string().trim().min(2, 'Bank name is required'),
+  yearsInOperation: z.coerce
+    .number()
+    .min(LIMITS.yearsInOperation.min, 'Cannot be negative')
+    .max(LIMITS.yearsInOperation.max),
+  numberOfEmployees: z.coerce
+    .number()
+    .int()
+    .min(LIMITS.numberOfEmployees.min, 'Must have at least 1 employee'),
+  bankName: z.string().trim().min(LIMITS.bankName.minLength, 'Bank name is required'),
 })
 
 /**
@@ -56,7 +78,10 @@ export function createStep3Schema(limits: {
       .int()
       .min(limits.minTermMonths, `Minimum ${limits.minTermMonths} month${limits.minTermMonths === 1 ? '' : 's'}`)
       .max(limits.maxTermMonths, `Maximum ${limits.maxTermMonths} months`),
-    purpose: z.string().trim().min(5, 'Please describe the loan purpose (at least 5 characters)'),
+    purpose: z
+      .string()
+      .trim()
+      .min(LIMITS.purpose.minLength, 'Please describe the loan purpose (at least 5 characters)'),
     loanPurposeCategory: z.string().min(1, 'Please select a purpose category'),
   })
 }

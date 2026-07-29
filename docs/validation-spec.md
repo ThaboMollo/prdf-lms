@@ -232,7 +232,7 @@ Each step is independently shippable and leaves the app working.
 1. ~~**A1 + A2** — backend emits `errors`; nothing consumes it yet. Zero user-visible change.~~ **Done.** `backend-node/src/common/validation-errors.ts`; 6 assertions in `test-api-integration.mjs`.
 2. ~~**C1** — `ApiError` in `packages/domain`, both apps parse it. Still no visual change, but errors stop being stringified.~~ **Done.** `packages/domain/api-error.ts`; 24 assertions in `packages/domain/test-api-error.mjs`, wired into CI.
 3. ~~**C2 + C3** — hook + `FieldError` in `ui-kit`; adopt on **one** form and verify end to end before spreading.~~ **Done.** `packages/ui-kit/hooks/useFormErrors.ts`; 21 assertions in `packages/ui-kit/test-form-errors.mjs`, wired into CI. Adopted on RegisterPage, ApplyPage and admin-ui LoanDetailsPage; the rest of the §7 inventory still to go.
-4. **A4 + B** — tighten DTOs against shared constraints. Do this *after* step 3, so newly-enforced rejections already have somewhere to display.
+4. ~~**A4 + B** — tighten DTOs against shared constraints.~~ **Done.** `packages/domain/constraints.ts` is the single source; `backend-node/scripts/generate-constraints.mjs` mirrors it into src with a CI drift check. 20 new assertions in the API integration suite (73 total).
 5. **D** — `<NumericInput>`, rolled out per the §7 table.
 6. **A3** — typed domain errors, migrating services incrementally behind the deprecated fallback.
 
@@ -287,3 +287,23 @@ Also on Loan Details: the two forms shared one `formError`, so a failed disburse
 `bootApi` now refuses to run when `src/` is newer than the last build. The suites boot `dist/main.js`, not the sources; CI builds first but a local run does not, so editing a file and immediately running the suite silently tested the *previous* build. That cost a debugging cycle during this work — a green run that said nothing about the change just made.
 
 Freshness is measured against `dist/tsconfig.tsbuildinfo`, not the emitted `.js` files: the build is incremental, so an unchanged file is not re-emitted and `dist/` legitimately keeps an older mtime. `tsbuildinfo` is rewritten whenever a build completes, which makes it the honest marker.
+
+### A4 + B as built
+
+`packages/domain/constraints.ts` holds the closed sets and the numeric/length limits, in plain TypeScript — no zod, no class-validator, so neither library's vocabulary leaks into the shared definition. Both validators are built from it: the wizard's zod schemas import it directly, and `backend-node/scripts/generate-constraints.mjs` mirrors it into `src/common/generated-constraints.ts`.
+
+The mirror exists because backend-node's tsconfig `include: ["src/**/*"]` cannot reach outside `src/` — the same constraint that already forced a second copy of `LOAN_STATUS_TRANSITIONS`. The difference is that this copy is generated and drift-checked in CI, so it cannot silently diverge; a hand-maintained copy would reproduce the original problem one level down.
+
+Every row in §1.2 is now closed. `AddressFields` and the wizard's industry dropdown render from the same lists the DTOs validate against, so an option the UI offers can never be one the server rejects.
+
+**Three things this surfaced that were not in the original plan:**
+
+**1. The industry list was replaced wholesale, and a naive `@IsIn` would have broken existing users.** Commit `9504be9` (2026-07-15) swapped the generic list (`Retail`, `Manufacturing`, …) for the blue-economy one. `industry` has no database CHECK, so client profiles written before that date still hold the old values — and `patchClientProfile` resends the stored value on any update. Validating against the current list alone would have rejected those users mid-application for no security benefit. `ACCEPTED_INDUSTRIES` = current + `RETIRED_INDUSTRIES`; the dropdown offers only the current ones. A closed legacy set still stops arbitrary strings, which is the entire point of the check. Delete `RETIRED_INDUSTRIES` once no `clients` row holds one.
+
+**2. Tightening the DTOs broke wizard autosave, and the build did not say so.** `@IsOptional()` skips only `undefined` and `null` — an empty string is still validated. `buildDraftPayload` sends `purpose: ''`, `industry: ''`, `businessName: ''` for every field the user has not reached, on a debounce while they type. A single ordinary autosave produced **nine** validation errors. `@AllowBlank()` (a `ValidateIf` that skips `''`) restores it. Deliberately not a transform to `undefined`: the service uses set-if-provided, where `undefined` means "leave the stored value alone" and `''` means "clear it", and collapsing the two would make clearing a field impossible.
+
+**3. Nothing enforced completeness at submit.** The only submit-time checks were loan limits and required documents, so an application could be submitted with an empty purpose — verified by deleting the new check and watching the suite return **201** on exactly that. `ensureApplicationComplete()` now runs first and reports through the §2 contract, so the wizard's review step lists each missing field.
+
+**Open policy question — not a technical one.** That completeness check covers only what *both* intake paths collect. admin-ui's staff-assisted flow (`CreateAssistedClientDto`) captures business name, registration number and address; it never collects `industry`, `province`, `spatialType`, `gender`, `saCitizenshipPercentage`, `sarsTaxPin`, `bankName` or `numberOfEmployees`, all of which the borrower wizard requires. Requiring them at submit would block staff from submitting anything they captured. **Whether staff should be able to submit an application without BEE/demographic data is a business decision** — these are the fields the DFI reports on. If the answer is no, the fix is to add them to the staff-assisted form, not to relax the wizard.
+
+**Also guarded:** the suite now asserts the `province` and `spatial_type` CHECK constraints in the database match the generated `@IsIn` lists. Those are two independent definitions of one rule and can drift either way — a value the DTO accepts but the CHECK rejects becomes a 500 at write time (confirmed by sabotage), and one the CHECK accepts but the DTO rejects is a dropdown option nobody can submit.

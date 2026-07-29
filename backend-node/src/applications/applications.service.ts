@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { CurrentUser, fetchUserRoles, hasRole, hasAnyRole, isStaff, ASSIGNED_ROLES } from '../auth/roles.helper';
 import { LoanProductsService, LoanProduct } from '../loan-products/loan-products.service';
@@ -10,6 +10,7 @@ import { RecordConsentDto } from './dto/record-consent.dto';
 import { randomUUID } from 'crypto';
 import axios from 'axios';
 import { currentTenant } from '../tenancy/request-context';
+import { LIMITS } from '../common/generated-constraints';
 
 const LOAN_STATUS_TRANSITIONS: Record<string, string[]> = {
   Draft: ['Submitted'],
@@ -379,12 +380,75 @@ export class ApplicationsService {
     }
   }
 
+  /**
+   * Enforce at submit what the draft endpoints deliberately allow to be blank.
+   *
+   * Drafts accept empty fields — they are partial by definition, and the wizard
+   * autosaves on a debounce while the user types (see AllowBlank). Submit is
+   * the moment the rules have to hold, and until now nothing checked them: an
+   * application could be submitted with an empty purpose, because the only
+   * submit-time checks were loan limits and required documents.
+   *
+   * Scope note. This covers the fields BOTH intake paths already collect — the
+   * borrower wizard and admin-ui's staff-assisted flow. The BEE/demographic
+   * fields (industry, province, spatialType, gender, saCitizenshipPercentage,
+   * sarsTaxPin, bankName, numberOfEmployees) are required by the wizard but are
+   * NOT collected by the staff-assisted flow at all, so requiring them here
+   * would block staff from submitting anything they captured. Whether staff
+   * should be able to submit without that data is a policy question, not a
+   * technical one — see docs/validation-spec.md.
+   *
+   * Errors use the §2 contract so the wizard's review step can list them
+   * against the field that caused each one.
+   */
+  private ensureApplicationComplete(proj: SecurityProjection, businessName: string | null, purpose: string | null) {
+    const errors: { field: string; message: string; code: string }[] = [];
+
+    if (!businessName || businessName.trim().length < LIMITS.businessName.minLength) {
+      errors.push({ field: 'businessName', message: 'A business name is required to submit.', code: 'required' });
+    }
+
+    // `purpose` is stored as "<category>: <text>"; an unfinished wizard leaves
+    // it empty or as a bare ": ".
+    const purposeText = (purpose ?? '').replace(/^[^:]*:\s*/, '').trim();
+    if (purposeText.length < LIMITS.purpose.minLength) {
+      errors.push({ field: 'purpose', message: 'Describe what the loan is for before submitting.', code: 'required' });
+    }
+
+    if (!proj.requestedAmount || Number(proj.requestedAmount) <= 0) {
+      errors.push({ field: 'requestedAmount', message: 'A requested amount is required to submit.', code: 'required' });
+    }
+
+    if (!proj.termMonths || Number(proj.termMonths) < LIMITS.termMonths.min) {
+      errors.push({ field: 'termMonths', message: 'A repayment term is required to submit.', code: 'required' });
+    }
+
+    if (errors.length) {
+      throw new BadRequestException({
+        statusCode: 400,
+        message:
+          errors.length === 1
+            ? errors[0].message
+            : 'This application is missing information required to submit.',
+        errors,
+      });
+    }
+  }
+
   async submit(actor: CurrentUser, applicationId: string, note: string | null) {
     const roles = await fetchUserRoles(this.db, actor.userId);
     const proj = await this.getSecurityProjection(applicationId);
     if (!proj) return null;
     this.ensureCanAccess(roles, actor.userId, proj);
     if (proj.status !== 'Draft') throw new Error('Only Draft applications can be submitted.');
+
+    const completeness = await this.db.queryOne<{ businessName: string | null; purpose: string | null }>(
+      `select c.business_name as "businessName", la.purpose
+       from public.loan_applications la join public.clients c on c.id = la.client_id
+       where la.id = $1`,
+      [applicationId],
+    );
+    this.ensureApplicationComplete(proj, completeness?.businessName ?? null, completeness?.purpose ?? null);
 
     const product = proj.loanProductId ? await this.loanProducts.getById(proj.loanProductId).catch(() => null) : null;
     this.ensureWithinLoanLimits(proj.requestedAmount, proj.termMonths, product);

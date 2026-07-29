@@ -107,6 +107,16 @@ jobs:
         run: npm ci
         working-directory: backend-node
 
+      # docs/validation-spec.md workstream B. backend-node/src cannot import
+      # packages/domain (its tsconfig `include` stops at src/), so the shared
+      # constraints are mirrored in by a generator. Unchecked, that copy would
+      # drift — which is the exact problem the shared definition exists to fix,
+      # reproduced one level down. Runs BEFORE the build so a stale mirror fails
+      # here with a clear message rather than as a confusing test failure.
+      - name: Check constraint drift
+        run: node scripts/generate-constraints.mjs --check
+        working-directory: backend-node
+
       - name: Build API
         run: npm run build
         working-directory: backend-node

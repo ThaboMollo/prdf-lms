@@ -1,3 +1,8 @@
+// Shared with the API — see packages/domain/constraints.ts. The DTO's @IsIn is
+// generated from the same list, so a province this dropdown offers can never be
+// one the server rejects.
+import { SA_PROVINCES } from '../../../../packages/domain/constraints'
+
 export type AddressValue = {
   addressLine1: string
   addressLine2: string
@@ -5,18 +10,6 @@ export type AddressValue = {
   province: string
   country: string
 }
-
-const SA_PROVINCES = [
-  'Eastern Cape',
-  'Free State',
-  'Gauteng',
-  'KwaZulu-Natal',
-  'Limpopo',
-  'Mpumalanga',
-  'Northern Cape',
-  'North West',
-  'Western Cape',
-]
 
 type AddressFieldsProps = {
   value: AddressValue

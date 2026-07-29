@@ -463,6 +463,182 @@ async function main() {
       JSON.stringify(badRepaymentBody.errors));
   }
 
+  // ------------------------------------------------- bypass the browser
+  // docs/validation-spec.md §8. Every rule below was enforced ONLY in the
+  // browser before workstream A4. The API is directly callable, so a rule the
+  // client alone enforces is advisory — these send exactly what a curl request
+  // would and assert the server refuses on its own.
+  r.section('rules survive when the browser is bypassed');
+  {
+    const reject = async (label, patch, expectedField) => {
+      const res = await call('/api/applications', clientAToken, {
+        method: 'POST',
+        body: JSON.stringify({ requestedAmount: 300000, termMonths: 12, purpose: 'Working capital', ...patch }),
+      });
+      const body = await res.json().catch(() => ({}));
+      const fields = (body.errors ?? []).map((e) => e.field);
+      r.check(label, res.status === 400 && fields.includes(expectedField),
+        `status=${res.status} fields=${fields.join(',') || '(none)'}`);
+    };
+
+    await reject('a citizenship percentage above 100 is refused', { saCitizenshipPercentage: 500 }, 'saCitizenshipPercentage');
+    await reject('a negative citizenship percentage is refused', { saCitizenshipPercentage: -1 }, 'saCitizenshipPercentage');
+    await reject('a business with 0 employees is refused', { numberOfEmployees: 0 }, 'numberOfEmployees');
+    await reject('an invented province is refused', { province: 'Atlantis' }, 'province');
+    await reject('an invented spatial type is refused', { spatialType: 'Orbital' }, 'spatialType');
+    await reject('an invented industry is refused', { industry: 'Cryptocurrency' }, 'industry');
+    await reject('an invented gender value is refused', { gender: 'Yes' }, 'gender');
+    await reject('a one-character business name is refused', { businessName: 'A' }, 'businessName');
+    await reject('a too-short SARS tax PIN is refused', { sarsTaxPin: '12' }, 'sarsTaxPin');
+    await reject('a negative years-in-operation is refused', { yearsInOperation: -3 }, 'yearsInOperation');
+
+    // Retired industries must still round-trip: client profiles written before
+    // 2026-07-15 hold them, and any update resends the stored value. Rejecting
+    // those would break existing users mid-application for no security gain.
+    const retired = await call('/api/applications', clientAToken, {
+      method: 'POST',
+      body: JSON.stringify({ requestedAmount: 300000, termMonths: 12, purpose: 'Working capital', industry: 'Retail' }),
+    });
+    r.check('a retired industry value is still accepted', retired.status < 400,
+      `got ${retired.status}`);
+
+    // Drafts are partial by definition and the wizard autosaves on a debounce
+    // while the user types. If a blank field were treated as invalid, saving
+    // would start failing on the first keystroke — this is the assertion that
+    // catches a future tightening breaking the wizard.
+    //
+    // A PUT, not a POST: `uniq_active_draft_per_client` allows one active draft
+    // per client, and autosave overwhelmingly updates an existing draft rather
+    // than creating one.
+    const draftId = (await retired.json().catch(() => ({})))?.id;
+    const blankAutosave = draftId
+      ? await call(`/api/applications/${draftId}`, clientAToken, {
+          method: 'PUT',
+          body: JSON.stringify({
+            requestedAmount: 300000, termMonths: 12,
+            purpose: '', businessName: '', registrationNo: '', industry: '',
+            province: '', spatialType: '', gender: '', sarsTaxPin: '', bankName: '',
+          }),
+        })
+      : null;
+    r.check('an autosave full of blanks still saves',
+      blankAutosave !== null && blankAutosave.status < 400,
+      blankAutosave ? `got ${blankAutosave.status}` : 'no draft to update');
+  }
+
+  // ------------------------------------------- submit-time completeness
+  // Blank is tolerated on a draft but must NOT survive to submission. Nothing
+  // checked this before: an application could be submitted with an empty
+  // purpose, because the only submit-time checks were loan limits and
+  // required documents.
+  r.section('blank is tolerated on a draft but refused at submit');
+  {
+    const INCOMPLETE_USER = '22222222-0000-0000-0000-00000000000c';
+    const INCOMPLETE_CLIENT = '33333333-0000-0000-0000-00000000000c';
+    const INCOMPLETE_APP = '44444444-0000-0000-0000-00000000000c';
+
+    // Seeded directly: the API deliberately will not let a caller *create* an
+    // application this empty, but rows like it exist from before the rule.
+    await withDb(DB_URL, async (db) => {
+      await db.query(`insert into auth.users (id, email) values ($1,'incomplete@test')`, [INCOMPLETE_USER]);
+      await db.query(
+        `insert into public.clients (id, user_id, business_name) values ($1,$2,'Incomplete Ltd')`,
+        [INCOMPLETE_CLIENT, INCOMPLETE_USER],
+      );
+      const product = await db.query(`select id from public.loan_products where is_active limit 1`);
+      await db.query(
+        `insert into public.loan_applications (id, client_id, loan_product_id, requested_amount, term_months, purpose, status)
+         values ($1,$2,$3,300000,12,'','Draft')`,
+        [INCOMPLETE_APP, INCOMPLETE_CLIENT, product.rows[0].id],
+      );
+
+      // Documents are seeded UP FRONT so the submit below can fail for exactly
+      // one reason — the empty purpose. Leaving them missing lets the
+      // pre-existing document gate reject the request first, which would make
+      // the assertion pass even if the completeness check were deleted.
+      const required = await db.query(
+        `select doc_type from public.document_requirements
+         where loan_product_id = $1 and required_at_status = 'Submitted' and is_required = true`,
+        [product.rows[0].id],
+      );
+      for (const row of required.rows) {
+        await db.query(
+          `insert into public.loan_documents (id, application_id, doc_type, storage_path, status, uploaded_by)
+           values (gen_random_uuid(), $1, $2, $3, 'Uploaded', $4)`,
+          [INCOMPLETE_APP, row.doc_type, `applications/${INCOMPLETE_APP}/${row.doc_type}.pdf`, INCOMPLETE_USER],
+        );
+      }
+    });
+
+    const incompleteToken = await issuer.mint(INCOMPLETE_USER);
+    const submitted = await call(`/api/applications/${INCOMPLETE_APP}/submit`, incompleteToken, {
+      method: 'POST', body: JSON.stringify({ note: null }),
+    });
+    const submitBody = await submitted.json().catch(() => ({}));
+    const submitFields = (submitBody.errors ?? []).map((e) => e.field);
+
+    r.check('an application with no purpose cannot be submitted',
+      submitted.status === 400, `got ${submitted.status} ${JSON.stringify(submitBody).slice(0, 160)}`);
+    r.check('...and the missing field is named, not just refused',
+      submitFields.includes('purpose'), JSON.stringify(submitBody.errors ?? submitBody).slice(0, 200));
+    r.check('...and it is a 400, not a 500 — this is the user\'s input, not a fault',
+      submitted.status !== 500, `got ${submitted.status}`);
+
+    // A genuinely complete draft must still submit, or the new check is too
+    // aggressive — a completeness rule that blocks valid applications is worse
+    // than the gap it closed. Only the purpose was missing; documents were
+    // seeded above.
+    await withDb(DB_URL, (db) =>
+      db.query(`update public.loan_applications set purpose = 'Working capital for stock' where id = $1`, [INCOMPLETE_APP]),
+    );
+    const resubmitted = await call(`/api/applications/${INCOMPLETE_APP}/submit`, incompleteToken, {
+      method: 'POST', body: JSON.stringify({ note: null }),
+    });
+    r.check('a complete draft still submits',
+      resubmitted.status < 400, `got ${resubmitted.status} ${(await resubmitted.text()).slice(0, 160)}`);
+  }
+
+  // ------------------------------------------- app vs database agreement
+  // province and spatial_type carry CHECK constraints in the schema AND @IsIn
+  // lists generated from packages/domain/constraints.ts. Those are two
+  // independent definitions of the same rule, and they can drift apart in
+  // either direction — a value the DTO accepts but the CHECK rejects becomes a
+  // 500 at write time, and one the CHECK accepts but the DTO rejects is a
+  // dropdown option users cannot actually submit.
+  r.section('the app and the database agree on the closed sets');
+  {
+    const { SA_PROVINCES, SPATIAL_TYPES } = await import('../dist/common/generated-constraints.js');
+
+    const checkValues = async (column) => {
+      const rows = await withDb(DB_URL, (db) =>
+        db.query(
+          `select pg_get_constraintdef(con.oid) as def
+           from pg_constraint con
+           join pg_class rel on rel.oid = con.conrelid
+           join pg_namespace ns on ns.oid = rel.relnamespace
+           where ns.nspname = 'public' and rel.relname = 'clients'
+             and con.contype = 'c' and pg_get_constraintdef(con.oid) like $1`,
+          [`%${column}%`],
+        ),
+      );
+      if (!rows.rows.length) return null;
+      // Pull the quoted literals out of `... IN ('a'::text, 'b'::text)`.
+      return [...rows.rows[0].def.matchAll(/'([^']+)'/g)].map((m) => m[1]).sort();
+    };
+
+    const dbProvinces = await checkValues('province');
+    r.check('the province CHECK exists in the database', dbProvinces !== null);
+    r.check('the province CHECK matches the generated @IsIn list',
+      dbProvinces !== null && JSON.stringify(dbProvinces) === JSON.stringify([...SA_PROVINCES].sort()),
+      `db=${JSON.stringify(dbProvinces)} app=${JSON.stringify([...SA_PROVINCES].sort())}`);
+
+    const dbSpatial = await checkValues('spatial_type');
+    r.check('the spatial_type CHECK exists in the database', dbSpatial !== null);
+    r.check('the spatial_type CHECK matches the generated @IsIn list',
+      dbSpatial !== null && JSON.stringify(dbSpatial) === JSON.stringify([...SPATIAL_TYPES].sort()),
+      `db=${JSON.stringify(dbSpatial)} app=${JSON.stringify([...SPATIAL_TYPES].sort())}`);
+  }
+
   // ------------------------------------------------------ audit trail
   r.section('money movements are audited');
   {

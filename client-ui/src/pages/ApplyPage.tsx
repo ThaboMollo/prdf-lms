@@ -17,6 +17,9 @@ import { formatRand, calculateMonthlyInstalment, calculateTotalInterest, calcula
 import { useActiveLoanProduct, useDocumentRequirements, type LoanProduct } from '../../../packages/client-core/useLoanProduct'
 import { DOCUMENT_LABELS } from '../lib/requirements'
 import { activeTenant } from '../../../packages/tenant-config'
+// Offered list only — the API accepts these plus the retired ones, so a client
+// profile written before 2026-07-15 still round-trips. See constraints.ts.
+import { INDUSTRIES } from '../../../packages/domain/constraints'
 import {
   step1Schema,
   step2Schema,
@@ -35,17 +38,7 @@ type DocSlot = { type: string; label: string; hint: string; multiple: boolean }
 
 const STEPS = ['Business Profile', 'Financials', 'Loan Details', 'Documents', 'Review']
 
-const INDUSTRIES = [
-  'Marine Tourism',
-  'Marine Transport, logistics and Shipping',
-  'Marine Biotechnology & Pharmaceuticals',
-  'Seafood and Aquaculture',
-  'Coastal and Port Infrastructure',
-  'Shipbuilding and Repairs',
-  'Clean Energy',
-  'Sustainable Technologies',
-  'All purchase orders outside these industries'
-]
+
 
 const SA_BANKS = [
   'Absa', 'African Bank', 'Bidvest Bank', 'Capitec Bank', 'Discovery Bank',
@@ -685,11 +678,14 @@ function Step1({
     return {
       businessName: form.businessName,
       registrationNo: form.registrationNo,
-      industry: form.industry,
+      // The <select> holds a plain string (and '' before a choice is made), so
+      // these are asserted into the enum type. The schema is what actually
+      // rejects an unselected or invalid value a line later.
+      industry: form.industry as Step1Data['industry'],
       addressLine1: form.address.addressLine1,
       addressLine2: form.address.addressLine2,
       city: form.address.city,
-      province: form.address.province,
+      province: form.address.province as Step1Data['province'],
       country: form.address.country,
       gender: form.gender as Step1Data['gender'],
       spatialType: form.spatialType as Step1Data['spatialType'],
