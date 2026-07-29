@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 import { DatabaseService } from '../database/database.service';
+import { currentTenant } from '../tenancy/request-context';
 import { CurrentUser, fetchUserRoles, ensureMfaSatisfied } from './roles.helper';
 
 // jose is pinned to v4 deliberately. v4 publishes a "require" export
@@ -27,20 +28,25 @@ import { CurrentUser, fetchUserRoles, ensureMfaSatisfied } from './roles.helper'
 // require('jose'), Node loads it synchronously, and nft sees the reference and
 // bundles it.
 
-// Module-scope, not per-guard-instance or per-request: jose fetches the JWKS
-// once and caches/auto-refreshes it internally. Constructing this inside the
-// class (or per-request) would re-fetch the key set unnecessarily — on
-// serverless this matters more, not less, since a cold function paying an
-// extra network round trip on top of its cold start is a visibly slow first
-// request.
-let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
+// One key set PER TENANT, cached at module scope: jose fetches a JWKS once and
+// caches/auto-refreshes it internally, so rebuilding per request would add a
+// network round trip to every cold start.
+//
+// Keyed by issuer rather than slug because the issuer is what the token
+// actually asserts, and it is what TenantResolverMiddleware routed on — using
+// the same key in both places means there is no way for the two to disagree
+// about which tenant a request belongs to.
+const jwksByIssuer = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
-function getJwks(): ReturnType<typeof createRemoteJWKSet> {
-  if (jwks) return jwks;
-  const url = process.env.SUPABASE_URL;
-  if (!url) throw new Error('SUPABASE_URL is required');
-  jwks = createRemoteJWKSet(new URL(`${url.replace(/\/$/, '')}/auth/v1/.well-known/jwks.json`));
-  return jwks;
+function getJwksFor(issuer: string, supabaseUrl: string): ReturnType<typeof createRemoteJWKSet> {
+  const cached = jwksByIssuer.get(issuer);
+  if (cached) return cached;
+
+  const keySet = createRemoteJWKSet(
+    new URL(`${supabaseUrl.replace(/\/$/, '')}/auth/v1/.well-known/jwks.json`),
+  );
+  jwksByIssuer.set(issuer, keySet);
+  return keySet;
 }
 
 @Injectable()
@@ -61,7 +67,15 @@ export class SupabaseAuthGuard implements CanActivate {
     let payload: JWTPayload;
     try {
       const audience = process.env.SUPABASE_JWT_AUDIENCE || 'authenticated';
-      const result = await jwtVerify(token, getJwks(), { audience });
+      // The tenant was resolved from this token's issuer by
+      // TenantResolverMiddleware. Verifying against THAT tenant's key set is
+      // what makes the earlier unverified decode safe: a forged issuer selects
+      // a key set that cannot validate the signature.
+      const tenant = currentTenant();
+      const result = await jwtVerify(token, getJwksFor(tenant.issuer, tenant.supabaseUrl), {
+        audience,
+        issuer: tenant.issuer,
+      });
       payload = result.payload;
     } catch (err) {
       this.logger.warn(`JWT verification failed: ${err instanceof Error ? err.message : err}`);

@@ -3,6 +3,7 @@ import { DatabaseService } from '../database/database.service';
 import { CurrentUser, ensureInternal } from '../auth/roles.helper';
 import axios from 'axios';
 import { randomUUID } from 'crypto';
+import { currentTenant } from '../tenancy/request-context';
 
 @Injectable()
 export class ClientsService {
@@ -78,9 +79,12 @@ export class ClientsService {
   }
 
   private async inviteUserWithLink(email: string, fullName?: string, redirectTo?: string): Promise<{ userId: string | null; actionLink: string | null }> {
-    const url = process.env.SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !serviceKey) throw new Error('Supabase URL/service role key must be configured for invite flow.');
+    // Scoped to the tenant that owns THIS request. Reading these from
+    // process.env would mint credentials for whichever tenant the
+    // process happened to be configured with — i.e. sign a URL against
+    // the wrong tenant's storage bucket. currentTenant() throws if no
+    // tenant is in context; the registry guarantees both fields at boot.
+    const { supabaseUrl: url, serviceRoleKey: serviceKey } = currentTenant();
 
     const payload: any = { type: 'invite', email, data: { full_name: fullName ?? null } };
     if (redirectTo) payload.redirect_to = redirectTo;

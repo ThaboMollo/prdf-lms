@@ -9,6 +9,7 @@ import { UpdateApplicationDto } from './dto/update-application.dto';
 import { RecordConsentDto } from './dto/record-consent.dto';
 import { randomUUID } from 'crypto';
 import axios from 'axios';
+import { currentTenant } from '../tenancy/request-context';
 
 const LOAN_STATUS_TRANSITIONS: Record<string, string[]> = {
   Draft: ['Submitted'],
@@ -538,9 +539,12 @@ export class ApplicationsService {
   }
 
   private async createSignedUploadUrl(bucket: string, storagePath: string): Promise<string> {
-    const url = process.env.SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !serviceKey) throw new Error('Supabase URL/service role key must be configured for presigned uploads.');
+    // Scoped to the tenant that owns THIS request. Reading these from
+    // process.env would mint credentials for whichever tenant the
+    // process happened to be configured with — i.e. sign a URL against
+    // the wrong tenant's storage bucket. currentTenant() throws if no
+    // tenant is in context; the registry guarantees both fields at boot.
+    const { supabaseUrl: url, serviceRoleKey: serviceKey } = currentTenant();
 
     const encodedPath = storagePath.split('/').map(encodeURIComponent).join('/');
     const endpoint = `${url.replace(/\/$/, '')}/storage/v1/object/upload/sign/${bucket}/${encodedPath}`;

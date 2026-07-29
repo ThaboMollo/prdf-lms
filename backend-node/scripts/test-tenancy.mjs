@@ -125,27 +125,79 @@ withEnv(
 );
 
 console.log('');
-console.log('--- step-1 gate: resolution must not guess ---');
+console.log('--- issuer routing: authenticated requests (spec §1.1) ---');
+
+/** Build an unsigned JWT. Routing only decodes it; the guard verifies. */
+function tokenFor(issuer) {
+  const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  return `${b64({ alg: 'ES256', typ: 'JWT' })}.${b64({ iss: issuer, sub: 'u1' })}.AAAA`;
+}
+const reqWith = (headers) => ({ headers });
+
+function resolvedSlug(registry, req) {
+  const middleware = new TenantResolverMiddleware(registry);
+  let slug = null;
+  middleware.use(req, {}, () => {
+    slug = currentTenant().slug;
+  });
+  return slug;
+}
+
 withEnv({ TENANTS: 'a,b', ...VALID_A, ...VALID_B }, () => {
   const registry = load();
-  const middleware = new TenantResolverMiddleware(registry);
-  expectRefusal('multiple tenants + single-tenant resolution refuses the request', () =>
-    middleware.use({}, {}, () => undefined),
+
+  const a = resolvedSlug(registry, reqWith({ authorization: `Bearer ${tokenFor(VALID_A.TENANT_A_ISSUER)}` }));
+  if (a === 'a') { passed++; console.log("ok     | tenant A's issuer routes to tenant A"); }
+  else { failed++; console.log(`NOT OK | tenant A's issuer routed to ${a}`); }
+
+  const b = resolvedSlug(registry, reqWith({ authorization: `Bearer ${tokenFor(VALID_B.TENANT_B_ISSUER)}` }));
+  if (b === 'b') { passed++; console.log("ok     | tenant B's issuer routes to tenant B"); }
+  else { failed++; console.log(`NOT OK | tenant B's issuer routed to ${b}`); }
+
+  expectRefusal('an unknown issuer is refused, never routed', () =>
+    resolvedSlug(registry, reqWith({ authorization: `Bearer ${tokenFor('https://evil.example.com/auth/v1')}` })),
+  );
+  expectRefusal('a malformed token is refused', () =>
+    resolvedSlug(registry, reqWith({ authorization: 'Bearer not-a-jwt' })),
+  );
+  expectRefusal('a token with no issuer claim is refused', () =>
+    resolvedSlug(registry, reqWith({ authorization: `Bearer ${tokenFor(undefined)}` })),
   );
 });
+
+// The critical one: with a single tenant configured, an unknown issuer must
+// STILL be refused. Falling back "because there's only one tenant" would mean
+// honouring tokens minted by an unrelated Supabase project.
 withEnv({ TENANTS: 'a', ...VALID_A }, () => {
   const registry = load();
-  const middleware = new TenantResolverMiddleware(registry);
-  let served = false;
-  expectAllowed('exactly one tenant serves normally', () =>
-    middleware.use({}, {}, () => {
-      served = true;
-    }),
+  expectRefusal('unknown issuer is refused even when only one tenant exists', () =>
+    resolvedSlug(registry, reqWith({ authorization: `Bearer ${tokenFor('https://evil.example.com/auth/v1')}` })),
   );
-  if (!served) {
-    failed++;
-    console.log('NOT OK | next() was not called for the single-tenant case');
-  }
+});
+
+console.log('');
+console.log('--- host routing: unauthenticated requests (spec §1.2) ---');
+withEnv({ TENANTS: 'a,b', ...VALID_A, ...VALID_B }, () => {
+  const registry = load();
+
+  const viaOrigin = resolvedSlug(registry, reqWith({ origin: 'https://b.example.com' }));
+  if (viaOrigin === 'b') { passed++; console.log('ok     | Origin header routes to the owning tenant'); }
+  else { failed++; console.log(`NOT OK | Origin routed to ${viaOrigin}`); }
+
+  const viaHost = resolvedSlug(registry, reqWith({ host: 'a.example.com:443' }));
+  if (viaHost === 'a') { passed++; console.log('ok     | Host header routes to the owning tenant'); }
+  else { failed++; console.log(`NOT OK | Host routed to ${viaHost}`); }
+
+  expectRefusal('unknown host with several tenants is refused', () =>
+    resolvedSlug(registry, reqWith({ host: 'nobody.example.com' })),
+  );
+});
+
+withEnv({ TENANTS: 'a', ...VALID_A }, () => {
+  const registry = load();
+  const slug = resolvedSlug(registry, reqWith({ host: 'unconfigured.example.com' }));
+  if (slug === 'a') { passed++; console.log('ok     | unknown host with ONE tenant resolves to it (unambiguous, not a guess)'); }
+  else { failed++; console.log(`NOT OK | single-tenant host fallback returned ${slug}`); }
 });
 
 console.log('');

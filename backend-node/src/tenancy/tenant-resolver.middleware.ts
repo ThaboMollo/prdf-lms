@@ -1,57 +1,107 @@
-import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
+import { Injectable, Logger, NestMiddleware, UnauthorizedException, NotFoundException } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
+import { decodeJwt } from 'jose';
 import { TenantRegistryService } from './tenant-registry.service';
 import { requestContext } from './request-context';
+import type { ResolvedTenant } from './tenant.types';
 
 /**
- * Establishes the tenant for every request, before guards run.
+ * Decides which tenant a request belongs to, before guards run
+ * (docs/multi-tenant-spec.md §1).
  *
- * Middleware — not a guard or interceptor — because SupabaseAuthGuard already
- * needs the tenant: it picks a JWKS by issuer and reads roles from that
- * tenant's database. Nest runs middleware before guards, so the context is in
- * place by then.
+ * Routing lives here; verification lives in SupabaseAuthGuard. The split
+ * matters:
  *
- * ── STEP 1 SCOPE (docs/multi-tenant-spec.md §7) ──────────────────────────
- * Resolution here is single-tenant only: exactly one configured tenant, used
- * for every request. Issuer-based resolution (§1.1) arrives with the
- * tenant-aware auth guard in step 2.
+ *   middleware — "which tenant is this request for?"  (selects a key set)
+ *   guard      — "is this token actually valid for that tenant?"  (verifies)
  *
- * If more than one tenant is configured, this middleware REFUSES THE REQUEST
- * rather than guessing. That is deliberate: it makes the sequencing in §7
- * impossible to skip. You cannot serve two tenants until the guard can tell
- * them apart cryptographically — the failure is a loud 500 at the door
- * instead of a silent cross-tenant read.
+ * The unverified decode below is safe *because* of that split. Reading `iss`
+ * without checking the signature only chooses which JWKS to verify against;
+ * a forged issuer routes to a key set that will not verify the signature, so
+ * the guard rejects it. What must never happen is trusting any other claim
+ * from this decode — roles, subject and everything else are read only after
+ * verification, from the tenant's own database.
+ *
+ * Middleware rather than a guard because SupabaseAuthGuard itself needs the
+ * tenant: it picks a JWKS by issuer and reads roles from that tenant's
+ * database. Nest runs middleware before guards.
  */
 @Injectable()
 export class TenantResolverMiddleware implements NestMiddleware {
   private readonly logger = new Logger(TenantResolverMiddleware.name);
-  private warnedMultiTenant = false;
 
   constructor(private readonly registry: TenantRegistryService) {}
 
-  use(_req: Request, _res: Response, next: NextFunction) {
-    const tenants = this.registry.all();
+  use(req: Request, _res: Response, next: NextFunction) {
+    const tenant = this.resolve(req);
+    requestContext.run({ tenant }, () => next());
+  }
 
-    if (tenants.length === 0) {
-      throw new Error('No tenants configured — refusing to serve requests.');
-    }
+  private resolve(req: Request): ResolvedTenant {
+    const authHeader = req.headers['authorization'];
 
-    if (tenants.length > 1) {
-      if (!this.warnedMultiTenant) {
-        this.warnedMultiTenant = true;
-        this.logger.error(
-          `${tenants.length} tenants are configured, but tenant resolution is still ` +
-            `single-tenant (step 1). Requests are being refused rather than routed to a ` +
-            `guessed tenant. Complete step 2 (issuer-based resolution in SupabaseAuthGuard) ` +
-            `before configuring more than one tenant.`,
-        );
+    // --- Authenticated: route by issuer (§1.1) ------------------------------
+    // Security-critical path. An unrecognised issuer is refused outright and
+    // never falls back to another tenant, even when only one is configured —
+    // a token minted by some other Supabase project must not be honoured.
+    if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.slice(7).trim();
+
+      let issuer: string | undefined;
+      try {
+        issuer = decodeJwt(token).iss;
+      } catch {
+        throw new UnauthorizedException('Malformed token');
       }
-      throw new Error(
-        'Multiple tenants configured but issuer-based resolution is not enabled yet. ' +
-          'Refusing to guess which tenant this request belongs to.',
-      );
+
+      if (!issuer) {
+        throw new UnauthorizedException('Token missing issuer claim');
+      }
+
+      const tenant = this.registry.findByIssuer(issuer.replace(/\/$/, ''));
+      if (!tenant) {
+        // Deliberately not echoing the issuer back to the caller.
+        this.logger.warn(`Rejected token from unknown issuer: ${issuer}`);
+        throw new UnauthorizedException('Invalid or expired token');
+      }
+      return tenant;
     }
 
-    requestContext.run({ tenant: tenants[0] }, () => next());
+    // --- Unauthenticated: route by host (§1.2) ------------------------------
+    // Only public data is reachable this way (the logged-out marketing
+    // calculator), which is why a client-assertable signal is acceptable here
+    // and nowhere else.
+    const host = this.hostOf(req);
+    if (host) {
+      const byDomain = this.registry.findByDomain(host);
+      if (byDomain) return byDomain;
+    }
+
+    // Single-tenant deployments commonly configure no domains at all. With
+    // exactly one tenant there is nothing to choose between, so this is not a
+    // guess — it is the only possibility. With several, refuse.
+    if (this.registry.count() === 1) {
+      return this.registry.all()[0];
+    }
+
+    this.logger.warn(`Could not resolve a tenant for host "${host ?? '(none)'}" on an unauthenticated request`);
+    throw new NotFoundException('Unrecognised domain');
+  }
+
+  /** Prefer Origin (set on cross-site XHR) and fall back to Host. */
+  private hostOf(req: Request): string | null {
+    const origin = req.headers['origin'];
+    if (typeof origin === 'string' && origin) {
+      try {
+        return new URL(origin).hostname.toLowerCase();
+      } catch {
+        /* fall through to Host */
+      }
+    }
+    const host = req.headers['host'];
+    if (typeof host === 'string' && host) {
+      return host.split(':')[0].toLowerCase();
+    }
+    return null;
   }
 }

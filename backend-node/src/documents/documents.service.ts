@@ -3,6 +3,7 @@ import { DatabaseService } from '../database/database.service';
 import { CurrentUser, fetchUserRoles, hasAnyRole, hasRole, isStaff, ASSIGNED_ROLES } from '../auth/roles.helper';
 import { randomUUID } from 'crypto';
 import axios from 'axios';
+import { currentTenant } from '../tenancy/request-context';
 
 const BUCKET = 'loan-documents';
 
@@ -116,9 +117,12 @@ export class DocumentsService {
   }
 
   private async deleteStorageObject(storagePath: string): Promise<void> {
-    const url = process.env.SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !serviceKey) throw new Error('Supabase URL/service role key must be configured for storage deletion.');
+    // Scoped to the tenant that owns THIS request. Reading these from
+    // process.env would mint credentials for whichever tenant the
+    // process happened to be configured with — i.e. sign a URL against
+    // the wrong tenant's storage bucket. currentTenant() throws if no
+    // tenant is in context; the registry guarantees both fields at boot.
+    const { supabaseUrl: url, serviceRoleKey: serviceKey } = currentTenant();
 
     const endpoint = `${url.replace(/\/$/, '')}/storage/v1/object/${BUCKET}`;
     await axios.delete(endpoint, {
@@ -128,9 +132,12 @@ export class DocumentsService {
   }
 
   private async createSignedDownloadUrl(storagePath: string, expiresInSeconds = 300): Promise<string> {
-    const url = process.env.SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !serviceKey) throw new Error('Supabase URL/service role key must be configured for signed downloads.');
+    // Scoped to the tenant that owns THIS request. Reading these from
+    // process.env would mint credentials for whichever tenant the
+    // process happened to be configured with — i.e. sign a URL against
+    // the wrong tenant's storage bucket. currentTenant() throws if no
+    // tenant is in context; the registry guarantees both fields at boot.
+    const { supabaseUrl: url, serviceRoleKey: serviceKey } = currentTenant();
 
     const base = url.replace(/\/$/, '');
     const encodedPath = storagePath.split('/').map(encodeURIComponent).join('/');

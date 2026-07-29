@@ -83,6 +83,24 @@ jobs:
         run: node scripts/test-tenancy.mjs
         working-directory: backend-node
 
+      # Under multi-tenancy these credentials belong to a REQUEST, not the
+      # process. Reading them from the environment inside a service mints
+      # credentials for whichever tenant the process was configured with —
+      # e.g. signing a storage URL against the wrong tenant's bucket. Only the
+      # tenancy registry may touch them; everything else uses currentTenant().
+      - name: Check service-role credentials are tenant-scoped
+        run: |
+          matches=$(grep -rn "process\.env\.SUPABASE_\(URL\|SERVICE_ROLE_KEY\|DB_CONNECTION_STRING\)" src --include='*.ts' | grep -v '^src/tenancy/' || true)
+          if [ -n "$matches" ]; then
+            echo "Tenant credentials read from process.env outside src/tenancy/:"
+            echo "$matches"
+            echo ""
+            echo "Use currentTenant() from src/tenancy/request-context instead."
+            exit 1
+          fi
+          echo "All tenant credentials are resolved from request context."
+        working-directory: backend-node
+
       - name: Install client UI
         run: npm ci
         working-directory: client-ui
