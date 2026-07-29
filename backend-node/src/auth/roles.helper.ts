@@ -1,8 +1,8 @@
 import type { DatabaseService } from '../database/database.service';
 
-export const STAFF_ROLES = ['Admin', 'LoanOfficer'] as const;
+export const STAFF_ROLES = ['SuperAdmin', 'Admin', 'LoanOfficer'] as const;
 export const ASSIGNED_ROLES = ['Intern', 'Originator'] as const;
-export const INTERNAL_ROLES = ['Admin', 'LoanOfficer', 'Intern', 'Originator'] as const;
+export const INTERNAL_ROLES = ['SuperAdmin', 'Admin', 'LoanOfficer', 'Intern', 'Originator'] as const;
 
 export interface CurrentUser {
   userId: string;
@@ -56,7 +56,11 @@ export async function fetchUserRoles(db: DatabaseService, userId: string): Promi
     `select r.name from public.user_roles ur join public.roles r on r.id = ur.role_id where ur.user_id = $1`,
     [userId],
   );
-  return [...new Set(rows.map((r) => r.name))];
+  const roles = [...new Set(rows.map((r) => r.name))];
+  // Keep legacy SuperAdmin-only accounts functional. New assignments persist
+  // both roles, but authorization must still honour the inheritance rule.
+  if (hasRole(roles, 'SuperAdmin') && !hasRole(roles, 'Admin')) roles.push('Admin');
+  return roles;
 }
 
 export function hasRole(roles: string[], role: string): boolean {
