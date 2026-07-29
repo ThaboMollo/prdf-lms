@@ -437,6 +437,30 @@ async function main() {
     r.check('an unknown property is reported against its own field name',
       (unknownBody.errors ?? []).some((e) => e.field === 'notAField'),
       JSON.stringify(unknownBody.errors));
+
+    // The money forms on admin-ui's Loan Details page key their inputs on the
+    // DTO property name, so `amount` is not cosmetic — it is the join between
+    // the server's rejection and the input that gets highlighted. If the DTO
+    // property is ever renamed without the form following, the message would
+    // silently stop appearing on the field and fall back to a banner.
+    const badDisburse = await call(`/api/loans/${LOAN}/disburse`, staffToken, {
+      method: 'POST', body: JSON.stringify({ amount: -500 }),
+    });
+    const badDisburseBody = await badDisburse.json();
+    r.check('a rejected disbursement is attributed to the `amount` field',
+      (badDisburseBody.errors ?? []).some((e) => e.field === 'amount'),
+      JSON.stringify(badDisburseBody.errors));
+
+    const badRepayment = await call(`/api/loans/${LOAN}/repayments`, staffToken, {
+      method: 'POST', body: JSON.stringify({ amount: 'lots' }),
+    });
+    const badRepaymentBody = await badRepayment.json();
+    r.check('a rejected repayment is attributed to the `amount` field',
+      (badRepaymentBody.errors ?? []).some((e) => e.field === 'amount'),
+      JSON.stringify(badRepaymentBody.errors));
+    r.check('...with a type code the UI can branch on',
+      (badRepaymentBody.errors ?? []).some((e) => e.field === 'amount' && e.code === 'type'),
+      JSON.stringify(badRepaymentBody.errors));
   }
 
   // ------------------------------------------------------ audit trail

@@ -17,32 +17,53 @@
 
 export type FieldErrorMap = Record<string, string | undefined>
 
+/**
+ * Why an id namespace exists.
+ *
+ * The convention is that an input's DOM id equals the error key equals the DTO
+ * property. That breaks the moment two forms on one page post to endpoints
+ * sharing a property name — the Loan Details page has a Disburse form and a
+ * Record Repayment form, and *both* DTOs call the field `amount`. Two elements
+ * with `id="amount"` is invalid HTML, `getElementById` returns whichever came
+ * first, and focus lands in the wrong form.
+ *
+ * `idPrefix` namespaces the DOM id only. The error KEY stays the bare wire name
+ * (`amount`), because that is what the server reports and what the map must be
+ * addressable by.
+ */
+export function fieldDomId(field: string, idPrefix?: string): string {
+  return idPrefix ? `${idPrefix}-${field}` : field
+}
+
 /** Stable DOM id for a field's error text. */
-export function fieldErrorId(field: string): string {
-  return `${field}-error`
+export function fieldErrorId(field: string, idPrefix?: string): string {
+  return `${fieldDomId(field, idPrefix)}-error`
 }
 
 type FieldErrorProps = {
   /**
-   * The field's wire name — same value as the input's `id`. Optional only so
-   * legacy call sites keep compiling; without it the error renders but is not
-   * announced as belonging to any input.
+   * The field's wire name — the key in the error map, and (via `fieldDomId`)
+   * the input's `id`. Optional only so legacy call sites keep compiling;
+   * without it the error renders but is not announced as belonging to any
+   * input.
    */
   field?: string
+  /** Must match the `idPrefix` given to the matching `fieldErrorAttrs` call. */
+  idPrefix?: string
   message?: string
 }
 
-export function FieldError({ field, message }: FieldErrorProps) {
+export function FieldError({ field, idPrefix, message }: FieldErrorProps) {
   if (!message) return null
   return (
-    <p id={field ? fieldErrorId(field) : undefined} className="field-error" role="alert">
+    <p id={field ? fieldErrorId(field, idPrefix) : undefined} className="field-error" role="alert">
       {message}
     </p>
   )
 }
 
 /**
- * Spread onto the input/select/textarea:
+ * Spread onto the input/select/textarea, alongside `id={fieldDomId(...)}`:
  *
  *   <input id="monthlyRevenue" {...fieldErrorAttrs('monthlyRevenue', errors.monthlyRevenue)} />
  *
@@ -53,9 +74,10 @@ export function FieldError({ field, message }: FieldErrorProps) {
 export function fieldErrorAttrs(
   field: string,
   message?: string,
+  idPrefix?: string,
 ): { 'aria-invalid'?: true; 'aria-describedby'?: string } {
   if (!message) return {}
-  return { 'aria-invalid': true, 'aria-describedby': fieldErrorId(field) }
+  return { 'aria-invalid': true, 'aria-describedby': fieldErrorId(field, idPrefix) }
 }
 
 /**
@@ -73,12 +95,12 @@ export function fieldErrorAttrs(
  *
  * Returns true if focus moved — callers can fall back to a banner if not.
  */
-export function focusFirstInvalidField(errors: FieldErrorMap): boolean {
+export function focusFirstInvalidField(errors: FieldErrorMap, idPrefix?: string): boolean {
   if (typeof document === 'undefined') return false
 
   const elements = Object.keys(errors)
     .filter((field) => errors[field])
-    .map((field) => document.getElementById(field))
+    .map((field) => document.getElementById(fieldDomId(field, idPrefix)))
     .filter((el): el is HTMLElement => el !== null)
 
   if (elements.length === 0) return false

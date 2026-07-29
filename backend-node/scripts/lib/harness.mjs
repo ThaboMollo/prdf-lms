@@ -12,6 +12,8 @@
  */
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
+import { existsSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
@@ -69,8 +71,73 @@ export async function startIssuer({ port, kid = 'test-key' }) {
   };
 }
 
+/**
+ * Newest mtime under a directory, or 0 if it doesn't exist.
+ * Shallow-recursive and cheap; these trees are small.
+ */
+function newestMtime(dir) {
+  let newest = 0;
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+  for (const entry of entries) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      newest = Math.max(newest, newestMtime(full));
+    } else {
+      newest = Math.max(newest, statSync(full).mtimeMs);
+    }
+  }
+  return newest;
+}
+
+/**
+ * Refuse to run against a stale build.
+ *
+ * The suites boot `dist/main.js`, not the TypeScript sources. CI builds first,
+ * but a local run does not — so editing a source file and immediately running
+ * the suite silently tests the PREVIOUS build. That is a vacuous pass: green
+ * output that says nothing about the change you just made. It has already
+ * cost one debugging cycle on this project.
+ */
+function assertBuildIsFresh(cwd) {
+  const entrypoint = join(cwd, 'dist/main.js');
+  if (!existsSync(entrypoint)) {
+    throw new Error(`No build found at ${entrypoint}. Run: npm run build`);
+  }
+
+  // Compare against tsconfig.tsbuildinfo, not against the emitted .js files.
+  // The build is incremental: if a source file's content is unchanged, tsc
+  // skips re-emitting it and dist/ keeps its older mtime — so comparing to
+  // dist/ reports stale on a build that is actually current. tsbuildinfo is
+  // rewritten on every successful build regardless of what was emitted, which
+  // makes it the honest marker of "when did a build last complete".
+  const buildInfo = join(cwd, 'dist/tsconfig.tsbuildinfo');
+  if (!existsSync(buildInfo)) {
+    // Some build configurations don't emit it; skipping the check is better
+    // than failing every run on an environment we can't reason about.
+    return;
+  }
+
+  const srcTime = newestMtime(join(cwd, 'src'));
+  const builtAt = statSync(buildInfo).mtimeMs;
+
+  if (srcTime > builtAt) {
+    throw new Error(
+      'src/ has changed since the last build — this run would test the PREVIOUS build,\n' +
+        'not your changes, and pass or fail for the wrong reason.\n' +
+        'Run: npm run build',
+    );
+  }
+}
+
 /** Boot the compiled API. Resolves once /health answers. */
 export async function bootApi({ port, env, cwd }) {
+  assertBuildIsFresh(cwd);
+
   const proc = spawn('node', ['dist/main.js'], {
     cwd,
     env: { ...process.env, PORT: String(port), DATABASE_SSL: 'false', ...env },

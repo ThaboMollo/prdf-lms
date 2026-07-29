@@ -231,7 +231,7 @@ Each step is independently shippable and leaves the app working.
 
 1. ~~**A1 + A2** — backend emits `errors`; nothing consumes it yet. Zero user-visible change.~~ **Done.** `backend-node/src/common/validation-errors.ts`; 6 assertions in `test-api-integration.mjs`.
 2. ~~**C1** — `ApiError` in `packages/domain`, both apps parse it. Still no visual change, but errors stop being stringified.~~ **Done.** `packages/domain/api-error.ts`; 24 assertions in `packages/domain/test-api-error.mjs`, wired into CI.
-3. **C2 + C3** — hook + `FieldError` in `ui-kit`; adopt on **one** form (Register — smallest) and verify end to end before spreading. **C3 done** (see below); **C2 outstanding.**
+3. ~~**C2 + C3** — hook + `FieldError` in `ui-kit`; adopt on **one** form and verify end to end before spreading.~~ **Done.** `packages/ui-kit/hooks/useFormErrors.ts`; 21 assertions in `packages/ui-kit/test-form-errors.mjs`, wired into CI. Adopted on RegisterPage, ApplyPage and admin-ui LoanDetailsPage; the rest of the §7 inventory still to go.
 4. **A4 + B** — tighten DTOs against shared constraints. Do this *after* step 3, so newly-enforced rejections already have somewhere to display.
 5. **D** — `<NumericInput>`, rolled out per the §7 table.
 6. **A3** — typed domain errors, migrating services incrementally behind the deprecated fallback.
@@ -261,3 +261,29 @@ Also added: `input[aria-invalid='true']` alongside `:user-invalid` in both apps'
 Still to adopt: the admin-ui forms in §7, `LoginPage` (both apps), `AddressFields`.
 
 **One structural gotcha, if you extend this to forms built like RegisterPage was.** A `<label>` that *wraps* its input must not also contain the `FieldError`. Per the accessible-name spec, a label's contents (other than the wrapped control) become part of the input's accessible name — so a nested error both renames the field and gets announced twice, once as the name and once via `aria-describedby`. RegisterPage was restructured to `.field-block > (label.form-field + FieldError)` for this reason. ApplyPage was already safe, using a `div.form-field` with a sibling `<label htmlFor>`.
+
+### C2 as built
+
+`useFormErrors()` returns `{ fieldErrors, formError, submitting, submit, clearField, setFieldErrors, reset, idPrefix }`.
+
+`submit(request, { validate })` runs the local checks, then the request; it resolves to the request's value on success and `undefined` on any failure, so callers branch on the result instead of duplicating error handling. Double-submit is blocked through a ref rather than the `submitting` state — reading state would see the value captured when the callback was created, and on a disbursement that means paying twice.
+
+**The routing rule.** A failure becomes a *field* error only if the server attributed it (`ApiError.hasFieldErrors`). Everything else — a network drop, a 500, a 403 — goes to the banner, because it is not the user's input being wrong and highlighting an input would send them to fix a healthy field.
+
+The banner then appears **exactly when nothing could be pointed at**: `submit` focuses the first invalid input and suppresses the banner if that succeeded (the message is already visible on the field), or carries the message if it didn't (the field isn't mounted — the apply wizard's review step). One failure, shown once. The `test-form-errors.mjs` suite asserts both halves of that invariant.
+
+The decision logic is four exported pure functions with the hook as thin glue, so all of the above is testable without a DOM.
+
+**Two things this surfaced, both fixed:**
+
+1. **The `id === field name` convention collides when two forms share a page.** Loan Details has Disburse and Record Repayment, and *both* DTOs call the field `amount`. Two elements with `id="amount"` is invalid HTML and `getElementById` returns whichever came first, so focus landed in the wrong form. `fieldDomId(field, idPrefix)` namespaces the DOM id; the error **key** stays the bare wire name, since that is what the server reports.
+
+2. **The reported constraint was arbitrary.** `flattenValidationErrors` took `Object.entries(constraints)[0]` — decorator-evaluation order. `amount: "lots"` fails `isNumber`, `isPositive` and `min` at once, and it was reporting *"must be a positive number"*, sending the user hunting for a bigger number when they had typed a word. Now ordered by `CONSTRAINT_PRIORITY`: missing > wrong type > wrong format > everything else, since a type error explains every range failure downstream.
+
+Also on Loan Details: the two forms shared one `formError`, so a failed disbursement rendered a red message above the repayment form too. They now hold independent state. And the buttons are no longer disabled on a zero amount — a disabled button explains nothing; submitting and showing the reason on the field does.
+
+### A note on the harness
+
+`bootApi` now refuses to run when `src/` is newer than the last build. The suites boot `dist/main.js`, not the sources; CI builds first but a local run does not, so editing a file and immediately running the suite silently tested the *previous* build. That cost a debugging cycle during this work — a green run that said nothing about the change just made.
+
+Freshness is measured against `dist/tsconfig.tsbuildinfo`, not the emitted `.js` files: the build is incremental, so an unchanged file is not re-emitted and `dist/` legitimately keeps an older mtime. `tsbuildinfo` is rewritten whenever a build completes, which makes it the honest marker.

@@ -217,6 +217,12 @@ jobs:
       - name: Test API error parsing
         run: node packages/domain/test-api-error.mjs
 
+      # Form error routing (docs/validation-spec.md §C2). Asserts a rejection
+      # lands in the right place: attributable ones on the field, everything
+      # else in the banner — never both, never neither.
+      - name: Test form error routing
+        run: node packages/ui-kit/test-form-errors.mjs
+
       - name: Install admin UI
         run: npm ci
         working-directory: admin-ui

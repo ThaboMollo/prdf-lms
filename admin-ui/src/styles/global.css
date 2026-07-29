@@ -232,6 +232,16 @@ textarea[aria-invalid='true'] {
   box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.12);
 }
 
+/* Wraps a label and its .field-error as one unit. The error must sit OUTSIDE
+   the <label>: per the accessible-name spec a label's contents (other than the
+   control it wraps) become part of the input's name, so a nested error would
+   both rename the field and be announced twice via aria-describedby. */
+.field-block {
+  display: grid;
+  gap: 0.3rem;
+  align-content: start;
+}
+
 /* Shared with client-ui — see packages/ui-kit/components/FieldError.tsx */
 .field-error {
   color: var(--danger);

@@ -41,14 +41,55 @@ const CODE_BY_CONSTRAINT: Record<string, string> = {
 };
 
 /**
+ * Which failure to report when a value breaks several rules at once.
+ *
+ * Lower number wins. The ordering follows what actually explains the problem:
+ * a missing value explains everything downstream, and a wrong *type* explains
+ * every range failure — `amount: "lots"` fails `isNumber`, `isPositive` and
+ * `min` simultaneously, and "amount must not be less than 1000" sends the user
+ * hunting for a bigger number when the real issue is that they typed a word.
+ *
+ * Without this the winner is whichever key class-validator happens to put
+ * first in the constraints object, which is decorator-evaluation order — not
+ * something to hang user-facing prose on.
+ */
+const CONSTRAINT_PRIORITY: Record<string, number> = {
+  isDefined: 0,
+  isNotEmpty: 0,
+  isNumber: 1,
+  isInt: 1,
+  isString: 1,
+  isBoolean: 1,
+  isArray: 1,
+  isIn: 2,
+  isEnum: 2,
+  isEmail: 2,
+  isUUID: 2,
+  isDateString: 2,
+  matches: 2,
+};
+
+const DEFAULT_PRIORITY = 3;
+
+function pickConstraint(constraints: Record<string, string>): [string, string] {
+  const entries = Object.entries(constraints);
+  return entries.reduce((best, candidate) =>
+    (CONSTRAINT_PRIORITY[candidate[0]] ?? DEFAULT_PRIORITY) <
+    (CONSTRAINT_PRIORITY[best[0]] ?? DEFAULT_PRIORITY)
+      ? candidate
+      : best,
+  );
+}
+
+/**
  * Flatten class-validator's nested errors into a flat, addressable list.
  *
  * Nested objects and arrays produce dotted paths (`consent.items.0.answer`) so
  * a form can map an error onto the exact input that caused it.
  *
- * Only the FIRST constraint per field is reported. A single bad number can
- * violate `isNumber`, `isPositive` and `min` at once, and showing three
- * messages under one input is noise — the first is enough to act on.
+ * Only ONE constraint per field is reported — the most explanatory one, per
+ * CONSTRAINT_PRIORITY. Showing three messages under one input is noise, and
+ * they are usually three descriptions of the same mistake.
  */
 export function flattenValidationErrors(errors: ValidationError[], parentPath = ''): FieldError[] {
   const out: FieldError[] = [];
@@ -57,7 +98,7 @@ export function flattenValidationErrors(errors: ValidationError[], parentPath = 
     const path = parentPath ? `${parentPath}.${error.property}` : error.property;
 
     if (error.constraints) {
-      const [constraint, message] = Object.entries(error.constraints)[0];
+      const [constraint, message] = pickConstraint(error.constraints);
       out.push({
         field: path,
         message,
