@@ -142,6 +142,20 @@ export const tenantConfigSchema = z.object({
   /** Public-path to the tenant's logo image, e.g. "/prdf-logo.png" — the file itself still lives in each app's own public/ directory. */
   logoPath: z.string().min(1),
 
+  /**
+   * Hostnames this tenant is served on, e.g. ['apply.prdf.co.za', 'prdf-lms.vercel.app'].
+   *
+   * The frontends resolve their tenant from window.location.hostname at
+   * runtime rather than being built per tenant, so this is what makes one
+   * Vercel project able to serve every client. Adding a client becomes: add a
+   * config entry, add the domain in Vercel, point DNS — no new project, no
+   * rebuild.
+   *
+   * Must not overlap between tenants; the registry refuses to resolve an
+   * ambiguous hostname rather than picking one.
+   */
+  domains: z.array(z.string().min(1)).default([]),
+
   color: colorSchema,
   radius: breakpointPair(radiusValuesSchema),
   type: typeSchema,

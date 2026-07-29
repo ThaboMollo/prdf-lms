@@ -148,6 +148,14 @@ jobs:
         run: npm run build
         working-directory: client-ui
 
+      # Frontend tenant routing (docs/multi-tenant-spec.md §W7). The dangerous
+      # failure is not an error — it is resolving to the WRONG tenant, which
+      # would serve one client's branding and login form on another client's
+      # domain. Needs client-ui's node_modules for esbuild, so it runs after
+      # that install.
+      - name: Test tenant resolution
+        run: node packages/tenant-config/test-resolution.mjs
+
       - name: Install admin UI
         run: npm ci
         working-directory: admin-ui

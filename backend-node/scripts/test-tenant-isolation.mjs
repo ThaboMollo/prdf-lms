@@ -283,6 +283,9 @@ async function main() {
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
+    const brokenLog = [];
+    broken.stdout.on('data', (d) => brokenLog.push(d.toString()));
+    broken.stderr.on('data', (d) => brokenLog.push(d.toString()));
     cleanup.push(async () => broken.kill());
     for (let i = 0; i < 50; i++) {
       try { if ((await fetch(`http://localhost:${brokenPort}/health`)).ok) break; } catch {}
@@ -301,6 +304,22 @@ async function main() {
     check('a broken tenant does not abort the healthy one', a?.ok === true, `tenant a: ${JSON.stringify(a)}`);
     check('the broken tenant is reported as failed', b?.ok === false, `tenant b: ${JSON.stringify(b)}`);
     check('a partial failure returns non-2xx, not a green 200', res.status >= 500, `got ${res.status}`);
+
+    // §W8 — observability. The API is a shared failure domain now, so an error
+    // that doesn't say WHICH tenant it belongs to is close to useless. The log
+    // prefix is the observable proxy for the Sentry tag (Sentry itself is inert
+    // without a DSN, so it can't be asserted here).
+    const beforeCount = brokenLog.length;
+    await fetch(`http://localhost:${brokenPort}/api/loan-products/active`, {
+      headers: { Origin: 'http://b.localhost' },
+    });
+    await new Promise((r) => setTimeout(r, 300));
+    const recent = brokenLog.slice(beforeCount).join('');
+    check(
+      "a failing tenant's errors are logged with its slug",
+      /\[b\]/.test(recent),
+      recent ? `no [b] prefix in: ${recent.slice(0, 120)}` : 'no output captured',
+    );
   }
 
   console.log('');

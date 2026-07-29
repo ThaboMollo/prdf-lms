@@ -22,6 +22,11 @@ export const prdf: TenantConfig = {
   // File itself lives at client-ui/public/prdf-logo.png and admin-ui/public/prdf-logo.png (duplicated binary, same file).
   logoPath: '/prdf-logo.png',
 
+  // Hostnames this tenant is served on. The frontends resolve their tenant
+  // from window.location.hostname at runtime, so this is what lets one Vercel
+  // project serve every client.
+  domains: ['prdf-lms.vercel.app', 'prdf-admin.vercel.app'],
+
   // ---------------------------------------------------------------------------
   // Colour
   //

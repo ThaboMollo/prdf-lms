@@ -1,12 +1,16 @@
 import { Link, useNavigate } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
-import { prdf as tenantConfig } from '../../../../packages/tenant-config/tenants/prdf'
+import { activeTenant } from '../../../../packages/tenant-config'
 
 type PublicNavProps = {
   session: Session | null
 }
 
 export function PublicNav({ session }: PublicNavProps) {
+  // Resolved at bootstrap from the hostname (see main.tsx). Called here
+  // rather than at module scope: imports are evaluated before main.tsx runs
+  // setActiveTenant(), so a module-level call would throw on first import.
+  const tenantConfig = activeTenant()
   const navigate = useNavigate()
 
   return (

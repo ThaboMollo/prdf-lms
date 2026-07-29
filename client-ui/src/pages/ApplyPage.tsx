@@ -15,7 +15,7 @@ import { WizardCostCard } from '../components/shared/WizardCostCard'
 import { formatRand, calculateMonthlyInstalment, calculateTotalInterest, calculateTotalRepayment } from '../lib/loanCalc'
 import { useActiveLoanProduct, useDocumentRequirements, type LoanProduct } from '../../../packages/client-core/useLoanProduct'
 import { DOCUMENT_LABELS } from '../lib/requirements'
-import { prdf as tenantConfig } from '../../../packages/tenant-config/tenants/prdf'
+import { activeTenant } from '../../../packages/tenant-config'
 import {
   step1Schema,
   step2Schema,
@@ -645,6 +645,9 @@ function Step1({
   onAutosave: (d: Step1Data) => void
   savingDraft: boolean
 }) {
+  // Resolved at bootstrap from the hostname (see main.tsx). Read inside the
+  // component, not at module scope: imports evaluate before setActiveTenant().
+  const tenantConfig = activeTenant()
   const [form, setForm] = useState({
     businessName: initial?.businessName ?? '',
     registrationNo: initial?.registrationNo ?? '',

@@ -36,7 +36,7 @@ import { hasAnyRole, toAppRoles } from '../lib/rbac'
 import { paginateItems, parsePageParam } from '../lib/pagination'
 import { DOCUMENT_LABELS } from '../lib/requirements'
 import { useActiveLoanProduct, useDocumentRequirements } from '../lib/loanProduct'
-import { prdf as tenantConfig } from '../../../packages/tenant-config/tenants/prdf'
+import { activeTenant } from '../../../packages/tenant-config'
 import { allowedNextStatuses } from '../../../packages/domain/status'
 
 type ApplicationsPageProps = {
@@ -843,6 +843,9 @@ type ApplicationDetailProps = {
 }
 
 function ApplicationDetail(props: ApplicationDetailProps) {
+  // Resolved at bootstrap from the hostname (see main.tsx). Read inside the
+  // component, not at module scope: imports evaluate before setActiveTenant().
+  const tenantConfig = activeTenant()
   const { data: activeLoanProduct } = useActiveLoanProduct()
   const { data: docRequirements = [] } = useDocumentRequirements(activeLoanProduct?.id, props.accessToken)
   const requiredDocumentTypes = docRequirements.map((req) => ({

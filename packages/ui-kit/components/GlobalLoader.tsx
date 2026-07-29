@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useIsFetching, useIsMutating } from '@tanstack/react-query'
-import { prdf as tenantConfig } from '../../tenant-config/tenants/prdf'
+import { activeTenant } from '../../tenant-config'
 
 // Small delay so instant responses don't flash the overlay.
 const SHOW_DELAY_MS = 250
@@ -10,6 +10,10 @@ const SHOW_DELAY_MS = 250
  * (fetch or mutation) is in flight. Mount once, inside QueryClientProvider.
  */
 export function GlobalLoader() {
+  // Resolved at bootstrap from the hostname (see each app's main.tsx). Read
+  // inside the component rather than at module scope, since imports evaluate
+  // before setActiveTenant() runs.
+  const tenantConfig = activeTenant()
   // Foreground only: count initial loads (fetching with no data yet) and
   // mutations — but not silent background refetches/polls of loaded queries.
   const fetching = useIsFetching({ predicate: (query) => query.state.data === undefined })

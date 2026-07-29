@@ -14,6 +14,13 @@ export const kgolo: TenantConfig = {
   tagline: 'Funding that grows with you',
   locale: 'en-ZA',
   currency: 'ZAR',
+  logoPath: '/kgolo-logo.png',
+
+  // Hostnames this tenant is served on (placeholders until the real domains
+  // exist — resolution simply won't match until they are correct, which is
+  // the intended failure mode: an unknown host shows an error rather than
+  // another client's branding).
+  domains: ['kgolo-lms.vercel.app', 'kgolo-admin.vercel.app'],
 
   // ---------------------------------------------------------------------------
   // Colour
@@ -146,5 +153,41 @@ export const kgolo: TenantConfig = {
     steps: ['businessProfile', 'financials', 'loanDetails', 'documents', 'review'],
     screensPerStep: 1,
     showStepCounter: false,
+  },
+  // PLACEHOLDER — copied verbatim from PRDF's criteria so this config is
+  // type-complete and the tenant can be resolved. These are a real policy
+  // question for this client and MUST be replaced with Kgolo's own criteria
+  // before they take a single application; showing another lender's
+  // eligibility rules to an applicant would be misleading.
+  eligibility: {
+    impact: {
+      label: 'DEVELOPMENTAL IMPACT',
+      items: [
+        'Applicants who demonstrate expected Developmental Impact',
+        'Projects must demonstrate targets for employment creation',
+        'Applicants must be willing to participate in developmental programs',
+        'Transactions from rural provinces must have rural community participation',
+        'Projects must demonstrate sustainability',
+        'The business must demonstrate capacity to repay the loan offered',
+      ],
+    },
+    ownership: {
+      label: 'OWNERSHIP & CONTROL',
+      items: [
+        'Enterprises must be >50.1% black women owned',
+        'Applicants must be 90% South African nationals with operations controlled by SA citizens',
+        'Enterprises must be 100% Director Operational',
+        'Applicants must be permanent residents of South Africa',
+      ],
+    },
+    compliance: {
+      label: 'REGISTRATION & COMPLIANCE',
+      items: [
+        "The Enterprise(s) must be compliant with generally accepted corporate governance practices appropriate to the client's legal status",
+        'The business must be registered with the CIPC',
+        'The business must be registered with SARS as a taxpayer and in possession of a valid tax clearance certificate or a tax pin',
+        'The members/shareholders of the business must not be unrehabilitated insolvents and not be under debt review or an administration order',
+      ],
+    },
   },
 };

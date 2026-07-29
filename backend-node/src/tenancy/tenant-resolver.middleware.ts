@@ -1,6 +1,7 @@
 import { Injectable, Logger, NestMiddleware, UnauthorizedException, NotFoundException } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
 import { decodeJwt } from 'jose';
+import * as Sentry from '@sentry/node';
 import { TenantRegistryService } from './tenant-registry.service';
 import { requestContext } from './request-context';
 import type { ResolvedTenant } from './tenant.types';
@@ -34,7 +35,19 @@ export class TenantResolverMiddleware implements NestMiddleware {
 
   use(req: Request, _res: Response, next: NextFunction) {
     const tenant = this.resolve(req);
-    requestContext.run({ tenant }, () => next());
+
+    // withIsolationScope, not setTag on the global scope: one API process now
+    // serves every tenant, and concurrent requests would otherwise overwrite
+    // each other's tag. The isolation scope is per-async-context, so each
+    // request's events carry its own tenant.
+    //
+    // Without this, a shared failure domain means one tenant's error storm is
+    // indistinguishable from another's in Sentry — you can see that something
+    // is broken but not for whom (docs/multi-tenant-spec.md §W8).
+    Sentry.withIsolationScope((scope) => {
+      scope.setTag('tenant', tenant.slug);
+      requestContext.run({ tenant }, () => next());
+    });
   }
 
   private resolve(req: Request): ResolvedTenant {

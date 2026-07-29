@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import * as Sentry from '@sentry/node';
+import { requestContext } from '../tenancy/request-context';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -40,6 +41,26 @@ export class AllExceptionsFilter implements ExceptionFilter {
         const { message: _message, statusCode: _statusCode, error: _error, ...rest } = body;
         extra = rest;
       }
+    } else if (isInfrastructureError(exception)) {
+      // Checked BEFORE the message matching below, and deliberately so.
+      //
+      // A dead database raises `database "x" does not exist`, which contains
+      // "does not exist" — the substring rule classified that as 404. The
+      // consequences were all bad: monitoring saw a client error rather than an
+      // outage, only 500s reach Sentry so nothing alerted, and the raw message
+      // (including the internal database name) was returned to the caller.
+      //
+      // Infrastructure failures identify themselves by an error CODE — a
+      // Postgres SQLSTATE or a Node system errno — not by prose, so classify on
+      // that and never echo the detail outward.
+      status = HttpStatus.INTERNAL_SERVER_ERROR;
+      message = 'Internal server error';
+      const slug = requestContext.getStore()?.tenant.slug ?? 'no-tenant';
+      const code = (exception as { code?: string }).code;
+      this.logger.error(
+        `[${slug}] infrastructure failure (${code}): ${(exception as Error).message}`,
+        (exception as Error).stack,
+      );
     } else if (exception instanceof Error) {
       const msg = exception.message.toLowerCase();
       if (msg.includes('unauthorized') || msg.includes('cannot access') || msg.includes('only admin') || msg.includes('only staff') || msg.includes('only internal') || msg.includes('only loanofficer')) {
@@ -52,7 +73,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
         status = HttpStatus.BAD_REQUEST;
         message = exception.message;
       } else {
-        this.logger.error(exception.message, exception.stack);
+        // Prefix with the tenant so a log search can separate one tenant's
+        // failures from another's. Read defensively: routes excluded from
+        // tenant resolution (health, cron) legitimately have no tenant.
+        const slug = requestContext.getStore()?.tenant.slug ?? 'no-tenant';
+        this.logger.error(`[${slug}] ${exception.message}`, exception.stack);
       }
     }
 
@@ -65,4 +90,23 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     response.status(status).json({ statusCode: status, message, path: request.url, ...extra });
   }
+}
+
+/**
+ * Distinguishes "the platform is broken" from "the caller asked for something
+ * invalid". Postgres errors carry a five-character SQLSTATE; Node system
+ * errors carry an ENOENT/ECONNREFUSED-style errno. Application errors thrown
+ * by services carry neither.
+ */
+function isInfrastructureError(exception: unknown): boolean {
+  if (!(exception instanceof Error)) return false;
+  const code = (exception as { code?: unknown }).code;
+  if (typeof code !== 'string' || !code) return false;
+
+  // Postgres SQLSTATE, e.g. 3D000 (invalid_catalog_name), 28P01 (bad password),
+  // 57P03 (cannot_connect_now).
+  if (/^[0-9A-Z]{5}$/.test(code)) return true;
+
+  // Node system errors: ECONNREFUSED, ENOTFOUND, ETIMEDOUT, EAI_AGAIN, ...
+  return /^(E[A-Z_]+|EAI_[A-Z]+)$/.test(code);
 }

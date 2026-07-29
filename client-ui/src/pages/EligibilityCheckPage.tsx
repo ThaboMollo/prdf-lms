@@ -1,21 +1,23 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PublicNav } from '../components/shared/PublicNav'
-import { prdf as tenantConfig } from '../../../packages/tenant-config/tenants/prdf'
+import { activeTenant } from '../../../packages/tenant-config'
 
-// Moved to packages/tenant-config/tenants/prdf.ts's `eligibility` field — see
-// that file for the actual criteria content.
-const CRITERIA = tenantConfig.eligibility
+// The criteria live in the tenant's config (`eligibility`), resolved at
+// bootstrap from the hostname. Read inside the component, not at module scope:
+// imports are evaluated before main.tsx calls setActiveTenant(), so a
+// module-level call would throw on first import.
+type SectionKey = 'impact' | 'ownership' | 'compliance'
 
-type SectionKey = keyof typeof CRITERIA
-
-function getAllItems(): string[] {
-  return Object.values(CRITERIA).flatMap((s) => s.items)
+function getAllItems(criteria: Record<SectionKey, { items: string[] }>): string[] {
+  return Object.values(criteria).flatMap((s) => s.items)
 }
 
 export function EligibilityCheckPage() {
   const navigate = useNavigate()
-  const allItems = getAllItems()
+  const tenantConfig = activeTenant()
+  const CRITERIA = tenantConfig.eligibility
+  const allItems = getAllItems(CRITERIA)
   const [checked, setChecked] = useState<Set<string>>(new Set())
 
   function toggle(item: string) {

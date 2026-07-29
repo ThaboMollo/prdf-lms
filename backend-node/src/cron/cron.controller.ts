@@ -3,6 +3,7 @@ import { CronSecretGuard } from '../auth/cron-secret.guard';
 import { NotificationsService } from '../notifications/notifications.service';
 import { TenantRegistryService } from '../tenancy/tenant-registry.service';
 import { runForTenant } from '../tenancy/request-context';
+import * as Sentry from '@sentry/node';
 
 type TenantSweepResult =
   | { slug: string; ok: true; created: { arrears: number; tasks: number; staleApplications: number } }
@@ -53,7 +54,14 @@ export class CronController {
 
     for (const tenant of tenants) {
       try {
-        const created = await runForTenant(tenant, () => this.notificationsService.runReminderScans());
+        // The sweep runs outside a request, so TenantResolverMiddleware's
+        // isolation scope doesn't apply — tag each tenant's pass separately or
+        // a failure lands in Sentry with no indication of whose it was.
+        const created = await Sentry.withIsolationScope(async (scope) => {
+          scope.setTag('tenant', tenant.slug);
+          scope.setTag('job', 'notification-sweep');
+          return runForTenant(tenant, () => this.notificationsService.runReminderScans());
+        });
         results.push({ slug: tenant.slug, ok: true, created });
         this.logger.log(
           `[${tenant.slug}] swept: ${created.arrears} arrears, ${created.tasks} task, ` +

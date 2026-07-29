@@ -4,9 +4,13 @@ import { supabase } from '../lib/supabase'
 import { useCalculator } from '../contexts/CalculatorContext'
 import { formatRand } from '../lib/loanCalc'
 import { useActiveLoanProduct } from '../../../packages/client-core/useLoanProduct'
-import { prdf as tenantConfig } from '../../../packages/tenant-config/tenants/prdf'
+import { activeTenant } from '../../../packages/tenant-config'
 
 export function RegisterPage() {
+  // Resolved at bootstrap from the hostname (see main.tsx). Called here
+  // rather than at module scope: imports are evaluated before main.tsx runs
+  // setActiveTenant(), so a module-level call would throw on first import.
+  const tenantConfig = activeTenant()
   const navigate = useNavigate()
   const { amount, term, hasInteracted } = useCalculator()
   const { data: product } = useActiveLoanProduct()
