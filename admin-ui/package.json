@@ -7,7 +7,7 @@
     "dev": "vite --port 5174",
     "build": "tsc && vite build",
     "preview": "vite preview --port 5174",
-    "postinstall": "npm install --prefix ../packages/tenant-config && npm install --prefix ../packages/domain && npm install --prefix ../packages/ui-kit"
+    "postinstall": "npm install --prefix ../packages/tenant-config && npm install --prefix ../packages/domain"
   },
   "devDependencies": {
     "@types/react": "^19.2.13",

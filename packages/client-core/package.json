@@ -2,7 +2,7 @@
   "name": "client-core",
   "private": true,
   "version": "0.0.0",
-  "description": "Headless React hooks for client-ui only (not shared with admin-ui — see a future packages/admin-core for that surface). Imported via relative paths, same precedent as packages/ui-kit/packages/domain. React and @tanstack/react-query are peers, not bundled deps, since client-ui already depends on them directly.",
+  "description": "Headless React hooks for client-ui only (not shared with admin-ui \u2014 see a future packages/admin-core for that surface). Imported via relative paths, same precedent as packages/ui-kit/packages/domain. React and @tanstack/react-query are peers, not bundled deps, since client-ui already depends on them directly.",
   "peerDependencies": {
     "react": "^19.0.0",
     "@tanstack/react-query": "^5.0.0"
@@ -10,5 +10,13 @@
   "devDependencies": {
     "@types/react": "^19.2.13",
     "typescript": "~5.9.3"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "@tanstack/react-query": {
+      "optional": true
+    }
   }
 }
