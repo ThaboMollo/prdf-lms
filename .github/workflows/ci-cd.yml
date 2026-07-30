@@ -131,6 +131,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Vercel picks the package manager from whichever lockfile it finds, and
+      # yarn.lock WINS over package-lock.json. Both apps carried both, so
+      # production was building with `yarn install v1.22.19` while this workflow
+      # ran `npm ci` — two different resolvers, meaning a green CI build never
+      # actually proved the tree production would install. That is the same
+      # class of gap that shipped a duplicate React and took client-ui down.
+      #
+      # Checked before any install so it fails fast and unambiguously.
+      - name: Enforce a single package manager (npm)
+        run: |
+          strays=$(find . -name yarn.lock -o -name pnpm-lock.yaml -o -name '.yarnrc*' \
+            | grep -v node_modules || true)
+          if [ -n "$strays" ]; then
+            echo "Non-npm package manager files present:"
+            echo "$strays"
+            echo
+            echo "Vercel would build with that package manager instead of npm,"
+            echo "diverging from this workflow. Remove them, or move CI to match."
+            exit 1
+          fi
+          for app in client-ui admin-ui backend-node; do
+            if [ ! -f "$app/package-lock.json" ]; then
+              echo "$app has no package-lock.json — npm ci cannot pin its tree."
+              exit 1
+            fi
+          done
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
