@@ -953,7 +953,7 @@ function ApplicationDetail(props: ApplicationDetailProps) {
                 )}
                 {props.assignableUsers.map((user) => (
                   <option key={user.userId} value={user.userId}>
-                    {user.name}{user.roles.length ? ` • ${user.roles.join(', ')}` : ''}
+                    {user.name}
                   </option>
                 ))}
               </select>
