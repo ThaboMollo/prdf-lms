@@ -12,7 +12,9 @@
       "WebFetch(domain:www.kasihustle.com)",
       "WebFetch(domain:finanso.com)",
       "Bash(npx tsc:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "mcp__claude_ai_Vercel__get_project",
+      "mcp__claude_ai_Vercel__get_runtime_errors"
     ]
   }
 }
