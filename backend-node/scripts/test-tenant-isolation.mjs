@@ -323,6 +323,76 @@ async function main() {
   }
 
   console.log('');
+  console.log('--- the single-tenant fallback disappears at two tenants ---');
+  {
+    // The production cutover trap (docs/multi-tenant-spec.md §9).
+    //
+    // With ONE tenant, TenantResolverMiddleware returns it for any
+    // unauthenticated request that no domain matches — with nothing to choose
+    // between, that is not a guess. Production relies on this today: it runs in
+    // legacy single-tenant mode, so its tenant has an EMPTY domains list, and
+    // the public marketing endpoint works purely because of that fallback.
+    //
+    // Adding a second tenant removes it. If domains are not configured in the
+    // same change, tenant 1's logged-out landing page breaks — silently, and
+    // only for visitors who are not signed in.
+    const noDomainsPort = 3198;
+    const noDomains = spawn('node', ['dist/main.js'], {
+      cwd: new URL('..', import.meta.url).pathname,
+      env: {
+        ...process.env,
+        PORT: String(noDomainsPort),
+        DATABASE_SSL: 'false',
+        // CORS is allowed explicitly so this isolates TENANT RESOLUTION.
+        // Without it the request is refused at the CORS layer instead (403),
+        // which proves nothing about resolution — production works today
+        // because ALLOWED_ORIGINS covers its frontends AND count()===1 covers
+        // resolution. Two separate single-tenant crutches; this asserts the
+        // second one.
+        ALLOWED_ORIGINS: 'http://a.localhost,http://b.localhost',
+        TENANTS: 'a,b',
+        TENANT_A_ISSUER: ISSUER_A,
+        TENANT_A_SUPABASE_URL: `http://localhost:${PORT_A}`,
+        TENANT_A_SERVICE_ROLE_KEY: 'k',
+        TENANT_A_DB_URL: DB_A,
+        TENANT_B_ISSUER: ISSUER_B,
+        TENANT_B_SUPABASE_URL: `http://localhost:${PORT_B}`,
+        TENANT_B_SERVICE_ROLE_KEY: 'k',
+        TENANT_B_DB_URL: DB_B,
+        // TENANT_*_DOMAINS deliberately unset — this is the misconfiguration.
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    cleanup.push(async () => noDomains.kill());
+    for (let i = 0; i < 50; i++) {
+      try { if ((await fetch(`http://localhost:${noDomainsPort}/health`)).ok) break; } catch {}
+      await new Promise((r) => setTimeout(r, 200));
+    }
+
+    const publicRes = await fetch(`http://localhost:${noDomainsPort}/api/loan-products/active`, {
+      headers: { Origin: 'http://a.localhost' },
+    });
+    check(
+      'two tenants with no domains configured refuse a public request, even with a CORS-allowed Origin',
+      publicRes.status === 404,
+      `got ${publicRes.status} — 200 means the fallback still applies and §9's warning is wrong; ` +
+        `403 means CORS refused first and this assertion is not testing resolution`,
+    );
+
+    // Authenticated traffic is unaffected: issuer routing does not use domains
+    // at all, which is why the breakage is confined to logged-out visitors and
+    // therefore easy to miss.
+    const authRes = await fetch(`http://localhost:${noDomainsPort}/api/loan-products/active`, {
+      headers: { Authorization: `Bearer ${tokenA}` },
+    });
+    check(
+      'authenticated requests still route by issuer without domains',
+      authRes.status === 200,
+      `got ${authRes.status}`,
+    );
+  }
+
+  console.log('');
   console.log(`passed=${passed} failed=${failed}`);
 }
 

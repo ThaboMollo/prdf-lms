@@ -1,5 +1,6 @@
-const U = 'https://kjhibiawvvmzhdjbqhpq.supabase.co'
-const K = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtqaGliaWF3dnZtemhkamJxaHBxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODk0MjU0NCwiZXhwIjoyMDk0NTE4NTQ0fQ.8B6o-HF_6WyeYrh5FONbEmuNSlg8i8BRypFfGL-5LIg'
+const U = process.env.SUPABASE_URL || 'https://kjhibiawvvmzhdjbqhpq.supabase.co'
+const K = process.env.SUPABASE_SERVICE_ROLE_KEY
+if (!K) throw new Error('SUPABASE_SERVICE_ROLE_KEY env var is required')
 const UID = '08050c65-32a7-4da0-af87-256216f2f53a'
 const H = { apikey: K, Authorization: `Bearer ${K}` }
 const j = async p => JSON.parse(await (await fetch(`${U}/rest/v1/${p}`, { headers: H })).text())

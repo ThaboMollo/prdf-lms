@@ -1,5 +1,6 @@
-const SUPABASE_URL = 'https://kjhibiawvvmzhdjbqhpq.supabase.co'
-const SRK = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtqaGliaWF3dnZtemhkamJxaHBxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODk0MjU0NCwiZXhwIjoyMDk0NTE4NTQ0fQ.8B6o-HF_6WyeYrh5FONbEmuNSlg8i8BRypFfGL-5LIg'
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://kjhibiawvvmzhdjbqhpq.supabase.co'
+const SRK = process.env.SUPABASE_SERVICE_ROLE_KEY
+if (!SRK) throw new Error('SUPABASE_SERVICE_ROLE_KEY env var is required')
 const UID = '08050c65-32a7-4da0-af87-256216f2f53a'
 
 const H = {

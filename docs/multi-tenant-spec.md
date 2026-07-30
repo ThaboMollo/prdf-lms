@@ -241,3 +241,78 @@ Not optional, and not part of this spec's scope:
 - **D1 — IP ownership / client 1 exclusivity** (spec §10.1) blocks any second-client deployment regardless of architecture. Legal, not technical.
 - **D3 — region per tenant** (§10.6). With per-tenant databases this stays flexible, which is an advantage worth keeping: a shared database would have forced one region for everyone.
 - The current tenant should be verifiably healthy first — the `jose` fix and `VITE_API_BASE_URL` correction still need deploying.
+
+---
+
+## 9. Production cutover — naming the existing tenant
+
+**Written 2026-07-30 after verifying the live deployment.** Everything in §3 is built, tested and deployed. **Production is not using it.**
+
+### Current state, verified
+
+The hourly sweep's own response gives it away:
+
+```json
+{"ok":true,"tenants":[{"slug":"default","ok":true,"created":{"arrears":0,"tasks":0,"staleApplications":0}}], ...}
+```
+
+`slug: "default"` is what `readLegacyTenant()` returns. `TENANTS` is unset in the API's Vercel environment, so the registry is reading `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_DB_CONNECTION_STRING` and logging the "running in legacy single-tenant mode" warning on every cold start. Consequences today:
+
+- The tenant's `domains` list is **empty**, so §1.2 host-based resolution never matches.
+- Unauthenticated requests work anyway, via the `registry.count() === 1` fallback in `TenantResolverMiddleware.resolve()` — with one tenant there is nothing to choose between.
+- Authenticated requests already route correctly, because the issuer is derived from `SUPABASE_URL`.
+
+So it works, and would keep working indefinitely — for exactly one tenant.
+
+### The cliff — two separate single-tenant crutches
+
+Production is standing on **two** independent fallbacks, and they fail differently.
+
+**1. Tenant resolution** — `registry.count() === 1` in `TenantResolverMiddleware.resolve()` returns the only tenant when no domain matches. This is what keeps the public endpoint working with an empty domains list. Asserted in `test-tenant-isolation.mjs`: with `TENANTS=a,b` and no `TENANT_*_DOMAINS`, a public request carrying a legitimate, CORS-allowed `Origin` gets **404 Unrecognised domain**.
+
+**2. CORS** — `create-app.ts` allows an origin if it is in `ALLOWED_ORIGINS`, is localhost, **or** its hostname is in some tenant's `domains`. With domains empty, only `ALLOWED_ORIGINS` is holding the browsers up.
+
+So onboarding tenant 2 without configuring domains produces two different failures at once:
+
+| | tenant 1 (in `ALLOWED_ORIGINS`) | tenant 2 (not) |
+|---|---|---|
+| public route, logged out | **404** — resolution fallback gone | **403** — CORS refuses first |
+| authenticated route | works (issuer routing ignores domains) | **403** — CORS refuses in the browser |
+
+`/api/loan-products/active` is the only unauthenticated data route (`loan-products.controller.ts` is the sole non-`/health` controller with no `UseGuards`) — it feeds the logged-out marketing calculator. So tenant 1's breakage is confined to visitors who are not signed in, which is exactly the kind that gets noticed late. Tenant 2's is total until its origin is allowed.
+
+Setting `TENANT_<SLUG>_DOMAINS` fixes both at once, because the registry is the source for CORS as well. That is the point of doing Phase 1 below *before* there is a second tenant to debug simultaneously.
+
+**One case configuration cannot fix.** A no-`Origin` unauthenticated request is unresolvable once the API is shared: `hostOf()` falls back to the `Host` header, which is `prdf-api.vercel.app` for every tenant, and one hostname cannot map to one tenant. The 404 is correct. Browsers always send `Origin` on cross-site XHR and the API is on a different host from both frontends, so real traffic is unaffected — but any server-to-server caller of a public route must send an explicit `Origin` or authenticate.
+
+### Do this before onboarding a second tenant
+
+**Phase 1 — name the existing tenant. No functional change; do it on its own.**
+
+In the `prdf-api` Vercel project, add (keeping the existing `SUPABASE_*` vars in place for rollback):
+
+```
+TENANTS=prdf
+TENANT_PRDF_ISSUER=https://kjhibiawvvmzhdjbqhpq.supabase.co/auth/v1
+TENANT_PRDF_SUPABASE_URL=https://kjhibiawvvmzhdjbqhpq.supabase.co
+TENANT_PRDF_SERVICE_ROLE_KEY=<same value as SUPABASE_SERVICE_ROLE_KEY>
+TENANT_PRDF_DB_URL=<same value as SUPABASE_DB_CONNECTION_STRING>
+TENANT_PRDF_DOMAINS=prdf-lms.vercel.app,prdf-admin.vercel.app
+```
+
+Add any custom domains to `TENANT_PRDF_DOMAINS` as well — the list must cover every hostname a browser loads a frontend from, because that is what arrives as `Origin`, and the same list is what CORS consults.
+
+Leave `ALLOWED_ORIGINS` alone for now: it is the current CORS crutch, and keeping it during Phase 1 means one variable changes behaviour at a time. Once step 2 below confirms CORS is passing via the registry, `ALLOWED_ORIGINS` can be reduced to local development origins only.
+
+**This is safe to attempt.** `TenantRegistryService.require()` throws on any missing or empty per-tenant variable, so a half-configured tenant fails at boot rather than starting and mis-routing. On Vercel a boot failure fails the deployment, and the previous one keeps serving.
+
+**Verify, in this order:**
+
+1. Cold-start log reads `Tenant registry loaded: 1 tenant(s) — prdf (issuer=…)`, **not** `default`, and the legacy-mode warning is gone.
+2. `GET /api/loan-products/active` with `Origin: https://prdf-lms.vercel.app` → 200. To prove it is now the registry rather than `ALLOWED_ORIGINS` doing the work, temporarily remove that origin from `ALLOWED_ORIGINS` and confirm it still returns 200.
+3. Log in on both frontends — this exercises issuer routing against the named tenant.
+4. Next hourly sweep reports `"slug":"prdf"`.
+
+**Rollback:** delete `TENANTS`. The registry returns to the legacy fallback on the next cold start.
+
+**Phase 2 — only then add `kgolo`**, per the §7 sequencing. Step 5 of that list (the isolation suite) remains the gate. Note `packages/tenant-config/tenants/kgolo.ts` still carries PRDF's eligibility criteria as a clearly-marked placeholder and a `logoPath` with no asset behind it; both must be replaced before Kgolo takes a real application.
