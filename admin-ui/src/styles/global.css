@@ -697,6 +697,57 @@ textarea:disabled {
   white-space: normal;
 }
 
+/* Filter chips (ADM-020 Pipeline) */
+.chip-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.filter-chip {
+  border: 1px solid var(--border-light);
+  background: var(--surface);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 0.4rem 0.85rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filter-chip:hover {
+  border-color: var(--accent-line);
+  color: var(--brand);
+}
+
+.filter-chip.is-active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+
+.filter-chip:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
+
+.pipeline-row__status {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Report category filtering (ADM-070): untagged sections always show; a tagged
+   section hides when it doesn't match the active category. */
+.reports-body[data-cat="perf"] [data-report-cat]:not([data-report-cat~="perf"]),
+.reports-body[data-cat="risk"] [data-report-cat]:not([data-report-cat~="risk"]),
+.reports-body[data-cat="comp"] [data-report-cat]:not([data-report-cat~="comp"]),
+.reports-body[data-cat="act"] [data-report-cat]:not([data-report-cat~="act"]) {
+  display: none;
+}
+
 .inline-actions {
   display: flex;
   gap: 0.5rem;
@@ -1003,6 +1054,38 @@ tbody tr:nth-child(even):hover {
   font-weight: 700;
 }
 
+/* Clickable queue row → opens the case drawer (ADM-012) */
+.queue-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.5rem 0.4rem;
+  border: none;
+  border-bottom: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.list-clean li:last-child .queue-row {
+  border-bottom: none;
+}
+
+.queue-row:hover {
+  background: var(--brand-tint);
+}
+
+.queue-row:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: -2px;
+}
+
 /* ----------------------------------------------------------------
    Forms
    ---------------------------------------------------------------- */
@@ -1084,6 +1167,138 @@ tbody tr:nth-child(even):hover {
   border-left: 3px solid var(--brand);
   border-radius: 8px;
   padding: 0.55rem 0.65rem;
+}
+
+/* ----------------------------------------------------------------
+   Case workspace layout (ADM-031)
+   ---------------------------------------------------------------- */
+.case-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.case-rail {
+  min-width: 0;
+}
+
+@media (max-width: 980px) {
+  .case-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Documents split preview (ADM-051) */
+.doc-split {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.doc-list {
+  display: grid;
+  gap: 0.5rem;
+  align-content: start;
+}
+
+.doc-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-align: left;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--surface);
+  font: inherit;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.doc-item:hover {
+  border-color: var(--accent-line);
+}
+
+.doc-item.is-active {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px var(--brand-tint);
+}
+
+.doc-item:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 1px;
+}
+
+.doc-item .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.doc-item .doc-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+
+.dot-ok { background: var(--ok); }
+.dot-pending { background: var(--warning); }
+.dot-missing { background: var(--border); }
+
+.doc-view {
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.doc-view__head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.doc-frame {
+  width: 100%;
+  height: 420px;
+  border: none;
+  background: #fff;
+}
+
+.doc-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.doc-bar {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.6rem 0.8rem;
+  border-top: 1px solid var(--border-light);
+  flex-wrap: wrap;
+}
+
+.doc-upload {
+  padding: 1rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+@media (max-width: 780px) {
+  .doc-split {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ----------------------------------------------------------------
@@ -1392,6 +1607,139 @@ tbody tr:nth-child(even):hover {
 
 .drawer-open .drawer-panel {
   transform: translateX(0);
+}
+
+/* ----------------------------------------------------------------
+   Case drawer (ADM-012) — right slide-in preview
+   ---------------------------------------------------------------- */
+.drawer-scrim {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-normal);
+  z-index: 40;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.drawer-scrim.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.case-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(520px, 94vw);
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  z-index: 50;
+  transform: translateX(100%);
+  transition: transform var(--transition-normal);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.case-drawer.is-open {
+  transform: translateX(0);
+}
+
+.case-drawer__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.1rem 1.25rem 1.5rem;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.case-drawer__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.case-drawer__eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.case-drawer__title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.drawer-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+}
+
+.drawer-meta {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.drawer-loan {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--accent-line);
+  background: var(--accent-wash);
+  border-radius: var(--radius);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.drawer-loan:hover {
+  box-shadow: var(--shadow-soft);
+  text-decoration: none;
+}
+
+.drawer-loan strong {
+  display: block;
+  font-size: 0.9rem;
+}
+
+.drawer-loan small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.drawer-loan__go {
+  margin-left: auto;
+  color: var(--brand);
+  font-weight: 700;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.case-drawer__actions {
+  margin-top: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer-scrim,
+  .case-drawer {
+    transition: none;
+  }
 }
 
 /* ----------------------------------------------------------------

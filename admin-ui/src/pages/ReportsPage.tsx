@@ -12,6 +12,16 @@ type ReportsPageProps = {
   session: Session
 }
 
+type ReportCat = 'all' | 'perf' | 'risk' | 'comp' | 'act'
+
+const REPORT_CATS: { key: ReportCat; label: string }[] = [
+  { key: 'all', label: 'All reports' },
+  { key: 'perf', label: 'Performance' },
+  { key: 'risk', label: 'Portfolio & Risk' },
+  { key: 'comp', label: 'Compliance' },
+  { key: 'act', label: 'Activity' }
+]
+
 function getDateRange(timeRange: string): { startDate?: string; endDate?: string } {
   if (timeRange === 'all') return {}
   const days = Number(timeRange)
@@ -22,6 +32,7 @@ function getDateRange(timeRange: string): { startDate?: string; endDate?: string
 
 export function ReportsPage({ session }: ReportsPageProps) {
   const [timeRange, setTimeRange] = useState('all')
+  const [category, setCategory] = useState<ReportCat>('all')
   const reportsUseCases = useMemo(() => createReportsUseCases(session.access_token), [session.access_token])
 
   const { startDate, endDate } = getDateRange(timeRange)
@@ -136,7 +147,7 @@ export function ReportsPage({ session }: ReportsPageProps) {
   }
 
   return (
-    <div className="stack">
+    <div className="stack reports-body" data-cat={category}>
       <PageHeader
         title="Reports & Analytics"
         subtitle="Monitor pipeline performance, origination trends, and export metric summaries."
@@ -162,19 +173,33 @@ export function ReportsPage({ session }: ReportsPageProps) {
         />
       </div>
 
+      <div className="chip-row" role="group" aria-label="Report category">
+        {REPORT_CATS.map((cat) => (
+          <button
+            key={cat.key}
+            type="button"
+            className={category === cat.key ? 'filter-chip is-active' : 'filter-chip'}
+            aria-pressed={category === cat.key}
+            onClick={() => setCategory(cat.key)}
+          >
+            {cat.label}
+          </button>
+        ))}
+      </div>
+
       {/* Pipeline + Origination charts */}
-      <div className="grid-two">
+      <div className="grid-two" data-report-cat="perf">
         <div className="card">
           <h3 style={{ marginBottom: '1.5rem', fontWeight: 600 }}>Pipeline Status Summary</h3>
           {pipelineQuery.isLoading ? <p>Loading...</p> : !pipelineData.length ? <EmptyState title="No data" message="No pipeline data for selected range." /> : (
             <div style={{ width: '100%', height: 300 }}>
               <ResponsiveContainer>
                 <BarChart data={pipelineData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-                  <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                  <Bar dataKey="count" fill="#4f46e5" radius={[4, 4, 0, 0]} name="Applications" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
+                  <XAxis dataKey="name" tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ background: 'var(--surface)', color: 'var(--text)', borderRadius: '8px', border: '1px solid var(--border-light)', boxShadow: 'var(--shadow-soft)' }} />
+                  <Bar dataKey="count" fill="var(--accent)" radius={[4, 4, 0, 0]} name="Applications" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -187,11 +212,11 @@ export function ReportsPage({ session }: ReportsPageProps) {
             <div style={{ width: '100%', height: 300 }}>
               <ResponsiveContainer>
                 <LineChart data={originationData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-                  <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={val => `R${val / 1000}k`} />
-                  <Tooltip formatter={(value) => formatCurrency(Number(value) || 0)} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                  <Line type="monotone" dataKey="amount" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981', strokeWidth: 0 }} name="Total Volume" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
+                  <XAxis dataKey="name" tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={val => `R${val / 1000}k`} />
+                  <Tooltip formatter={(value) => formatCurrency(Number(value) || 0)} contentStyle={{ background: 'var(--surface)', color: 'var(--text)', borderRadius: '8px', border: '1px solid var(--border-light)', boxShadow: 'var(--shadow-soft)' }} />
+                  <Line type="monotone" dataKey="amount" stroke="var(--accent)" strokeWidth={3} dot={{ r: 4, fill: 'var(--accent)', strokeWidth: 0 }} name="Total Volume" />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -200,17 +225,17 @@ export function ReportsPage({ session }: ReportsPageProps) {
       </div>
 
       {/* Pipeline Conversion */}
-      <div className="card">
+      <div className="card" data-report-cat="perf">
         <h3 style={{ marginBottom: '1.5rem', fontWeight: 600 }}>Pipeline Conversion</h3>
         {conversionQuery.isLoading ? <p>Loading...</p> : !conversionData.length ? <EmptyState title="No data" message="No conversion data available." /> : (
           <div style={{ width: '100%', height: 260 }}>
             <ResponsiveContainer>
               <BarChart data={conversionData} layout="vertical" margin={{ top: 5, right: 30, left: 120, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#eee" />
-                <XAxis type="number" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis type="category" dataKey="name" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} width={120} />
-                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                <Bar dataKey="count" fill="#6366f1" radius={[0, 4, 4, 0]} name="Transitions" />
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border-light)" />
+                <XAxis type="number" tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="name" tick={{ fill: 'var(--muted)', fontSize: 11 }} axisLine={false} tickLine={false} width={120} />
+                <Tooltip contentStyle={{ background: 'var(--surface)', color: 'var(--text)', borderRadius: '8px', border: '1px solid var(--border-light)', boxShadow: 'var(--shadow-soft)' }} />
+                <Bar dataKey="count" fill="var(--accent)" radius={[0, 4, 4, 0]} name="Transitions" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -218,7 +243,7 @@ export function ReportsPage({ session }: ReportsPageProps) {
       </div>
 
       {/* Staff Productivity */}
-      <div className="card">
+      <div className="card" data-report-cat="act">
         <h3 style={{ marginBottom: '1rem', fontWeight: 600 }}>Staff Productivity</h3>
         {productivityQuery.isLoading ? <p>Loading...</p> : !productivityQuery.data?.length ? <EmptyState title="No data" message="No productivity data available." /> : (
           <div className="table-wrap">
@@ -245,7 +270,7 @@ export function ReportsPage({ session }: ReportsPageProps) {
       </div>
 
       {/* Audit Log */}
-      <div className="card">
+      <div className="card" data-report-cat="act">
         <h3 style={{ marginBottom: '1rem', fontWeight: 600 }}>Audit Log</h3>
         {auditQuery.isLoading ? <p>Loading...</p> : !auditQuery.data?.length ? <EmptyState title="No activity" message="No audit events for the selected period." /> : (
           <div className="table-wrap">
@@ -274,7 +299,7 @@ export function ReportsPage({ session }: ReportsPageProps) {
       </div>
 
       {/* Regulatory / Compliance */}
-      <div className="grid-two">
+      <div className="grid-two" data-report-cat="comp risk">
         <div className="card">
           <h3 style={{ marginBottom: '1rem', fontWeight: 600 }}>Demographic Breakdown</h3>
           <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: '0.85rem' }}>
@@ -348,7 +373,7 @@ export function ReportsPage({ session }: ReportsPageProps) {
       </div>
 
       {/* Province & Spatial Breakdown */}
-      <div className="grid-two">
+      <div className="grid-two" data-report-cat="comp">
         <div className="card">
           <h3 style={{ marginBottom: '1rem', fontWeight: 600 }}>Province Breakdown</h3>
           <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: '0.85rem' }}>

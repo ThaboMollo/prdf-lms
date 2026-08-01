@@ -6,10 +6,9 @@ import { AppShell } from './app/AppShell'
 import { RequireAuth } from './components/RequireAuth'
 import { RequireRole } from './components/RequireRole'
 import { CardSkeleton } from './components/shared/Skeletons'
-import { ApplicationsPage } from './pages/ApplicationsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
-import { LoanDetailsPage } from './pages/LoanDetailsPage'
+import { LoanRedirect } from './pages/LoanRedirect'
 import { PortfolioPage } from './pages/PortfolioPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { UserAccessPage } from './pages/UserAccessPage'
@@ -120,8 +119,8 @@ export function App() {
           >
             <Route element={<AppShell session={session as Session} me={meQuery.data!} />}>
               <Route path="/dashboard" element={<DashboardPage session={session as Session} me={meQuery.data!} />} />
-              <Route path="/applications" element={<ApplicationsPage session={session as Session} me={meQuery.data!} />} />
-              <Route path="/pipeline" element={<PipelinePage />} />
+              <Route path="/applications" element={<Navigate to="/pipeline" replace />} />
+              <Route path="/pipeline" element={<PipelinePage session={session as Session} />} />
               <Route
                 element={
                   <RequireRole
@@ -130,8 +129,8 @@ export function App() {
                   />
                 }
               >
-                <Route path="/loan/:loanId" element={<LoanDetailsPage session={session as Session} />} />
-                <Route path="/case/:id" element={<CasePage />} />
+                <Route path="/loan/:loanId" element={<LoanRedirect session={session as Session} />} />
+                <Route path="/case/:id" element={<CasePage session={session as Session} />} />
               </Route>
               <Route
                 element={
@@ -143,7 +142,7 @@ export function App() {
               >
                 <Route path="/portfolio" element={<PortfolioPage session={session as Session} />} />
                 <Route path="/reports" element={<ReportsPage session={session as Session} />} />
-                <Route path="/loans" element={<LoansPage />} />
+                <Route path="/loans" element={<LoansPage session={session as Session} />} />
               </Route>
               <Route
                 element={

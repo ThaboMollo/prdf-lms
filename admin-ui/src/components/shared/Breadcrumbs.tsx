@@ -1,3 +1,4 @@
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 
 export type Crumb = { label: string; to?: string }
@@ -64,6 +65,44 @@ export function useBreadcrumbs(): Crumb[] {
   return crumbs
 }
 
+// --- Entity-aware override (ADM-011) --------------------------------------
+// The route-derived trail ends in a short id (#a3f19c8e). A page that knows the
+// entity's real name/context calls useSetBreadcrumbs to replace the trail for
+// as long as it is mounted (e.g. the case workspace). The provider lives in the
+// app shell, above both the Topbar (which renders <Breadcrumbs>) and the routed
+// page (which sets the override).
+type BreadcrumbsContextValue = {
+  override: Crumb[] | null
+  setOverride: (items: Crumb[] | null) => void
+}
+
+const BreadcrumbsContext = createContext<BreadcrumbsContextValue | null>(null)
+
+export function BreadcrumbsProvider({ children }: { children: ReactNode }) {
+  const [override, setOverride] = useState<Crumb[] | null>(null)
+  return (
+    <BreadcrumbsContext.Provider value={{ override, setOverride }}>
+      {children}
+    </BreadcrumbsContext.Provider>
+  )
+}
+
+/**
+ * Sets the breadcrumb trail for the lifetime of the calling page, then restores
+ * the route-derived trail on unmount. No-op outside a provider.
+ */
+export function useSetBreadcrumbs(items: Crumb[]): void {
+  const ctx = useContext(BreadcrumbsContext)
+  // The serialized key stands in for `items` in the dependency list, so the
+  // effect re-runs on content changes but not on a new array identity.
+  const key = items.map((crumb) => `${crumb.label}|${crumb.to ?? ''}`).join('>')
+  useEffect(() => {
+    if (!ctx) return
+    ctx.setOverride(items)
+    return () => ctx.setOverride(null)
+  }, [ctx, key]) // eslint-disable-line react-hooks/exhaustive-deps
+}
+
 type BreadcrumbsProps = {
   /** Override the derived trail — e.g. to show an entity's real name. */
   items?: Crumb[]
@@ -71,7 +110,8 @@ type BreadcrumbsProps = {
 
 export function Breadcrumbs({ items }: BreadcrumbsProps) {
   const derived = useBreadcrumbs()
-  const crumbs = items ?? derived
+  const override = useContext(BreadcrumbsContext)?.override ?? null
+  const crumbs = items ?? override ?? derived
 
   return (
     <nav className="breadcrumbs" aria-label="Breadcrumb">

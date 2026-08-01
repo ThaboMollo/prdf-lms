@@ -95,8 +95,11 @@ export function UserAccessPage({ session, me }: UserAccessPageProps) {
 
   const summary = useMemo(() => {
     const items = accessQuery.data ?? []
+    const internalRoles = ['Intern', 'Originator', 'LoanOfficer', 'Admin']
     return {
       visibleUsers: items.length,
+      internal: items.filter((item) => item.roles.some((role) => internalRoles.includes(role))).length,
+      clients: items.filter((item) => item.roles.includes('Client')).length,
       admins: items.filter((item) => item.isAdmin).length,
     }
   }, [accessQuery.data])
@@ -125,10 +128,18 @@ export function UserAccessPage({ session, me }: UserAccessPageProps) {
         }
       />
 
-      <div className="grid-two">
+      <div className="grid-four">
         <article className="kpi-card">
           <p className="kpi-label">Visible Users</p>
           <p className="kpi-value">{summary.visibleUsers}</p>
+        </article>
+        <article className="kpi-card">
+          <p className="kpi-label">Internal</p>
+          <p className="kpi-value">{summary.internal}</p>
+        </article>
+        <article className="kpi-card">
+          <p className="kpi-label">Clients</p>
+          <p className="kpi-value">{summary.clients}</p>
         </article>
         <article className="kpi-card">
           <p className="kpi-label">Admins</p>
@@ -185,6 +196,12 @@ export function UserAccessPage({ session, me }: UserAccessPageProps) {
           </select>
         </div>
       </section>
+
+      <p className="helper-text">
+        Roles, least &rarr; most access: <strong>Client · Intern · Originator · LoanOfficer · Admin</strong>. The ×
+        on a chip removes that role · <strong>Admin</strong> is managed by a SuperAdmin only · <strong>Reset MFA</strong>{' '}
+        clears a user&rsquo;s authenticators so they can enrol a new device.
+      </p>
 
       <section className="card table-wrap stack-sm">
         <div className="access-table-header">

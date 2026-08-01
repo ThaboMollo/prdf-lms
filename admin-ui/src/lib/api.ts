@@ -179,6 +179,19 @@ export type LoanDetails = {
   repayments: LoanRepaymentItem[]
 }
 
+export type LoanSummary = {
+  id: string
+  applicationId: string
+  businessName: string | null
+  principalAmount: number
+  outstandingPrincipal: number
+  interestRate: number
+  termMonths: number
+  status: LoanStatus
+  disbursedAt: string | null
+  createdAt: string
+}
+
 export type PortfolioSummary = {
   totalLoans: number
   activeLoans: number
@@ -566,6 +579,13 @@ export async function createNote(accessToken: string, applicationId: string, bod
     body: JSON.stringify({ body })
   })
   return parseResponse<NoteItem>(response)
+}
+
+export async function listLoans(accessToken: string): Promise<LoanSummary[]> {
+  const response = await fetch(`${apiBaseUrl}/api/loans`, {
+    headers: authHeaders(accessToken)
+  })
+  return parseResponse<LoanSummary[]>(response)
 }
 
 export async function getLoan(accessToken: string, loanId: string): Promise<LoanDetails> {

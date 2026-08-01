@@ -19,7 +19,8 @@ export class LoansService {
     const roles = await fetchUserRoles(this.db, actor.userId);
     let sql = `select l.id, l.application_id as "applicationId", l.principal_amount as "principalAmount",
                       l.outstanding_principal as "outstandingPrincipal", l.interest_rate as "interestRate",
-                      l.term_months as "termMonths", l.status, l.disbursed_at as "disbursedAt", l.created_at as "createdAt"
+                      l.term_months as "termMonths", l.status, l.disbursed_at as "disbursedAt", l.created_at as "createdAt",
+                      c.business_name as "businessName"
                from public.loans l
                join public.loan_applications la on la.id = l.application_id
                join public.clients c on c.id = la.client_id`;

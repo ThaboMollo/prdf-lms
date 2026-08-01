@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { Session } from '@supabase/supabase-js'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import type { ArrearsItem } from '../lib/api'
 import { EmptyState } from '../components/shared/EmptyState'
 import { PageHeader } from '../components/shared/PageHeader'
@@ -87,8 +87,16 @@ export function PortfolioPage({ session }: PortfolioPageProps) {
               <tbody>
                 {pagedArrears.items.map((row) => (
                   <tr key={`${row.loanId}-${row.installmentNo}`}>
-                    <td>{row.loanId}</td>
-                    <td>{row.applicationId}</td>
+                    <td>
+                      <Link to={`/case/${row.applicationId}?tab=money`} className="entity-link">
+                        <span className="entity-id">#{row.loanId.slice(0, 8)}</span>
+                      </Link>
+                    </td>
+                    <td>
+                      <Link to={`/case/${row.applicationId}`} className="entity-link">
+                        <span className="entity-id">#{row.applicationId.slice(0, 8)}</span>
+                      </Link>
+                    </td>
                     <td>{row.installmentNo}</td>
                     <td>{row.dueDate}</td>
                     <td>{formatCurrency(row.dueTotal)}</td>

@@ -8,13 +8,14 @@ import { PaginationControls } from '../components/shared/PaginationControls'
 import { ListSkeleton } from '../components/shared/Skeletons'
 import { PageHeader } from '../components/shared/PageHeader'
 import { StatusBadge } from '../components/shared/StatusBadge'
+import { useCaseDrawer } from '../components/shared/CaseDrawer'
 import {
   type ApplicationSummary,
   type MeResponse,
   type NotificationItem,
   type TaskItem
 } from '../lib/api'
-import { calculateDaysElapsed, formatDateTime } from '../lib/format'
+import { calculateDaysElapsed, formatCurrency, formatDateTime } from '../lib/format'
 import { paginateItems, parsePageParam } from '../lib/pagination'
 import { getPrimaryRole, toAppRoles } from '../lib/rbac'
 import { createApplicationsUseCases } from '../logic/usecases/applications'
@@ -37,6 +38,7 @@ export function DashboardPage({ session, me }: DashboardPageProps) {
   const notificationsUseCases = useMemo(() => createNotificationsUseCases(accessToken), [accessToken])
   const roles = toAppRoles(me.roles)
   const primaryRole = getPrimaryRole(roles)
+  const caseDrawer = useCaseDrawer()
 
   const queuePage = parsePageParam(params.get('queuePage'))
   const tasksPage = parsePageParam(params.get('tasksPage'))
@@ -104,6 +106,7 @@ export function DashboardPage({ session, me }: DashboardPageProps) {
           applications={applications}
           tasks={tasks}
           notifications={notifications}
+          onOpenCase={caseDrawer.open}
           queuePage={queuePage}
           tasksPage={tasksPage}
           setQueuePage={(nextPage) => {
@@ -127,6 +130,7 @@ type DashboardContentProps = {
   applications: ApplicationSummary[]
   tasks: TaskItem[]
   notifications: NotificationItem[]
+  onOpenCase: (id: string) => void
   queuePage: number
   tasksPage: number
   setQueuePage: (page: number) => void
@@ -138,13 +142,15 @@ function DashboardContent({
   applications,
   tasks,
   notifications,
+  onOpenCase,
   queuePage,
   tasksPage,
   setQueuePage,
   setTasksPage
 }: DashboardContentProps) {
   const draftOrInfoApps = applications.filter((item) => item.status === 'Draft' || item.status === 'InfoRequested')
-  const submittedApps = applications.filter((item) => item.status === 'Submitted' || item.status === 'UnderReview')
+  const underReviewApps = applications.filter((item) => item.status === 'UnderReview')
+  const infoRequestedApps = applications.filter((item) => item.status === 'InfoRequested')
   const overdueTasks = tasks.filter((task) => task.status !== 'Completed' && Boolean(task.dueDate))
   const slaBreached = applications.filter(
     (item) =>
@@ -173,11 +179,16 @@ function DashboardContent({
     return (
       <>
         <div className="grid-three">
-          <KPIStatCard label="Applicants Assisted" value={applications.length} />
+          <KPIStatCard label="Applicants Assisted" value={applications.length} to="/pipeline" />
           <KPIStatCard label="Tasks Due" value={overdueTasks.length} />
           <KPIStatCard label="Quick Action" value="Create Application" />
         </div>
-        <TaskPanel tasks={tasks} page={tasksPage} onPageChange={setTasksPage} />
+        <TaskPanel
+          tasks={tasks}
+          page={tasksPage}
+          onPageChange={setTasksPage}
+          onOpenCase={role === 'Originator' ? onOpenCase : undefined}
+        />
       </>
     )
   }
@@ -185,12 +196,17 @@ function DashboardContent({
   return (
     <>
       <div className="grid-four">
-        <KPIStatCard label="Pipeline Cases" value={applications.length} />
-        <KPIStatCard label="Under Review" value={submittedApps.length} />
-        <KPIStatCard label="Overdue Tasks" value={overdueTasks.length} />
-        <KPIStatCard label="SLA Breached" value={slaBreached.length} variant={slaBreached.length > 0 ? 'warning' : undefined} />
+        <KPIStatCard label="Pipeline Cases" value={applications.length} to="/pipeline" />
+        <KPIStatCard label="Under Review" value={underReviewApps.length} to="/pipeline?status=UnderReview" />
+        <KPIStatCard label="Info Requested" value={infoRequestedApps.length} to="/pipeline?status=InfoRequested" />
+        <KPIStatCard
+          label="SLA Breached"
+          value={slaBreached.length}
+          variant={slaBreached.length > 0 ? 'warning' : undefined}
+          to="/pipeline?status=SLA"
+        />
       </div>
-      <QueuePanel title="Assigned Queue" applications={applications} page={queuePage} onPageChange={setQueuePage} />
+      <QueuePanel title="Assigned Queue" applications={applications} page={queuePage} onPageChange={setQueuePage} onOpenCase={onOpenCase} />
     </>
   )
 }
@@ -199,12 +215,14 @@ function QueuePanel({
   title,
   applications,
   page,
-  onPageChange
+  onPageChange,
+  onOpenCase
 }: {
   title: string
   applications: ApplicationSummary[]
   page: number
   onPageChange: (page: number) => void
+  onOpenCase?: (id: string) => void
 }) {
   if (!applications.length) {
     return <EmptyState title={title} message="No applications in this queue." />
@@ -216,22 +234,45 @@ function QueuePanel({
     <section className="card">
       <h2>{title}</h2>
       <ul className="list-clean">
-        {paged.items.map((app) => (
-          <li key={app.id} className="list-row">
-            <div>
-              <p className="list-title">{app.id.slice(0, 8)}</p>
-              <small>Updated {formatDateTime(app.submittedAt ?? app.createdAt)}</small>
-            </div>
-            <StatusBadge status={app.status} />
-          </li>
-        ))}
+        {paged.items.map((app) => {
+          const inner = (
+            <>
+              <div>
+                <p className="list-title">{app.purpose || `#${app.id.slice(0, 8)}`}</p>
+                <small>{formatCurrency(app.requestedAmount)} · Updated {formatDateTime(app.submittedAt ?? app.createdAt)}</small>
+              </div>
+              <StatusBadge status={app.status} />
+            </>
+          )
+          return onOpenCase ? (
+            <li key={app.id}>
+              <button type="button" className="queue-row" onClick={() => onOpenCase(app.id)}>
+                {inner}
+              </button>
+            </li>
+          ) : (
+            <li key={app.id} className="list-row">
+              {inner}
+            </li>
+          )
+        })}
       </ul>
       <PaginationControls page={paged.page} totalPages={paged.totalPages} onPageChange={onPageChange} />
     </section>
   )
 }
 
-function TaskPanel({ tasks, page, onPageChange }: { tasks: TaskItem[]; page: number; onPageChange: (page: number) => void }) {
+function TaskPanel({
+  tasks,
+  page,
+  onPageChange,
+  onOpenCase
+}: {
+  tasks: TaskItem[]
+  page: number
+  onPageChange: (page: number) => void
+  onOpenCase?: (id: string) => void
+}) {
   if (!tasks.length) {
     return <EmptyState title="Tasks Due Today" message="No due tasks in your queue." />
   }
@@ -242,15 +283,28 @@ function TaskPanel({ tasks, page, onPageChange }: { tasks: TaskItem[]; page: num
     <section className="card">
       <h2>Tasks Due Today</h2>
       <ul className="list-clean">
-        {paged.items.map((task) => (
-          <li key={task.id} className="list-row">
-            <div>
-              <p className="list-title">{task.title}</p>
-              <small>{task.dueDate ?? 'No due date'}</small>
-            </div>
-            <span>{task.status}</span>
-          </li>
-        ))}
+        {paged.items.map((task) => {
+          const inner = (
+            <>
+              <div>
+                <p className="list-title">{task.title}</p>
+                <small>{task.dueDate ?? 'No due date'}</small>
+              </div>
+              <span>{task.status}</span>
+            </>
+          )
+          return onOpenCase ? (
+            <li key={task.id}>
+              <button type="button" className="queue-row" onClick={() => onOpenCase(task.applicationId)}>
+                {inner}
+              </button>
+            </li>
+          ) : (
+            <li key={task.id} className="list-row">
+              {inner}
+            </li>
+          )
+        })}
       </ul>
       <PaginationControls page={paged.page} totalPages={paged.totalPages} onPageChange={onPageChange} />
     </section>

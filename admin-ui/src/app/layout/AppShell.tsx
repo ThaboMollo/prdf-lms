@@ -10,6 +10,8 @@ import { MobileNavDrawer } from './MobileNavDrawer'
 import { internalNavItems } from './navigation'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
+import { BreadcrumbsProvider } from '../../components/shared/Breadcrumbs'
+import { CaseDrawerProvider } from '../../components/shared/CaseDrawer'
 import { createNotificationsUseCases } from '../../logic/usecases/notifications'
 import { env } from '../../lib/config/env'
 
@@ -55,7 +57,8 @@ export function AppShell({ session, me }: AppShellProps) {
   })
 
   return (
-    <>
+    <BreadcrumbsProvider>
+      <CaseDrawerProvider accessToken={accessToken}>
       <div className="app-shell">
         <Sidebar items={roleItems} title={layoutTitle} />
         <div className="app-main">
@@ -77,6 +80,7 @@ export function AppShell({ session, me }: AppShellProps) {
         </div>
       </div>
       <MobileNavDrawer open={mobileOpen} onClose={() => setMobileOpen(false)} items={roleItems} title={layoutTitle} />
-    </>
+      </CaseDrawerProvider>
+    </BreadcrumbsProvider>
   )
 }
