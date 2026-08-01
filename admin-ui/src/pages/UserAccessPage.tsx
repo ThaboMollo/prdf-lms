@@ -1,10 +1,11 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Session } from '@supabase/supabase-js'
 import { useSearchParams } from 'react-router-dom'
 import { EmptyState } from '../components/shared/EmptyState'
 import { PaginationControls } from '../components/shared/PaginationControls'
 import { PageHeader } from '../components/shared/PageHeader'
+import { ConfirmDialog } from '../components/shared/ConfirmDialog'
 import { useToast } from '../components/shared/ToastProvider'
 import {
   assignUserRole,
@@ -48,7 +49,6 @@ export function UserAccessPage({ session, me }: UserAccessPageProps) {
   const [selectedRoleByUser, setSelectedRoleByUser] = useState<Record<string, AssignableRole>>({})
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
   const deferredSearch = useDeferredValue(search)
-  const modalRef = useRef<HTMLElement | null>(null)
   const usersPage = parsePageParam(params.get('usersPage'))
 
   // The actor's own powers decide which roles they may grant/revoke.
@@ -113,15 +113,6 @@ export function UserAccessPage({ session, me }: UserAccessPageProps) {
       setParams(next, { replace: true })
     }
   }, [pagedUsers.page, params, setParams, usersPage])
-
-  useEffect(() => {
-    if (!pendingAction || !modalRef.current) return
-    modalRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    const firstButton = modalRef.current.querySelector('button')
-    if (firstButton instanceof HTMLButtonElement) {
-      firstButton.focus()
-    }
-  }, [pendingAction])
 
   return (
     <section className="stack">
@@ -339,55 +330,40 @@ export function UserAccessPage({ session, me }: UserAccessPageProps) {
         ) : null}
       </section>
 
-      {pendingAction ? (
-        <div className="modal-backdrop" role="presentation">
-          <section ref={modalRef} className="modal-card" role="dialog" aria-modal="true" aria-labelledby="user-access-dialog-title">
-            <header className="modal-header">
-              <div className="stack-sm">
-                <h2 id="user-access-dialog-title">
-                  {pendingAction.type === 'assign'
-                    ? `Assign ${pendingAction.role} role`
-                    : pendingAction.type === 'remove'
-                      ? `Remove ${pendingAction.role} role`
-                      : 'Reset multi-factor authentication'}
-                </h2>
-                <p>
-                  {pendingAction.type === 'assign'
-                    ? `This will add the ${pendingAction.role} role while preserving all existing roles.`
-                    : pendingAction.type === 'remove'
-                      ? `This will remove only the ${pendingAction.role} role and leave the user's other roles unchanged.`
-                      : 'This clears every authenticator registered to this user, so they can enrol a new device. Their roles are unchanged. Only do this once you are confident who you are talking to — it lowers the account to password-only until they re-enrol.'}
-                </p>
-              </div>
-            </header>
-
-            <div className="stack-sm">
-              <p><strong>User:</strong> {displayName(pendingAction.user)}</p>
-              <p><strong>Email:</strong> {pendingAction.user.email ?? 'No email'}</p>
-              <p><strong>Current roles:</strong> {pendingAction.user.roles.join(', ') || 'None'}</p>
-            </div>
-
-            <div className="inline-actions">
-              <button
-                type="button"
-                className={`btn${mutation.isPending ? ' btn-loading' : ''}`}
-                onClick={() => mutation.mutate(pendingAction)}
-                disabled={mutation.isPending}
-              >
-                Confirm
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setPendingAction(null)}
-                disabled={mutation.isPending}
-              >
-                Cancel
-              </button>
-            </div>
-          </section>
-        </div>
-      ) : null}
+      <ConfirmDialog
+        open={Boolean(pendingAction)}
+        title={
+          pendingAction?.type === 'assign'
+            ? `Assign ${pendingAction.role} role`
+            : pendingAction?.type === 'remove'
+              ? `Remove ${pendingAction.role} role`
+              : 'Reset multi-factor authentication'
+        }
+        confirmLabel={pendingAction?.type === 'reset-mfa' ? 'Reset MFA' : 'Confirm'}
+        danger={pendingAction?.type === 'remove' || pendingAction?.type === 'reset-mfa'}
+        busy={mutation.isPending}
+        onConfirm={() => {
+          if (pendingAction) mutation.mutate(pendingAction)
+        }}
+        onCancel={() => {
+          if (!mutation.isPending) setPendingAction(null)
+        }}
+      >
+        {pendingAction ? (
+          <>
+            <p className={pendingAction.type === 'reset-mfa' ? 'text-error' : undefined}>
+              {pendingAction.type === 'assign'
+                ? `This will add the ${pendingAction.role} role while preserving all existing roles.`
+                : pendingAction.type === 'remove'
+                  ? `This will remove only the ${pendingAction.role} role and leave the user's other roles unchanged.`
+                  : 'This clears every authenticator registered to this user, so they can enrol a new device. Their roles are unchanged. Only do this once you are confident who you are talking to — it lowers the account to password-only until they re-enrol.'}
+            </p>
+            <p><strong>User:</strong> {displayName(pendingAction.user)}</p>
+            <p><strong>Email:</strong> {pendingAction.user.email ?? 'No email'}</p>
+            <p><strong>Current roles:</strong> {pendingAction.user.roles.join(', ') || 'None'}</p>
+          </>
+        ) : null}
+      </ConfirmDialog>
     </section>
   )
 }

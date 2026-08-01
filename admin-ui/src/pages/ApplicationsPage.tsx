@@ -41,6 +41,7 @@ import { PaginationControls } from '../components/shared/PaginationControls'
 import { PageHeader } from '../components/shared/PageHeader'
 import { DetailSkeleton, ListSkeleton } from '../components/shared/Skeletons'
 import { StatusBadge } from '../components/shared/StatusBadge'
+import { SlaBadge } from '../components/shared/SlaBadge'
 import { useToast } from '../components/shared/ToastProvider'
 import { Link } from 'react-router-dom'
 import { formatCurrency, formatDate, formatDateTime, formatLongDate, calculateDaysElapsed } from '../lib/format'
@@ -705,20 +706,6 @@ function resolvePrimaryAction(status: LoanApplicationStatus, isInternal: boolean
   if (!isInternal && (status === 'Draft' || status === 'InfoRequested')) return 'Continue'
   if (isInternal && (status === 'Submitted' || status === 'UnderReview')) return 'Review'
   return 'Open'
-}
-
-function SlaBadge({ status, submittedAt }: { status: LoanApplicationStatus, submittedAt: string | null }) {
-  if (!submittedAt) return null;
-  if (!['Submitted', 'UnderReview', 'InfoRequested'].includes(status)) return null;
-
-  const daysElapsed = calculateDaysElapsed(submittedAt);
-  
-  if (daysElapsed >= 5) {
-    return <div style={{ display: 'inline-block', marginLeft: '8px', padding: '2px 6px', fontSize: '0.75rem', fontWeight: 'bold', background: '#fee2e2', color: '#b91c1c', borderRadius: '4px' }}>SLA Breached: {daysElapsed} days</div>
-  } else if (daysElapsed === 4) {
-    return <div style={{ display: 'inline-block', marginLeft: '8px', padding: '2px 6px', fontSize: '0.75rem', fontWeight: 'bold', background: '#fef3c7', color: '#b45309', borderRadius: '4px' }}>SLA Warning: 4 days</div>
-  }
-  return null;
 }
 
 type ClientWizardProps = {

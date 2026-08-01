@@ -61,7 +61,6 @@ export function AppShell({ session, me }: AppShellProps) {
         <div className="app-main">
           <Topbar
             email={session.user.email ?? 'unknown'}
-            title="Admin Console"
             onMenuOpen={() => setMobileOpen(true)}
             onLogout={() => {
               supabase.auth.signOut().catch(() => {

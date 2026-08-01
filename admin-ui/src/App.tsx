@@ -13,6 +13,9 @@ import { LoanDetailsPage } from './pages/LoanDetailsPage'
 import { PortfolioPage } from './pages/PortfolioPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { UserAccessPage } from './pages/UserAccessPage'
+import { PipelinePage } from './pages/PipelinePage'
+import { LoansPage } from './pages/LoansPage'
+import { CasePage } from './pages/CasePage'
 import { fetchMe } from './lib/api'
 import { supabase } from './lib/supabase'
 import { hasAnyRole, toAppRoles, isInternalUser } from './lib/rbac'
@@ -118,6 +121,7 @@ export function App() {
             <Route element={<AppShell session={session as Session} me={meQuery.data!} />}>
               <Route path="/dashboard" element={<DashboardPage session={session as Session} me={meQuery.data!} />} />
               <Route path="/applications" element={<ApplicationsPage session={session as Session} me={meQuery.data!} />} />
+              <Route path="/pipeline" element={<PipelinePage />} />
               <Route
                 element={
                   <RequireRole
@@ -127,6 +131,7 @@ export function App() {
                 }
               >
                 <Route path="/loan/:loanId" element={<LoanDetailsPage session={session as Session} />} />
+                <Route path="/case/:id" element={<CasePage />} />
               </Route>
               <Route
                 element={
@@ -138,6 +143,7 @@ export function App() {
               >
                 <Route path="/portfolio" element={<PortfolioPage session={session as Session} />} />
                 <Route path="/reports" element={<ReportsPage session={session as Session} />} />
+                <Route path="/loans" element={<LoansPage />} />
               </Route>
               <Route
                 element={

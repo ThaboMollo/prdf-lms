@@ -14,7 +14,7 @@ export const clientNavItems: NavItem[] = [
 export const internalNavItems: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', roles: ['Intern', 'Originator', 'LoanOfficer', 'Admin'] },
   { to: '/applications', label: 'Applications', roles: ['Intern', 'Originator', 'LoanOfficer', 'Admin'] },
-  { to: '/loans', label: 'Loans', roles: ['Originator', 'LoanOfficer', 'Admin'] },
+  { to: '/loans', label: 'Loans', roles: ['LoanOfficer', 'Admin'] },
   { to: '/portfolio', label: 'Portfolio', roles: ['LoanOfficer', 'Admin'] },
   { to: '/reports', label: 'Reports', roles: ['LoanOfficer', 'Admin'] },
   { to: '/user-access', label: 'User Access', roles: ['Admin'] }

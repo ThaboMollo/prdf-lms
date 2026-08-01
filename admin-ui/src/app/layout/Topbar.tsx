@@ -1,8 +1,8 @@
 import type { NotificationItem } from '../../lib/api'
+import { Breadcrumbs } from '../../components/shared/Breadcrumbs'
 
 type TopbarProps = {
   email: string
-  title: string
   onMenuOpen: () => void
   onLogout: () => void
   notifications: NotificationItem[]
@@ -12,7 +12,6 @@ type TopbarProps = {
 
 export function Topbar({
   email,
-  title,
   onMenuOpen,
   onLogout,
   notifications,
@@ -24,8 +23,8 @@ export function Topbar({
       <button type="button" className="icon-btn mobile-only" onClick={onMenuOpen} aria-label="Open menu">
         Menu
       </button>
-      <div>
-        <p className="topbar-title">{title}</p>
+      <div className="topbar-heading">
+        <Breadcrumbs />
         <p className="topbar-sub">Signed in as {email}</p>
       </div>
       <div className="topbar-actions">
