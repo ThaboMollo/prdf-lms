@@ -8,12 +8,16 @@ import { formatCurrency, formatDateTime } from '../lib/format'
 import { PageHeader } from '../components/shared/PageHeader'
 import { KPIStatCard } from '../components/shared/KPIStatCard'
 import { EmptyState } from '../components/shared/EmptyState'
+import { PaginationControls } from '../components/shared/PaginationControls'
+import { paginateItems } from '../lib/pagination'
 
 type ReportsPageProps = {
   session: Session
 }
 
 type ReportCat = 'all' | 'perf' | 'risk' | 'comp' | 'act'
+
+const AUDIT_PAGE_SIZE = 15
 
 const REPORT_CATS: { key: ReportCat; label: string }[] = [
   { key: 'all', label: 'All reports' },
@@ -34,6 +38,7 @@ function getDateRange(timeRange: string): { startDate?: string; endDate?: string
 export function ReportsPage({ session }: ReportsPageProps) {
   const [timeRange, setTimeRange] = useState('all')
   const [category, setCategory] = useState<ReportCat>('all')
+  const [auditPage, setAuditPage] = useState(1)
   const reportsUseCases = useMemo(() => createReportsUseCases(session.access_token), [session.access_token])
 
   const { startDate, endDate } = getDateRange(timeRange)
@@ -134,6 +139,11 @@ export function ReportsPage({ session }: ReportsPageProps) {
     return staffNamesQuery.data?.get(id) ?? `#${id.slice(0, 8)}`
   }
 
+  const pagedAudit = useMemo(
+    () => paginateItems(auditQuery.data ?? [], auditPage, AUDIT_PAGE_SIZE),
+    [auditQuery.data, auditPage]
+  )
+
   const pipelineData = useMemo(
     () => (pipelineQuery.data ?? []).map((item) => ({ name: item.status, count: item.count, totalAmount: item.totalAmount })),
     [pipelineQuery.data]
@@ -204,7 +214,7 @@ export function ReportsPage({ session }: ReportsPageProps) {
         title="Reports & Analytics"
         subtitle="Monitor pipeline performance, origination trends, and export metric summaries."
         actions={
-          <select className="input" value={timeRange} onChange={e => setTimeRange(e.target.value)}>
+          <select className="input" value={timeRange} onChange={e => { setTimeRange(e.target.value); setAuditPage(1) }}>
             <option value="30">Last 30 Days</option>
             <option value="90">Last 90 Days</option>
             <option value="all">All Time</option>
@@ -325,28 +335,31 @@ export function ReportsPage({ session }: ReportsPageProps) {
       <div className="card" data-report-cat="act">
         <h3 style={{ marginBottom: '1rem', fontWeight: 600 }}>Audit Log</h3>
         {auditQuery.isLoading ? <p>Loading...</p> : !auditQuery.data?.length ? <EmptyState title="No activity" message="No audit events for the selected period." /> : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Timestamp</th>
-                  <th>Actor</th>
-                  <th>Action</th>
-                  <th>Entity</th>
-                </tr>
-              </thead>
-              <tbody>
-                {auditQuery.data.map((row) => (
-                  <tr key={row.id}>
-                    <td style={{ whiteSpace: 'nowrap' }}>{formatDateTime(row.at)}</td>
-                    <td>{nameFor(row.actorUserId)}</td>
-                    <td>{row.action}</td>
-                    <td>{row.entity}{row.entityId ? ` · ${row.entityId.slice(0, 8)}` : ''}</td>
+          <>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Actor</th>
+                    <th>Action</th>
+                    <th>Entity</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {pagedAudit.items.map((row) => (
+                    <tr key={row.id}>
+                      <td style={{ whiteSpace: 'nowrap' }}>{formatDateTime(row.at)}</td>
+                      <td>{nameFor(row.actorUserId)}</td>
+                      <td>{row.action}</td>
+                      <td>{row.entity}{row.entityId ? ` · ${row.entityId.slice(0, 8)}` : ''}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <PaginationControls page={pagedAudit.page} totalPages={pagedAudit.totalPages} onPageChange={setAuditPage} />
+          </>
         )}
       </div>
 
