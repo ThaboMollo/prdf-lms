@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import type { Session } from '@supabase/supabase-js'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid } from 'recharts'
 import { createReportsUseCases } from '../logic/usecases/reports'
-import { getUserProfiles } from '../lib/api'
+import { listAssignableUsers } from '../lib/api'
 import { formatCurrency, formatDateTime } from '../lib/format'
 import { PageHeader } from '../components/shared/PageHeader'
 import { KPIStatCard } from '../components/shared/KPIStatCard'
@@ -119,24 +119,23 @@ export function ReportsPage({ session }: ReportsPageProps) {
     [collectionsQuery.data]
   )
 
-  // Productivity and audit rows carry raw user ids; resolve them to names so
-  // the tables read as people, not uuids. Batched into one lookup.
-  const staffIds = useMemo(() => {
-    const ids = new Set<string>()
-    productivityQuery.data?.forEach((row) => { if (row.userId) ids.add(row.userId) })
-    auditQuery.data?.forEach((row) => { if (row.actorUserId) ids.add(row.actorUserId) })
-    return Array.from(ids).sort()
-  }, [productivityQuery.data, auditQuery.data])
-
+  // Productivity and audit rows carry raw user ids; resolve them to display
+  // names (the assignable-users list already falls back full_name → email →
+  // id server-side) so the tables read as people, not uuids.
   const staffNamesQuery = useQuery({
-    queryKey: ['reports-staff-names', session.user.id, staffIds],
-    queryFn: () => getUserProfiles(session.access_token, staffIds),
-    enabled: staffIds.length > 0
+    queryKey: ['assignable-users', session.user.id],
+    queryFn: () => listAssignableUsers(session.access_token)
   })
+
+  const nameMap = useMemo(() => {
+    const map = new Map<string, string>()
+    staffNamesQuery.data?.forEach((user) => map.set(user.userId, user.name))
+    return map
+  }, [staffNamesQuery.data])
 
   const nameFor = (id: string | null | undefined): string => {
     if (!id) return '—'
-    return staffNamesQuery.data?.get(id) ?? `#${id.slice(0, 8)}`
+    return nameMap.get(id) ?? `#${id.slice(0, 8)}`
   }
 
   const pagedAudit = useMemo(
@@ -190,10 +189,10 @@ export function ReportsPage({ session }: ReportsPageProps) {
       csv = 'Month,LoansOriginated,TotalVolume\n' + originationQuery.data.map(i => `${i.month},${i.count},${i.totalAmount}`).join('\n')
       filename = 'origination_trends.csv'
     } else if (type === 'productivity' && productivityQuery.data) {
-      csv = 'UserId,TasksCompleted,ApplicationsHandled\n' + productivityQuery.data.map(i => `"${i.userId}",${i.tasksCompleted},${i.applicationsHandled}`).join('\n')
+      csv = 'Name,UserId,TasksCompleted,ApplicationsHandled\n' + productivityQuery.data.map(i => `"${nameFor(i.userId)}","${i.userId}",${i.tasksCompleted},${i.applicationsHandled}`).join('\n')
       filename = 'staff_productivity.csv'
     } else if (type === 'audit' && auditQuery.data) {
-      csv = 'Timestamp,ActorUserId,Action,Entity,EntityId\n' + auditQuery.data.map(i => `"${i.at}","${i.actorUserId ?? ''}","${i.action}","${i.entity}","${i.entityId ?? ''}"`).join('\n')
+      csv = 'Timestamp,Actor,ActorUserId,Action,Entity,EntityId\n' + auditQuery.data.map(i => `"${i.at}","${nameFor(i.actorUserId)}","${i.actorUserId ?? ''}","${i.action}","${i.entity}","${i.entityId ?? ''}"`).join('\n')
       filename = 'audit_log.csv'
     }
 
@@ -312,7 +311,8 @@ export function ReportsPage({ session }: ReportsPageProps) {
             <table>
               <thead>
                 <tr>
-                  <th>Staff Member</th>
+                  <th>Name</th>
+                  <th>Staff ID</th>
                   <th>Tasks Completed</th>
                   <th>Applications Handled</th>
                 </tr>
@@ -321,6 +321,7 @@ export function ReportsPage({ session }: ReportsPageProps) {
                 {productivityQuery.data.map((row) => (
                   <tr key={row.userId}>
                     <td>{nameFor(row.userId)}</td>
+                    <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>#{row.userId.slice(0, 8)}</td>
                     <td>{row.tasksCompleted}</td>
                     <td>{row.applicationsHandled}</td>
                   </tr>
