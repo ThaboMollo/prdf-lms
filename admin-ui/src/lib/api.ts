@@ -13,6 +13,7 @@ export type MeResponse = {
   userId: string
   email: string | null
   fullName: string | null
+  phone: string | null
   roles: string[]
 }
 
@@ -368,6 +369,17 @@ export async function fetchMe(accessToken: string): Promise<MeResponse> {
     headers: authHeaders(accessToken)
   })
   return parseResponse<MeResponse>(response)
+}
+
+export type UpdateProfileInput = { fullName: string; phone?: string | null }
+
+export async function updateMyProfile(accessToken: string, input: UpdateProfileInput): Promise<{ fullName: string | null; phone: string | null }> {
+  const response = await fetch(`${apiBaseUrl}/me/profile`, {
+    method: 'PATCH',
+    headers: authHeaders(accessToken),
+    body: JSON.stringify({ fullName: input.fullName, phone: input.phone ?? null })
+  })
+  return parseResponse<{ fullName: string | null; phone: string | null }>(response)
 }
 
 export async function listAdminUserAccess(

@@ -63,6 +63,7 @@ export function AppShell({ session, me }: AppShellProps) {
         <Sidebar items={roleItems} title={layoutTitle} />
         <div className="app-main">
           <Topbar
+            displayName={me.fullName ?? session.user.email ?? 'unknown'}
             email={session.user.email ?? 'unknown'}
             onMenuOpen={() => setMobileOpen(true)}
             onLogout={() => {

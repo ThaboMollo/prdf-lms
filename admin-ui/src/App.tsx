@@ -15,6 +15,7 @@ import { UserAccessPage } from './pages/UserAccessPage'
 import { PipelinePage } from './pages/PipelinePage'
 import { LoansPage } from './pages/LoansPage'
 import { CasePage } from './pages/CasePage'
+import { ProfilePage } from './pages/ProfilePage'
 import { fetchMe } from './lib/api'
 import { supabase } from './lib/supabase'
 import { hasAnyRole, toAppRoles, isInternalUser } from './lib/rbac'
@@ -119,6 +120,7 @@ export function App() {
           >
             <Route element={<AppShell session={session as Session} me={meQuery.data!} />}>
               <Route path="/dashboard" element={<DashboardPage session={session as Session} me={meQuery.data!} />} />
+              <Route path="/profile" element={<ProfilePage session={session as Session} me={meQuery.data!} />} />
               <Route path="/applications" element={<Navigate to="/pipeline" replace />} />
               <Route path="/pipeline" element={<PipelinePage session={session as Session} />} />
               <Route

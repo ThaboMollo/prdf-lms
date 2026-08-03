@@ -8,6 +8,7 @@ import { RlsTransactionInterceptor } from './database/rls-transaction.intercepto
 import { AuthModule } from './auth/auth.module';
 import { HealthController } from './health/health.controller';
 import { MeController } from './me/me.controller';
+import { MeService } from './me/me.service';
 import { AdminModule } from './admin/admin.module';
 import { ClientsModule } from './clients/clients.module';
 import { ApplicationsModule } from './applications/applications.module';
@@ -42,6 +43,7 @@ import { UsersModule } from './users/users.module';
   ],
   controllers: [HealthController, MeController],
   providers: [
+    MeService,
     {
       provide: APP_INTERCEPTOR,
       useClass: RlsTransactionInterceptor,

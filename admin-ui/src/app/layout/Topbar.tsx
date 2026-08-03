@@ -1,7 +1,9 @@
+import { Link } from 'react-router-dom'
 import type { NotificationItem } from '../../lib/api'
 import { Breadcrumbs } from '../../components/shared/Breadcrumbs'
 
 type TopbarProps = {
+  displayName: string
   email: string
   onMenuOpen: () => void
   onLogout: () => void
@@ -11,6 +13,7 @@ type TopbarProps = {
 }
 
 export function Topbar({
+  displayName,
   email,
   onMenuOpen,
   onLogout,
@@ -25,9 +28,12 @@ export function Topbar({
       </button>
       <div className="topbar-heading">
         <Breadcrumbs />
-        <p className="topbar-sub">Signed in as {email}</p>
+        <p className="topbar-sub">Signed in as {displayName}</p>
       </div>
       <div className="topbar-actions">
+        <Link to="/profile" className="btn btn-secondary" title={email}>
+          Profile
+        </Link>
         <details className="notif-wrap">
           <summary className="icon-btn" aria-label="Notifications">
             Alerts ({notifications.length})

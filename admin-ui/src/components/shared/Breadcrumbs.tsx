@@ -15,6 +15,7 @@ const SECTION: Record<string, { label: string; to?: string }> = {
   case: { label: 'Case' },
   portfolio: { label: 'Portfolio', to: '/portfolio' },
   reports: { label: 'Reports', to: '/reports' },
+  profile: { label: 'My Profile', to: '/profile' },
   'user-access': { label: 'User Access', to: '/user-access' }
 }
 
