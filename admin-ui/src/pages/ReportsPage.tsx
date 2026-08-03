@@ -82,6 +82,37 @@ export function ReportsPage({ session }: ReportsPageProps) {
     queryFn: () => reportsUseCases.getProvinceBreakdown()
   })
 
+  // ADM-073 proposed new reports. Each degrades to an empty state if its
+  // endpoint is unavailable (retry disabled so a missing endpoint doesn't spin).
+  const collectionsQuery = useQuery({
+    queryKey: ['reports-collections', session.user.id],
+    queryFn: () => reportsUseCases.getCollectionsPerformance(),
+    retry: false
+  })
+
+  const cohortQuery = useQuery({
+    queryKey: ['reports-cohort', session.user.id],
+    queryFn: () => reportsUseCases.getCohortAnalysis(),
+    retry: false
+  })
+
+  const officerQuery = useQuery({
+    queryKey: ['reports-officer-scorecard', session.user.id],
+    queryFn: () => reportsUseCases.getOfficerScorecard(),
+    retry: false
+  })
+
+  const concentrationQuery = useQuery({
+    queryKey: ['reports-concentration', session.user.id],
+    queryFn: () => reportsUseCases.getConcentrationRisk(),
+    retry: false
+  })
+
+  const collectionsData = useMemo(
+    () => (collectionsQuery.data ?? []).map((item) => ({ name: item.month, due: item.amountDue, collected: item.amountCollected, rate: item.collectionRatePct })),
+    [collectionsQuery.data]
+  )
+
   const pipelineData = useMemo(
     () => (pipelineQuery.data ?? []).map((item) => ({ name: item.status, count: item.count, totalAmount: item.totalAmount })),
     [pipelineQuery.data]
@@ -437,6 +468,137 @@ export function ReportsPage({ session }: ReportsPageProps) {
             </div>
           )}
         </div>
+      </div>
+
+      {/* ADM-073: Collections performance */}
+      <div className="card" data-report-cat="perf risk">
+        <h3 style={{ marginBottom: '0.25rem', fontWeight: 600 }}>Collections Performance</h3>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.85rem' }}>
+          Amount due vs. collected per month, with the resulting collection rate.
+        </p>
+        {collectionsQuery.isLoading ? <p>Loading...</p> : collectionsQuery.isError ? (
+          <EmptyState title="Unavailable" message="The collections report endpoint is not available yet." />
+        ) : !collectionsData.length ? <EmptyState title="No data" message="No matured installments to report on." /> : (
+          <div style={{ width: '100%', height: 300 }}>
+            <ResponsiveContainer>
+              <BarChart data={collectionsData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
+                <XAxis dataKey="name" tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={val => `R${val / 1000}k`} />
+                <Tooltip formatter={(value) => formatCurrency(Number(value) || 0)} cursor={{ fill: 'transparent' }} contentStyle={{ background: 'var(--surface)', color: 'var(--text)', borderRadius: '8px', border: '1px solid var(--border-light)', boxShadow: 'var(--shadow-soft)' }} />
+                <Bar dataKey="due" fill="var(--cat2)" radius={[4, 4, 0, 0]} name="Amount Due" />
+                <Bar dataKey="collected" fill="var(--accent)" radius={[4, 4, 0, 0]} name="Collected" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+
+      {/* ADM-073: Cohort / vintage analysis */}
+      <div className="card" data-report-cat="risk perf">
+        <h3 style={{ marginBottom: '0.25rem', fontWeight: 600 }}>Cohort / Vintage Analysis</h3>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: '0.85rem' }}>
+          Loans grouped by disbursement month and how each origination cohort is performing.
+        </p>
+        {cohortQuery.isLoading ? <p>Loading...</p> : cohortQuery.isError ? (
+          <EmptyState title="Unavailable" message="The cohort report endpoint is not available yet." />
+        ) : !cohortQuery.data?.length ? <EmptyState title="No data" message="No disbursed loans to analyse." /> : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Vintage</th><th>Loans</th><th>Disbursed</th><th>Repaid</th><th>Outstanding</th><th>Arrears</th></tr>
+              </thead>
+              <tbody>
+                {cohortQuery.data.map((row) => (
+                  <tr key={row.vintage}>
+                    <td>{row.vintage}</td>
+                    <td>{row.loans}</td>
+                    <td>{formatCurrency(row.principalDisbursed)}</td>
+                    <td>{formatCurrency(row.principalRepaid)}</td>
+                    <td>{formatCurrency(row.outstanding)}</td>
+                    <td>{formatCurrency(row.arrearsAmount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ADM-073: Officer scorecard */}
+      <div className="card" data-report-cat="act perf">
+        <h3 style={{ marginBottom: '0.25rem', fontWeight: 600 }}>Officer Scorecard</h3>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: '0.85rem' }}>
+          Volume and book quality per loan officer (the application's assignee).
+        </p>
+        {officerQuery.isLoading ? <p>Loading...</p> : officerQuery.isError ? (
+          <EmptyState title="Unavailable" message="The officer scorecard endpoint is not available yet." />
+        ) : !officerQuery.data?.length ? <EmptyState title="No data" message="No applications are assigned to an officer yet." /> : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Officer</th><th>Assigned</th><th>Approved</th><th>Disbursed</th><th>Principal</th><th>Arrears</th></tr>
+              </thead>
+              <tbody>
+                {officerQuery.data.map((row) => (
+                  <tr key={row.userId}>
+                    <td>{row.name}</td>
+                    <td>{row.applicationsAssigned}</td>
+                    <td>{row.approved}</td>
+                    <td>{row.disbursed}</td>
+                    <td>{formatCurrency(row.principalDisbursed)}</td>
+                    <td>{formatCurrency(row.arrearsAmount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ADM-073: Concentration risk */}
+      <div className="card" data-report-cat="risk">
+        <h3 style={{ marginBottom: '0.25rem', fontWeight: 600 }}>Concentration Risk</h3>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.85rem' }}>
+          Exposure to individual borrowers and industries. HHI is a 0–10 000 concentration gauge (higher = more concentrated).
+        </p>
+        {concentrationQuery.isLoading ? <p>Loading...</p> : concentrationQuery.isError ? (
+          <EmptyState title="Unavailable" message="The concentration risk endpoint is not available yet." />
+        ) : !concentrationQuery.data?.totalOutstanding ? (
+          <EmptyState title="No data" message="No live (disbursed / in-repayment) loans to measure." />
+        ) : (
+          <>
+            <div className="grid-two" style={{ marginBottom: '1.5rem' }}>
+              <KPIStatCard
+                label="Borrower HHI"
+                value={concentrationQuery.data.hhi.borrower}
+                variant={concentrationQuery.data.hhi.borrower >= 2500 ? 'warning' : undefined}
+              />
+              <KPIStatCard
+                label="Industry HHI"
+                value={concentrationQuery.data.hhi.industry}
+                variant={concentrationQuery.data.hhi.industry >= 2500 ? 'warning' : undefined}
+              />
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Top Borrower</th><th>Loans</th><th>Outstanding</th><th>Share</th></tr>
+                </thead>
+                <tbody>
+                  {concentrationQuery.data.topBorrowers.map((row) => (
+                    <tr key={row.clientId}>
+                      <td>{row.businessName}</td>
+                      <td>{row.loans}</td>
+                      <td>{formatCurrency(row.outstanding)}</td>
+                      <td>{((row.outstanding / concentrationQuery.data!.totalOutstanding) * 100).toFixed(1)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Export Center */}

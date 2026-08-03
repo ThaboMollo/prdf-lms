@@ -175,4 +175,161 @@ export class ReportsService {
     );
     return { totalClients: total?.totalClients ?? 0, byProvince, bySpatialType };
   }
+
+  // --- ADM-073: proposed new reports -------------------------------------
+  // All staff-only. Each degrades to an empty series when there is no data,
+  // so the admin-ui report cards render an empty state rather than an error.
+
+  /**
+   * Collections performance: for each month up to today, how much was due on
+   * the repayment schedule versus how much has actually been collected, with
+   * the resulting collection rate. Only installments whose due date has
+   * arrived count, so the current-month figure isn't diluted by not-yet-due
+   * instalments.
+   */
+  async collections(actor: CurrentUser) {
+    await this.ensureStaffActor(actor);
+    return this.db.query(
+      `select to_char(due_date, 'YYYY-MM') as month,
+              cast(coalesce(sum(due_total), 0) as numeric(18,2)) as "amountDue",
+              cast(coalesce(sum(paid_amount), 0) as numeric(18,2)) as "amountCollected",
+              cast(case when sum(due_total) > 0 then round(100.0 * sum(paid_amount) / sum(due_total), 2) else 0 end as double precision) as "collectionRatePct"
+       from public.repayment_schedule
+       where due_date <= current_date
+       group by 1
+       order by 1 asc`,
+    );
+  }
+
+  /**
+   * Cohort / vintage analysis: loans grouped by the month they were disbursed,
+   * showing how each origination cohort is performing — principal advanced,
+   * repaid, still outstanding, and the arrears (overdue) sitting in that book.
+   * Schedule figures are aggregated per loan first so the join to loans can't
+   * fan-out and double-count principal.
+   */
+  async cohort(actor: CurrentUser) {
+    await this.ensureStaffActor(actor);
+    return this.db.query(
+      `with sched as (
+         select loan_id,
+                coalesce(sum(greatest(due_total - paid_amount, 0)) filter (where due_date < current_date), 0) as arrears
+         from public.repayment_schedule
+         group by loan_id
+       )
+       select to_char(l.disbursed_at, 'YYYY-MM') as vintage,
+              cast(count(*) as int) as loans,
+              cast(coalesce(sum(l.principal_amount), 0) as numeric(18,2)) as "principalDisbursed",
+              cast(coalesce(sum(l.principal_amount - l.outstanding_principal), 0) as numeric(18,2)) as "principalRepaid",
+              cast(coalesce(sum(l.outstanding_principal), 0) as numeric(18,2)) as "outstanding",
+              cast(coalesce(sum(s.arrears), 0) as numeric(18,2)) as "arrearsAmount"
+       from public.loans l
+       left join sched s on s.loan_id = l.id
+       where l.disbursed_at is not null
+       group by 1
+       order by 1 asc`,
+    );
+  }
+
+  /**
+   * Officer scorecard: per loan officer (the application's assignee), the
+   * volume they handle and the quality of that book — applications assigned,
+   * how many reached Approved/Disbursed, the principal disbursed against their
+   * files, and the arrears currently overdue in those loans. Officers with no
+   * assigned applications don't appear.
+   */
+  async officerScorecard(actor: CurrentUser) {
+    await this.ensureStaffActor(actor);
+    return this.db.query(
+      `with app_arrears as (
+         select la.assigned_to_user_id as user_id, l.application_id,
+                coalesce(sum(greatest(rs.due_total - rs.paid_amount, 0)) filter (where rs.due_date < current_date), 0) as arrears
+         from public.loan_applications la
+         join public.loans l on l.application_id = la.id
+         left join public.repayment_schedule rs on rs.loan_id = l.id
+         where la.assigned_to_user_id is not null
+         group by la.assigned_to_user_id, l.application_id
+       )
+       select la.assigned_to_user_id as "userId",
+              coalesce(p.full_name, la.assigned_to_user_id::text) as "name",
+              cast(count(*) as int) as "applicationsAssigned",
+              cast(count(*) filter (where la.status in ('Approved','Disbursed','InRepayment','Closed')) as int) as "approved",
+              cast(count(*) filter (where la.status in ('Disbursed','InRepayment','Closed')) as int) as "disbursed",
+              cast(coalesce(sum(l.principal_amount), 0) as numeric(18,2)) as "principalDisbursed",
+              cast(coalesce((select sum(a.arrears) from app_arrears a where a.user_id = la.assigned_to_user_id), 0) as numeric(18,2)) as "arrearsAmount"
+       from public.loan_applications la
+       left join public.loans l on l.application_id = la.id
+       left join public.profiles p on p.user_id = la.assigned_to_user_id
+       where la.assigned_to_user_id is not null
+       group by la.assigned_to_user_id, p.full_name
+       order by "principalDisbursed" desc`,
+    );
+  }
+
+  /**
+   * Concentration risk: how exposed the live book is to individual borrowers
+   * and industries. Returns the top borrowers by outstanding principal, the
+   * split by industry, and a Herfindahl-Hirschman Index (0–10 000) per
+   * dimension — a single-number concentration gauge computed from the shares.
+   */
+  async concentration(actor: CurrentUser) {
+    await this.ensureStaffActor(actor);
+    const active = `l.status in ('Disbursed','InRepayment')`;
+    const totalRow = await this.db.queryOne<{ totalOutstanding: number }>(
+      `select cast(coalesce(sum(l.outstanding_principal), 0) as numeric(18,2)) as "totalOutstanding" from public.loans l where ${active}`,
+    );
+    const totalOutstanding = Number(totalRow?.totalOutstanding ?? 0);
+
+    const topBorrowers = await this.db.query<{ clientId: string; businessName: string; outstanding: number; loans: number }>(
+      `select c.id as "clientId", c.business_name as "businessName",
+              cast(coalesce(sum(l.outstanding_principal), 0) as numeric(18,2)) as outstanding,
+              cast(count(*) as int) as loans
+       from public.loans l
+       join public.loan_applications la on la.id = l.application_id
+       join public.clients c on c.id = la.client_id
+       where ${active}
+       group by c.id, c.business_name
+       order by outstanding desc
+       limit 10`,
+    );
+
+    const byIndustry = await this.db.query<{ label: string; outstanding: number }>(
+      `select coalesce(nullif(trim(c.industry), ''), 'Unspecified') as label,
+              cast(coalesce(sum(l.outstanding_principal), 0) as numeric(18,2)) as outstanding
+       from public.loans l
+       join public.loan_applications la on la.id = l.application_id
+       join public.clients c on c.id = la.client_id
+       where ${active}
+       group by 1
+       order by outstanding desc`,
+    );
+
+    // HHI = sum of squared percentage shares (0–10 000). Computed in JS from
+    // the per-group outstanding so the SQL stays a plain aggregate.
+    const hhi = (rows: { outstanding: number }[]): number => {
+      if (totalOutstanding <= 0) return 0;
+      const sum = rows.reduce((acc, r) => {
+        const share = (Number(r.outstanding) / totalOutstanding) * 100;
+        return acc + share * share;
+      }, 0);
+      return Math.round(sum);
+    };
+
+    // Borrower HHI needs every borrower's share, not just the top 10.
+    const allBorrowers = await this.db.query<{ outstanding: number }>(
+      `select cast(coalesce(sum(l.outstanding_principal), 0) as numeric(18,2)) as outstanding
+       from public.loans l
+       join public.loan_applications la on la.id = l.application_id
+       join public.clients c on c.id = la.client_id
+       where ${active}
+       group by c.id`,
+    );
+
+    return {
+      totalOutstanding,
+      topBorrowers,
+      byIndustry,
+      hhi: { borrower: hhi(allBorrowers), industry: hhi(byIndustry) },
+    };
+  }
 }

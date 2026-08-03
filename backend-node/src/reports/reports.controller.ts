@@ -22,4 +22,9 @@ export class ReportsController {
   @Get('demographic') demographic(@GetCurrentUser() u: CurrentUser) { return this.svc.demographic(u); }
   @Get('debtors-age') debtorsAge(@GetCurrentUser() u: CurrentUser) { return this.svc.debtorsAge(u); }
   @Get('province') province(@GetCurrentUser() u: CurrentUser) { return this.svc.province(u); }
+  // ADM-073 proposed new reports
+  @Get('collections') collections(@GetCurrentUser() u: CurrentUser) { return this.svc.collections(u); }
+  @Get('cohort') cohort(@GetCurrentUser() u: CurrentUser) { return this.svc.cohort(u); }
+  @Get('officer-scorecard') officerScorecard(@GetCurrentUser() u: CurrentUser) { return this.svc.officerScorecard(u); }
+  @Get('concentration') concentration(@GetCurrentUser() u: CurrentUser) { return this.svc.concentration(u); }
 }

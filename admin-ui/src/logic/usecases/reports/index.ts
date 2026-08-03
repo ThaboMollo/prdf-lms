@@ -14,6 +14,10 @@ export function createReportsUseCases(accessToken: string) {
     getAuditLog: (from?: string, to?: string, limit?: number) => repository.getAuditLog(from, to, limit),
     getDemographicBreakdown: () => repository.getDemographicBreakdown(),
     getDebtorsAgeAnalysis: () => repository.getDebtorsAgeAnalysis(),
-    getProvinceBreakdown: () => repository.getProvinceBreakdown()
+    getProvinceBreakdown: () => repository.getProvinceBreakdown(),
+    getCollectionsPerformance: () => repository.getCollectionsPerformance(),
+    getCohortAnalysis: () => repository.getCohortAnalysis(),
+    getOfficerScorecard: () => repository.getOfficerScorecard(),
+    getConcentrationRisk: () => repository.getConcentrationRisk()
   }
 }

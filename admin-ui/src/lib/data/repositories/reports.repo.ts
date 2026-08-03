@@ -1,8 +1,12 @@
 import type {
   ArrearsItem,
   AuditLogItem,
+  CohortItem,
+  CollectionsItem,
+  ConcentrationRisk,
   DebtorsAgeBucket,
   DemographicBreakdown,
+  OfficerScorecardItem,
   ProvinceBreakdown,
   OriginationTrendItem,
   PipelineConversionItem,
@@ -25,6 +29,10 @@ export type ReportsRepository = {
   getDemographicBreakdown: () => Promise<DemographicBreakdown>
   getDebtorsAgeAnalysis: () => Promise<DebtorsAgeBucket[]>
   getProvinceBreakdown: () => Promise<ProvinceBreakdown>
+  getCollectionsPerformance: () => Promise<CollectionsItem[]>
+  getCohortAnalysis: () => Promise<CohortItem[]>
+  getOfficerScorecard: () => Promise<OfficerScorecardItem[]>
+  getConcentrationRisk: () => Promise<ConcentrationRisk>
 }
 
 export function createReportsRepository(accessToken: string): ReportsRepository {

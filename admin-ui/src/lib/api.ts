@@ -277,6 +277,47 @@ export type ProductivityItem = {
   applicationsHandled: number
 }
 
+// ADM-073 proposed new reports
+export type CollectionsItem = {
+  month: string
+  amountDue: number
+  amountCollected: number
+  collectionRatePct: number
+}
+
+export type CohortItem = {
+  vintage: string
+  loans: number
+  principalDisbursed: number
+  principalRepaid: number
+  outstanding: number
+  arrearsAmount: number
+}
+
+export type OfficerScorecardItem = {
+  userId: string
+  name: string
+  applicationsAssigned: number
+  approved: number
+  disbursed: number
+  principalDisbursed: number
+  arrearsAmount: number
+}
+
+export type ConcentrationBorrower = {
+  clientId: string
+  businessName: string
+  outstanding: number
+  loans: number
+}
+
+export type ConcentrationRisk = {
+  totalOutstanding: number
+  topBorrowers: ConcentrationBorrower[]
+  byIndustry: { label: string; outstanding: number }[]
+  hhi: { borrower: number; industry: number }
+}
+
 export type AuditLogItem = {
   id: string
   entity: string
@@ -725,6 +766,34 @@ export async function getProvinceBreakdown(accessToken: string): Promise<Provinc
     headers: authHeaders(accessToken)
   })
   return parseResponse<ProvinceBreakdown>(response)
+}
+
+export async function getCollectionsPerformance(accessToken: string): Promise<CollectionsItem[]> {
+  const response = await fetch(`${apiBaseUrl}/api/reports/collections`, {
+    headers: authHeaders(accessToken)
+  })
+  return parseResponse<CollectionsItem[]>(response)
+}
+
+export async function getCohortAnalysis(accessToken: string): Promise<CohortItem[]> {
+  const response = await fetch(`${apiBaseUrl}/api/reports/cohort`, {
+    headers: authHeaders(accessToken)
+  })
+  return parseResponse<CohortItem[]>(response)
+}
+
+export async function getOfficerScorecard(accessToken: string): Promise<OfficerScorecardItem[]> {
+  const response = await fetch(`${apiBaseUrl}/api/reports/officer-scorecard`, {
+    headers: authHeaders(accessToken)
+  })
+  return parseResponse<OfficerScorecardItem[]>(response)
+}
+
+export async function getConcentrationRisk(accessToken: string): Promise<ConcentrationRisk> {
+  const response = await fetch(`${apiBaseUrl}/api/reports/concentration`, {
+    headers: authHeaders(accessToken)
+  })
+  return parseResponse<ConcentrationRisk>(response)
 }
 
 export type AssignableUser = {

@@ -1,8 +1,12 @@
 import type {
   ArrearsItem,
   AuditLogItem,
+  CohortItem,
+  CollectionsItem,
+  ConcentrationRisk,
   DebtorsAgeBucket,
   DemographicBreakdown,
+  OfficerScorecardItem,
   ProvinceBreakdown,
   OriginationTrendItem,
   PipelineConversionItem,
@@ -29,6 +33,10 @@ export function createApiReportsAdapter(accessToken: string): ReportsRepository 
       api.getAuditLog(accessToken, from, to, limit),
     getDemographicBreakdown: (): Promise<DemographicBreakdown> => api.getDemographicBreakdown(accessToken),
     getDebtorsAgeAnalysis: (): Promise<DebtorsAgeBucket[]> => api.getDebtorsAgeAnalysis(accessToken),
-    getProvinceBreakdown: (): Promise<ProvinceBreakdown> => api.getProvinceBreakdown(accessToken)
+    getProvinceBreakdown: (): Promise<ProvinceBreakdown> => api.getProvinceBreakdown(accessToken),
+    getCollectionsPerformance: (): Promise<CollectionsItem[]> => api.getCollectionsPerformance(accessToken),
+    getCohortAnalysis: (): Promise<CohortItem[]> => api.getCohortAnalysis(accessToken),
+    getOfficerScorecard: (): Promise<OfficerScorecardItem[]> => api.getOfficerScorecard(accessToken),
+    getConcentrationRisk: (): Promise<ConcentrationRisk> => api.getConcentrationRisk(accessToken)
   }
 }

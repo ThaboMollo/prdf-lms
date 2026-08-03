@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 
 export type Crumb = { label: string; to?: string }
@@ -80,11 +80,10 @@ const BreadcrumbsContext = createContext<BreadcrumbsContextValue | null>(null)
 
 export function BreadcrumbsProvider({ children }: { children: ReactNode }) {
   const [override, setOverride] = useState<Crumb[] | null>(null)
-  return (
-    <BreadcrumbsContext.Provider value={{ override, setOverride }}>
-      {children}
-    </BreadcrumbsContext.Provider>
-  )
+  // Memoized so the context value is stable across renders — otherwise a new
+  // object each render would re-trigger useSetBreadcrumbs' effect endlessly.
+  const value = useMemo(() => ({ override, setOverride }), [override])
+  return <BreadcrumbsContext.Provider value={value}>{children}</BreadcrumbsContext.Provider>
 }
 
 /**
@@ -92,15 +91,17 @@ export function BreadcrumbsProvider({ children }: { children: ReactNode }) {
  * the route-derived trail on unmount. No-op outside a provider.
  */
 export function useSetBreadcrumbs(items: Crumb[]): void {
-  const ctx = useContext(BreadcrumbsContext)
+  // useState setters are stable across renders, so depending on setOverride
+  // (not the context object) keeps the effect from re-running every render.
+  const setOverride = useContext(BreadcrumbsContext)?.setOverride
   // The serialized key stands in for `items` in the dependency list, so the
   // effect re-runs on content changes but not on a new array identity.
   const key = items.map((crumb) => `${crumb.label}|${crumb.to ?? ''}`).join('>')
   useEffect(() => {
-    if (!ctx) return
-    ctx.setOverride(items)
-    return () => ctx.setOverride(null)
-  }, [ctx, key]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!setOverride) return
+    setOverride(items)
+    return () => setOverride(null)
+  }, [setOverride, key]) // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 type BreadcrumbsProps = {
