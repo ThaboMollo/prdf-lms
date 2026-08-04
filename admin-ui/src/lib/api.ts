@@ -130,9 +130,9 @@ export type ApplicationConsentInput = {
 }
 
 export type UpdateApplicationInput = {
-  requestedAmount: number
-  termMonths: number
-  purpose: string
+  requestedAmount?: number
+  termMonths?: number
+  purpose?: string
   assignedToUserId?: string
 }
 

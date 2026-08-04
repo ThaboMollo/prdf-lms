@@ -13,9 +13,9 @@ export interface LoanProduct {
   isActive: boolean;
 }
 
-const SELECT_COLUMNS = `id, name, description, min_amount as "minAmount", max_amount as "maxAmount",
+const SELECT_COLUMNS = `id, name, description, min_amount::float8 as "minAmount", max_amount::float8 as "maxAmount",
   min_term_months as "minTermMonths", max_term_months as "maxTermMonths",
-  interest_rate as "interestRate", is_active as "isActive"`;
+  interest_rate::float8 as "interestRate", is_active as "isActive"`;
 
 @Injectable()
 export class LoanProductsService {

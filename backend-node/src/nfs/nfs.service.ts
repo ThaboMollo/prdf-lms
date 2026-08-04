@@ -13,7 +13,7 @@ export class NfsService {
     ensureInternal(roles);
     return this.db.query(
       `select id, client_id as "clientId", application_id as "applicationId", advisor_user_id as "advisorUserId",
-              support_type as "supportType", duration_hours as "durationHours", date_provided as "dateProvided",
+              support_type as "supportType", duration_hours::float8 as "durationHours", date_provided as "dateProvided",
               notes, created_at as "createdAt"
        from public.non_financial_support
        where client_id = $1
@@ -42,7 +42,7 @@ export class NfsService {
 
     return this.db.queryOne(
       `select id, client_id as "clientId", application_id as "applicationId", advisor_user_id as "advisorUserId",
-              support_type as "supportType", duration_hours as "durationHours", date_provided as "dateProvided",
+              support_type as "supportType", duration_hours::float8 as "durationHours", date_provided as "dateProvided",
               notes, created_at as "createdAt"
        from public.non_financial_support where id = $1`,
       [id],

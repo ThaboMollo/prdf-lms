@@ -46,7 +46,7 @@ export class ApplicationsService {
   private async getSecurityProjection(applicationId: string): Promise<SecurityProjection | null> {
     return this.db.queryOne<SecurityProjection>(
       `select la.id, la.status, la.client_id as "clientId", la.assigned_to_user_id as "assignedToUserId", c.user_id as "clientOwnerUserId",
-              la.loan_product_id as "loanProductId", la.requested_amount as "requestedAmount", la.term_months as "termMonths"
+              la.loan_product_id as "loanProductId", la.requested_amount::float8 as "requestedAmount", la.term_months as "termMonths"
        from public.loan_applications la join public.clients c on c.id = la.client_id where la.id = $1`,
       [applicationId],
     );
@@ -132,11 +132,11 @@ export class ApplicationsService {
 
   private async getById(applicationId: string) {
     return this.db.queryOne(
-      `select la.id, la.client_id as "clientId", la.requested_amount as "requestedAmount",
+      `select la.id, la.client_id as "clientId", la.requested_amount::float8 as "requestedAmount",
               la.term_months as "termMonths", la.purpose, la.status,
               la.created_at as "createdAt", la.submitted_at as "submittedAt",
               la.assigned_to_user_id as "assignedToUserId", la.loan_product_id as "loanProductId",
-              la.monthly_revenue as "monthlyRevenue", la.years_in_operation as "yearsInOperation",
+              la.monthly_revenue::float8 as "monthlyRevenue", la.years_in_operation as "yearsInOperation",
               la.number_of_employees as "numberOfEmployees", la.bank_name as "bankName",
               la.current_step as "currentStep", la.draft_state as "draftState", la.last_saved_at as "lastSavedAt",
               l.id as "loanId"
@@ -314,7 +314,7 @@ export class ApplicationsService {
 
   async list(actor: CurrentUser) {
     const roles = await fetchUserRoles(this.db, actor.userId);
-    let sql = `select la.id, la.client_id as "clientId", la.requested_amount as "requestedAmount", la.term_months as "termMonths", la.purpose, la.status, la.created_at as "createdAt", la.submitted_at as "submittedAt", la.assigned_to_user_id as "assignedToUserId" from public.loan_applications la join public.clients c on c.id = la.client_id`;
+    let sql = `select la.id, la.client_id as "clientId", la.requested_amount::float8 as "requestedAmount", la.term_months as "termMonths", la.purpose, la.status, la.created_at as "createdAt", la.submitted_at as "submittedAt", la.assigned_to_user_id as "assignedToUserId" from public.loan_applications la join public.clients c on c.id = la.client_id`;
     let params: any[] = [];
 
     if (isStaff(roles)) {

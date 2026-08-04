@@ -17,8 +17,8 @@ export class LoansService {
    */
   async list(actor: CurrentUser) {
     const roles = await fetchUserRoles(this.db, actor.userId);
-    let sql = `select l.id, l.application_id as "applicationId", l.principal_amount as "principalAmount",
-                      l.outstanding_principal as "outstandingPrincipal", l.interest_rate as "interestRate",
+    let sql = `select l.id, l.application_id as "applicationId", l.principal_amount::float8 as "principalAmount",
+                      l.outstanding_principal::float8 as "outstandingPrincipal", l.interest_rate::float8 as "interestRate",
                       l.term_months as "termMonths", l.status, l.disbursed_at as "disbursedAt", l.created_at as "createdAt",
                       c.business_name as "businessName"
                from public.loans l
@@ -42,16 +42,16 @@ export class LoansService {
 
   private async getLoanDetails(loanId: string) {
     const loan = await this.db.queryOne(
-      `select id, application_id as "applicationId", principal_amount as "principalAmount", outstanding_principal as "outstandingPrincipal", interest_rate as "interestRate", term_months as "termMonths", status, disbursed_at as "disbursedAt", created_at as "createdAt" from public.loans where id=$1`,
+      `select id, application_id as "applicationId", principal_amount::float8 as "principalAmount", outstanding_principal::float8 as "outstandingPrincipal", interest_rate::float8 as "interestRate", term_months as "termMonths", status, disbursed_at as "disbursedAt", created_at as "createdAt" from public.loans where id=$1`,
       [loanId],
     );
     if (!loan) return null;
     const schedule = await this.db.query(
-      `select id, installment_no as "installmentNo", due_date as "dueDate", due_principal as "duePrincipal", due_interest as "dueInterest", due_total as "dueTotal", paid_amount as "paidAmount", status, paid_at as "paidAt" from public.repayment_schedule where loan_id=$1 order by installment_no asc`,
+      `select id, installment_no as "installmentNo", due_date as "dueDate", due_principal::float8 as "duePrincipal", due_interest::float8 as "dueInterest", due_total::float8 as "dueTotal", paid_amount::float8 as "paidAmount", status, paid_at as "paidAt" from public.repayment_schedule where loan_id=$1 order by installment_no asc`,
       [loanId],
     );
     const repayments = await this.db.query(
-      `select id, amount, principal_component as "principalComponent", interest_component as "interestComponent", paid_at as "paidAt", payment_reference as "paymentReference" from public.repayments where loan_id=$1 order by paid_at desc`,
+      `select id, amount::float8 as amount, principal_component::float8 as "principalComponent", interest_component::float8 as "interestComponent", paid_at as "paidAt", payment_reference as "paymentReference" from public.repayments where loan_id=$1 order by paid_at desc`,
       [loanId],
     );
     return { ...loan, schedule, repayments };

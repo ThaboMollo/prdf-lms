@@ -22,12 +22,12 @@ export class ReportsService {
     const roles = await fetchUserRoles(this.db, actor.userId);
     if (isStaff(roles)) {
       return this.db.queryOne(
-        `select cast(count(*) as int) as "totalLoans", cast(count(*) filter (where status in ('Disbursed','InRepayment')) as int) as "activeLoans", coalesce(sum(principal_amount),0) as "totalPrincipal", coalesce(sum(outstanding_principal),0) as "outstandingPrincipal", coalesce(sum(principal_amount) - sum(outstanding_principal),0) as "repaidPrincipal" from public.loans`,
+        `select cast(count(*) as int) as "totalLoans", cast(count(*) filter (where status in ('Disbursed','InRepayment')) as int) as "activeLoans", cast(coalesce(sum(principal_amount),0) as double precision) as "totalPrincipal", cast(coalesce(sum(outstanding_principal),0) as double precision) as "outstandingPrincipal", cast(coalesce(sum(principal_amount) - sum(outstanding_principal),0) as double precision) as "repaidPrincipal" from public.loans`,
       );
     }
     if (!hasRole(roles, 'Client')) throw new ForbiddenException('Only staff or the applicant can view portfolio data.');
     return this.db.queryOne(
-      `select cast(count(*) as int) as "totalLoans", cast(count(*) filter (where l.status in ('Disbursed','InRepayment')) as int) as "activeLoans", coalesce(sum(l.principal_amount),0) as "totalPrincipal", coalesce(sum(l.outstanding_principal),0) as "outstandingPrincipal", coalesce(sum(l.principal_amount) - sum(l.outstanding_principal),0) as "repaidPrincipal"
+      `select cast(count(*) as int) as "totalLoans", cast(count(*) filter (where l.status in ('Disbursed','InRepayment')) as int) as "activeLoans", cast(coalesce(sum(l.principal_amount),0) as double precision) as "totalPrincipal", cast(coalesce(sum(l.outstanding_principal),0) as double precision) as "outstandingPrincipal", cast(coalesce(sum(l.principal_amount) - sum(l.outstanding_principal),0) as double precision) as "repaidPrincipal"
        from public.loans l join public.loan_applications la on la.id = l.application_id join public.clients c on c.id = la.client_id
        where c.user_id = $1`,
       [actor.userId],
@@ -38,12 +38,12 @@ export class ReportsService {
     const roles = await fetchUserRoles(this.db, actor.userId);
     if (isStaff(roles)) {
       return this.db.query(
-        `select rs.loan_id as "loanId", l.application_id as "applicationId", rs.installment_no as "installmentNo", rs.due_date as "dueDate", rs.due_total as "dueTotal", rs.paid_amount as "paidAmount", cast(greatest(rs.due_total-rs.paid_amount,0) as numeric(18,2)) as "outstandingAmount", cast(greatest((current_date-rs.due_date),0) as int) as "daysOverdue" from public.repayment_schedule rs join public.loans l on l.id=rs.loan_id where rs.due_date<current_date and rs.due_total>rs.paid_amount and l.status<>'Closed' order by rs.due_date asc`,
+        `select rs.loan_id as "loanId", l.application_id as "applicationId", rs.installment_no as "installmentNo", rs.due_date as "dueDate", rs.due_total::float8 as "dueTotal", rs.paid_amount::float8 as "paidAmount", cast(greatest(rs.due_total-rs.paid_amount,0) as double precision) as "outstandingAmount", cast(greatest((current_date-rs.due_date),0) as int) as "daysOverdue" from public.repayment_schedule rs join public.loans l on l.id=rs.loan_id where rs.due_date<current_date and rs.due_total>rs.paid_amount and l.status<>'Closed' order by rs.due_date asc`,
       );
     }
     if (!hasRole(roles, 'Client')) throw new ForbiddenException('Only staff or the applicant can view arrears data.');
     return this.db.query(
-      `select rs.loan_id as "loanId", l.application_id as "applicationId", rs.installment_no as "installmentNo", rs.due_date as "dueDate", rs.due_total as "dueTotal", rs.paid_amount as "paidAmount", cast(greatest(rs.due_total-rs.paid_amount,0) as numeric(18,2)) as "outstandingAmount", cast(greatest((current_date-rs.due_date),0) as int) as "daysOverdue"
+      `select rs.loan_id as "loanId", l.application_id as "applicationId", rs.installment_no as "installmentNo", rs.due_date as "dueDate", rs.due_total::float8 as "dueTotal", rs.paid_amount::float8 as "paidAmount", cast(greatest(rs.due_total-rs.paid_amount,0) as double precision) as "outstandingAmount", cast(greatest((current_date-rs.due_date),0) as int) as "daysOverdue"
        from public.repayment_schedule rs
        join public.loans l on l.id = rs.loan_id
        join public.loan_applications la on la.id = l.application_id
@@ -140,7 +140,7 @@ export class ReportsService {
   async debtorsAge(actor: CurrentUser) {
     await this.ensureStaffActor(actor);
     const rows = await this.db.query<{ bucket: string; installments: number; outstandingAmount: number }>(
-      `select bucket, cast(count(*) as int) as installments, cast(coalesce(sum(outstanding), 0) as numeric(18,2)) as "outstandingAmount"
+      `select bucket, cast(count(*) as int) as installments, cast(coalesce(sum(outstanding), 0) as double precision) as "outstandingAmount"
        from (
          select (due_total - paid_amount) as outstanding,
                 case
@@ -191,8 +191,8 @@ export class ReportsService {
     await this.ensureStaffActor(actor);
     return this.db.query(
       `select to_char(due_date, 'YYYY-MM') as month,
-              cast(coalesce(sum(due_total), 0) as numeric(18,2)) as "amountDue",
-              cast(coalesce(sum(paid_amount), 0) as numeric(18,2)) as "amountCollected",
+              cast(coalesce(sum(due_total), 0) as double precision) as "amountDue",
+              cast(coalesce(sum(paid_amount), 0) as double precision) as "amountCollected",
               cast(case when sum(due_total) > 0 then round(100.0 * sum(paid_amount) / sum(due_total), 2) else 0 end as double precision) as "collectionRatePct"
        from public.repayment_schedule
        where due_date <= current_date
@@ -219,10 +219,10 @@ export class ReportsService {
        )
        select to_char(l.disbursed_at, 'YYYY-MM') as vintage,
               cast(count(*) as int) as loans,
-              cast(coalesce(sum(l.principal_amount), 0) as numeric(18,2)) as "principalDisbursed",
-              cast(coalesce(sum(l.principal_amount - l.outstanding_principal), 0) as numeric(18,2)) as "principalRepaid",
-              cast(coalesce(sum(l.outstanding_principal), 0) as numeric(18,2)) as "outstanding",
-              cast(coalesce(sum(s.arrears), 0) as numeric(18,2)) as "arrearsAmount"
+              cast(coalesce(sum(l.principal_amount), 0) as double precision) as "principalDisbursed",
+              cast(coalesce(sum(l.principal_amount - l.outstanding_principal), 0) as double precision) as "principalRepaid",
+              cast(coalesce(sum(l.outstanding_principal), 0) as double precision) as "outstanding",
+              cast(coalesce(sum(s.arrears), 0) as double precision) as "arrearsAmount"
        from public.loans l
        left join sched s on s.loan_id = l.id
        where l.disbursed_at is not null
@@ -255,8 +255,8 @@ export class ReportsService {
               cast(count(*) as int) as "applicationsAssigned",
               cast(count(*) filter (where la.status in ('Approved','Disbursed','InRepayment','Closed')) as int) as "approved",
               cast(count(*) filter (where la.status in ('Disbursed','InRepayment','Closed')) as int) as "disbursed",
-              cast(coalesce(sum(l.principal_amount), 0) as numeric(18,2)) as "principalDisbursed",
-              cast(coalesce((select sum(a.arrears) from app_arrears a where a.user_id = la.assigned_to_user_id), 0) as numeric(18,2)) as "arrearsAmount"
+              cast(coalesce(sum(l.principal_amount), 0) as double precision) as "principalDisbursed",
+              cast(coalesce((select sum(a.arrears) from app_arrears a where a.user_id = la.assigned_to_user_id), 0) as double precision) as "arrearsAmount"
        from public.loan_applications la
        left join public.loans l on l.application_id = la.id
        left join public.profiles p on p.user_id = la.assigned_to_user_id
@@ -276,13 +276,13 @@ export class ReportsService {
     await this.ensureStaffActor(actor);
     const active = `l.status in ('Disbursed','InRepayment')`;
     const totalRow = await this.db.queryOne<{ totalOutstanding: number }>(
-      `select cast(coalesce(sum(l.outstanding_principal), 0) as numeric(18,2)) as "totalOutstanding" from public.loans l where ${active}`,
+      `select cast(coalesce(sum(l.outstanding_principal), 0) as double precision) as "totalOutstanding" from public.loans l where ${active}`,
     );
     const totalOutstanding = Number(totalRow?.totalOutstanding ?? 0);
 
     const topBorrowers = await this.db.query<{ clientId: string; businessName: string; outstanding: number; loans: number }>(
       `select c.id as "clientId", c.business_name as "businessName",
-              cast(coalesce(sum(l.outstanding_principal), 0) as numeric(18,2)) as outstanding,
+              cast(coalesce(sum(l.outstanding_principal), 0) as double precision) as outstanding,
               cast(count(*) as int) as loans
        from public.loans l
        join public.loan_applications la on la.id = l.application_id
@@ -295,7 +295,7 @@ export class ReportsService {
 
     const byIndustry = await this.db.query<{ label: string; outstanding: number }>(
       `select coalesce(nullif(trim(c.industry), ''), 'Unspecified') as label,
-              cast(coalesce(sum(l.outstanding_principal), 0) as numeric(18,2)) as outstanding
+              cast(coalesce(sum(l.outstanding_principal), 0) as double precision) as outstanding
        from public.loans l
        join public.loan_applications la on la.id = l.application_id
        join public.clients c on c.id = la.client_id
@@ -317,7 +317,7 @@ export class ReportsService {
 
     // Borrower HHI needs every borrower's share, not just the top 10.
     const allBorrowers = await this.db.query<{ outstanding: number }>(
-      `select cast(coalesce(sum(l.outstanding_principal), 0) as numeric(18,2)) as outstanding
+      `select cast(coalesce(sum(l.outstanding_principal), 0) as double precision) as outstanding
        from public.loans l
        join public.loan_applications la on la.id = l.application_id
        join public.clients c on c.id = la.client_id

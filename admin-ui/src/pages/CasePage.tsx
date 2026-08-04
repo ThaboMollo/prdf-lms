@@ -123,18 +123,18 @@ export function CasePage({ session }: CasePageProps) {
   }
 
   const assignMutation = useMutation({
+    // Reassignment only needs the assignee — the backend's non-draft update
+    // branch ignores the rest. Echoing requestedAmount back is what broke this:
+    // it arrives from the API as a numeric string and fails the number DTO.
     mutationFn: () =>
       applicationsUseCases.assignApplication(id as string, {
-        requestedAmount: detail!.requestedAmount,
-        termMonths: detail!.termMonths,
-        purpose: detail!.purpose,
         assignedToUserId: assignUserId || undefined
       }),
     onSuccess: async () => {
       toast.push('Assignment saved.', 'success')
       await refreshCase()
     },
-    onError: () => toast.push('Assignment failed.', 'error')
+    onError: (error) => toast.push(error instanceof Error ? error.message : 'Assignment failed.', 'error')
   })
 
   const statusMutation = useMutation({
