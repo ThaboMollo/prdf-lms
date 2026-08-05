@@ -1369,6 +1369,16 @@ tbody tr:nth-child(even):hover {
 /* ----------------------------------------------------------------
    Lifecycle rail (ADM-003)
    ---------------------------------------------------------------- */
+/* The 11-stage PRDF chain can't shrink into a narrow container without the
+   labels colliding, so each step keeps a minimum width and the rail scrolls
+   horizontally when the container is too small to fit them all. */
+.lifecycle {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 0.25rem;
+  -webkit-overflow-scrolling: touch;
+}
+
 .lifecycle-track {
   list-style: none;
   margin: 0;
@@ -1378,8 +1388,8 @@ tbody tr:nth-child(even):hover {
 }
 
 .lc-step {
-  flex: 1;
-  min-width: 0;
+  flex: 1 0 auto;
+  min-width: 86px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -1420,9 +1430,10 @@ tbody tr:nth-child(even):hover {
 }
 
 .lc-label {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   color: var(--muted);
   line-height: 1.2;
+  white-space: nowrap;
 }
 
 .lc-annotation {
