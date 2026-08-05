@@ -69,7 +69,7 @@ export class NotificationsService {
              'Application follow-up', 'This application has been pending follow-up for over 7 days.',
              'Sent', jsonb_build_object('applicationId', la.id, 'status', la.status), now(), now()
       from public.loan_applications la join public.clients c on c.id=la.client_id
-      where la.status in ('Submitted','UnderReview','InfoRequested')
+      where la.status in ('Submitted','Screening','DueDiligence','Evaluation','InfoRequested')
         and la.created_at < now() - interval '7 days'
         and coalesce(la.assigned_to_user_id, c.user_id) is not null
         and not exists (

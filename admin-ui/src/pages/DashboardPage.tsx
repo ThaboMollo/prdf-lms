@@ -149,12 +149,13 @@ function DashboardContent({
   setTasksPage
 }: DashboardContentProps) {
   const draftOrInfoApps = applications.filter((item) => item.status === 'Draft' || item.status === 'InfoRequested')
-  const underReviewApps = applications.filter((item) => item.status === 'UnderReview')
+  const inReviewApps = applications.filter(
+    (item) => item.status === 'Screening' || item.status === 'DueDiligence' || item.status === 'Evaluation'
+  )
   const infoRequestedApps = applications.filter((item) => item.status === 'InfoRequested')
-  const overdueTasks = tasks.filter((task) => task.status !== 'Completed' && Boolean(task.dueDate))
   const slaBreached = applications.filter(
     (item) =>
-      (item.status === 'Submitted' || item.status === 'UnderReview') &&
+      (item.status === 'Submitted' || item.status === 'Screening' || item.status === 'DueDiligence' || item.status === 'Evaluation') &&
       calculateDaysElapsed(item.submittedAt) >= 5
   )
 
@@ -175,29 +176,11 @@ function DashboardContent({
     )
   }
 
-  if (role === 'Intern' || role === 'Originator') {
-    return (
-      <>
-        <div className="grid-three">
-          <KPIStatCard label="Applicants Assisted" value={applications.length} to="/pipeline" />
-          <KPIStatCard label="Tasks Due" value={overdueTasks.length} />
-          <KPIStatCard label="Quick Action" value="Create Application" />
-        </div>
-        <TaskPanel
-          tasks={tasks}
-          page={tasksPage}
-          onPageChange={setTasksPage}
-          onOpenCase={role === 'Originator' ? onOpenCase : undefined}
-        />
-      </>
-    )
-  }
-
   return (
     <>
       <div className="grid-four">
         <KPIStatCard label="Pipeline Cases" value={applications.length} to="/pipeline" />
-        <KPIStatCard label="Under Review" value={underReviewApps.length} to="/pipeline?status=UnderReview" />
+        <KPIStatCard label="In Review" value={inReviewApps.length} to="/pipeline" />
         <KPIStatCard label="Info Requested" value={infoRequestedApps.length} to="/pipeline?status=InfoRequested" />
         <KPIStatCard
           label="SLA Breached"
@@ -207,6 +190,7 @@ function DashboardContent({
         />
       </div>
       <QueuePanel title="Assigned Queue" applications={applications} page={queuePage} onPageChange={setQueuePage} onOpenCase={onOpenCase} />
+      <TaskPanel tasks={tasks} page={tasksPage} onPageChange={setTasksPage} onOpenCase={onOpenCase} />
     </>
   )
 }

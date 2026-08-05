@@ -22,14 +22,17 @@ const PIPELINE_PAGE_SIZE = 12
 
 const FILTERS: { key: string; label: string }[] = [
   { key: 'all', label: 'All open' },
-  { key: 'UnderReview', label: 'Under Review' },
+  { key: 'Screening', label: 'Screening' },
+  { key: 'DueDiligence', label: 'Due Diligence' },
+  { key: 'Evaluation', label: 'Evaluation' },
   { key: 'InfoRequested', label: 'Info Requested' },
   { key: 'Approved', label: 'Approved' },
+  { key: 'Contracting', label: 'Contracting' },
   { key: 'SLA', label: 'SLA Breached' }
 ]
 
-const OPEN_STATUSES: LoanApplicationStatus[] = ['Draft', 'Submitted', 'UnderReview', 'InfoRequested', 'Approved']
-const SLA_STATUSES: LoanApplicationStatus[] = ['Submitted', 'UnderReview', 'InfoRequested']
+const OPEN_STATUSES: LoanApplicationStatus[] = ['Draft', 'Submitted', 'Screening', 'DueDiligence', 'Evaluation', 'InfoRequested', 'Approved', 'BoardApproved', 'Contracting']
+const SLA_STATUSES: LoanApplicationStatus[] = ['Submitted', 'Screening', 'DueDiligence', 'Evaluation', 'InfoRequested']
 
 function matchesFilter(app: ApplicationSummary, key: string): boolean {
   if (key === 'all') return OPEN_STATUSES.includes(app.status)

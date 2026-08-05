@@ -242,7 +242,7 @@ export function CasePage({ session }: CasePageProps) {
                   </>
                 ) : null}
 
-                {detail.status === 'Submitted' || detail.status === 'UnderReview' ? (
+                {(['Submitted', 'Screening', 'DueDiligence', 'Evaluation'] as string[]).includes(detail.status) ? (
                   <>
                     <label>
                       Request info
@@ -304,16 +304,29 @@ function NextStepCard({ status, onGoToMoney }: { status: LoanApplicationStatus; 
   let message = 'Continue working this case.'
 
   if (status === 'Submitted') {
-    message = 'Awaiting review — assign a reviewer or move it under review.'
-  } else if (status === 'UnderReview') {
-    title = 'Decision needed'
-    message = 'Approve, reject, or request more info below.'
+    title = 'Intake'
+    message = 'Confirm intake, then move it to Screening (or request more info).'
+  } else if (status === 'Screening') {
+    title = 'Initial screening'
+    message = 'Check mandatory documents, then advance to Due Diligence.'
+  } else if (status === 'DueDiligence') {
+    title = 'Due diligence'
+    message = 'Assess financial health and risk, then advance to Evaluation.'
+  } else if (status === 'Evaluation') {
+    title = 'Evaluation'
+    message = 'Assess viability and alignment, then approve or decline.'
   } else if (status === 'InfoRequested') {
     title = 'Waiting on client'
     message = 'Review the response, then update the status.'
   } else if (status === 'Approved') {
-    title = 'Prepare disbursement'
-    message = 'Move to the Money tab to create the loan and disburse.'
+    title = 'Board sign-off'
+    message = 'Awaiting the Board to authorise funding.'
+  } else if (status === 'BoardApproved') {
+    title = 'Contracting'
+    message = 'Legal generates the contract, then hand to Finance.'
+  } else if (status === 'Contracting') {
+    title = 'Ready for payout'
+    message = 'Finance verifies the account and disburses in the Money tab.'
   } else if (status === 'InRepayment') {
     title = 'Loan servicing'
     message = 'Record repayments and track arrears in the Money tab.'
@@ -322,7 +335,7 @@ function NextStepCard({ status, onGoToMoney }: { status: LoanApplicationStatus; 
     message = 'This case is no longer active.'
   }
 
-  const showMoney = status === 'Approved' || status === 'InRepayment' || status === 'Disbursed'
+  const showMoney = status === 'Contracting' || status === 'InRepayment' || status === 'Disbursed'
 
   return (
     <section className="next-step">

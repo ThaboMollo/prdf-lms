@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
-import { CurrentUser, fetchUserRoles, isStaff, hasAnyRole, hasRole, ASSIGNED_ROLES } from '../auth/roles.helper';
+import { CurrentUser, fetchUserRoles, isStaff, isFinance, hasAnyRole, hasRole, ASSIGNED_ROLES } from '../auth/roles.helper';
 import { randomUUID } from 'crypto';
 import { PoolClient } from 'pg';
 import { DEFAULT_ANNUAL_RATE_PA, monthlyInterest, roundCents } from '../common/interest';
@@ -72,7 +72,7 @@ export class LoansService {
 
   async disburse(actor: CurrentUser, loanId: string, body: { amount: number; reference?: string }) {
     const roles = await fetchUserRoles(this.db, actor.userId);
-    if (!isStaff(roles)) throw new PermissionError('Only Admin or LoanOfficer can perform this action.')
+    if (!isFinance(roles)) throw new PermissionError('Only a Finance Officer or Admin can perform this action.')
 
     await this.db.withTransaction(async (client: PoolClient) => {
       const loanResult = await client.query(
@@ -117,7 +117,7 @@ export class LoansService {
 
   async recordRepayment(actor: CurrentUser, loanId: string, body: { amount: number; paidAt?: string; paymentReference?: string }) {
     const roles = await fetchUserRoles(this.db, actor.userId);
-    if (!isStaff(roles)) throw new PermissionError('Only Admin or LoanOfficer can perform this action.')
+    if (!isFinance(roles)) throw new PermissionError('Only a Finance Officer or Admin can perform this action.')
 
     await this.db.withTransaction(async (client: PoolClient) => {
       const loanResult = await client.query(

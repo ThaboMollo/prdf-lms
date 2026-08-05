@@ -34,7 +34,7 @@ export class DocumentsService {
 
   async createRequirement(actor: CurrentUser, body: { loanProductId?: string; requiredAtStatus: string; docType: string; isRequired: boolean }) {
     const roles = await fetchUserRoles(this.db, actor.userId);
-    if (!isStaff(roles)) throw new PermissionError('Only Admin or LoanOfficer can perform document compliance actions.')
+    if (!isStaff(roles)) throw new PermissionError('Only management can configure document requirements.')
     const id = randomUUID();
     await this.db.execute(
       `insert into public.document_requirements (id, loan_product_id, required_at_status, doc_type, is_required, created_at) values ($1,$2,$3,$4,$5,now())`,
@@ -48,7 +48,11 @@ export class DocumentsService {
 
   async verifyDocument(actor: CurrentUser, applicationId: string, documentId: string, status: string, note?: string) {
     const roles = await fetchUserRoles(this.db, actor.userId);
-    if (!isStaff(roles)) throw new PermissionError('Only Admin or LoanOfficer can perform document compliance actions.')
+    // Verifying/rejecting documents is screening work (Program Officer) and due
+    // diligence (Risk Analyst), plus management.
+    if (!isStaff(roles) && !hasAnyRole(roles, 'ProgramOfficer', 'RiskAnalyst')) {
+      throw new PermissionError('Only a Program Officer, Risk Analyst, or management can review documents.')
+    }
     const affected = await this.db.execute(
       `update public.loan_documents set status=$1, verification_note=$2, verified_by=$3, verified_at=now() where id=$4 and application_id=$5`,
       [status, note ?? null, actor.userId, documentId, applicationId],

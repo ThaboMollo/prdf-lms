@@ -7,7 +7,18 @@ import { PermissionError, ValidationError } from '../common/errors';
 
 // SuperAdmin is deliberately absent: it is the out-of-band platform-owner
 // capability, not a role that can be granted or revoked through the app.
-const KNOWN_ROLES = ['Admin', 'LoanOfficer', 'Intern', 'Originator', 'Client'];
+const KNOWN_ROLES = [
+  'Admin',
+  'IntakeClerk',
+  'ProgramOfficer',
+  'RiskAnalyst',
+  'ReviewCommittee',
+  'ProgramManager',
+  'Board',
+  'Legal',
+  'FinanceOfficer',
+  'Client',
+];
 const ELEVATED_ROLES = ['Admin'];
 
 @Injectable()

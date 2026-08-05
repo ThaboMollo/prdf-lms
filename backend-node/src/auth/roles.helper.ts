@@ -1,9 +1,26 @@
 import type { DatabaseService } from '../database/database.service';
 import { PermissionError } from '../common/errors';
 
-export const STAFF_ROLES = ['SuperAdmin', 'Admin', 'LoanOfficer'] as const;
-export const ASSIGNED_ROLES = ['Intern', 'Originator'] as const;
-export const INTERNAL_ROLES = ['SuperAdmin', 'Admin', 'LoanOfficer', 'Intern', 'Originator'] as const;
+// PRDF workflow roles (roles email, 2026-08). Each owns a stage of the review
+// chain; see STAGE_OWNER in applications.service.ts for who advances what.
+export const WORKFLOW_ROLES = [
+  'IntakeClerk',
+  'ProgramOfficer',
+  'RiskAnalyst',
+  'ReviewCommittee',
+  'ProgramManager',
+  'Board',
+  'Legal',
+  'FinanceOfficer',
+] as const;
+
+// Management / decision-makers: full case visibility, reports, audit.
+export const STAFF_ROLES = ['SuperAdmin', 'Admin', 'ProgramManager', 'Board'] as const;
+// Operational stage workers: see cases assigned to them.
+export const ASSIGNED_ROLES = ['IntakeClerk', 'ProgramOfficer', 'RiskAnalyst', 'ReviewCommittee', 'Legal', 'FinanceOfficer'] as const;
+// May move money — disbursements and repayments.
+export const FINANCE_ROLES = ['FinanceOfficer', 'Admin', 'SuperAdmin'] as const;
+export const INTERNAL_ROLES = ['SuperAdmin', 'Admin', ...WORKFLOW_ROLES] as const;
 
 export interface CurrentUser {
   userId: string;
@@ -80,6 +97,10 @@ export function isAssigned(roles: string[]): boolean {
   return hasAnyRole(roles, ...ASSIGNED_ROLES);
 }
 
+export function isFinance(roles: string[]): boolean {
+  return hasAnyRole(roles, ...FINANCE_ROLES);
+}
+
 export function isInternal(roles: string[]): boolean {
   return hasAnyRole(roles, ...INTERNAL_ROLES);
 }
@@ -89,7 +110,11 @@ export function isClient(roles: string[]): boolean {
 }
 
 export function ensureStaff(roles: string[]): void {
-  if (!isStaff(roles)) throw new PermissionError('Only Admin or LoanOfficer can perform this action.')
+  if (!isStaff(roles)) throw new PermissionError('Only management (Admin, Program Manager, or Board) can perform this action.')
+}
+
+export function ensureFinance(roles: string[]): void {
+  if (!isFinance(roles)) throw new PermissionError('Only a Finance Officer or Admin can perform this action.')
 }
 
 export function ensureInternal(roles: string[]): void {

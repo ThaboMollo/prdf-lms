@@ -4,7 +4,7 @@ import { calculateDaysElapsed } from '../../lib/format'
 // Only applications that are actively awaiting an internal decision carry an
 // SLA clock. Extracted from ApplicationsPage so Dashboard, Pipeline and the
 // Case workspace all render the same badge (spec §5.3).
-const SLA_STATUSES: LoanApplicationStatus[] = ['Submitted', 'UnderReview', 'InfoRequested']
+const SLA_STATUSES: LoanApplicationStatus[] = ['Submitted', 'Screening', 'DueDiligence', 'Evaluation', 'InfoRequested']
 
 type SlaBadgeProps = {
   status: LoanApplicationStatus

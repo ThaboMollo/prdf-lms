@@ -33,9 +33,32 @@ type PendingAction =
   // challenge screen without a SuperAdmin clearing their factors here.
   | { type: 'reset-mfa'; user: AdminAccessListItem }
 
-const ALL_ROLES: AssignableRole[] = ['Client', 'Intern', 'Originator', 'LoanOfficer', 'Admin']
+const ALL_ROLES: AssignableRole[] = [
+  'Client',
+  'IntakeClerk',
+  'ProgramOfficer',
+  'RiskAnalyst',
+  'ReviewCommittee',
+  'ProgramManager',
+  'Board',
+  'Legal',
+  'FinanceOfficer',
+  'Admin',
+]
 const ELEVATED_ROLES: AssignableRole[] = ['Admin']
-const ROLE_OPTIONS = ['Admin', 'LoanOfficer', 'Originator', 'Intern', 'Client'] as const
+// Offered in the assign dropdown, ordered most-senior first.
+const ROLE_OPTIONS = [
+  'Admin',
+  'ProgramManager',
+  'Board',
+  'FinanceOfficer',
+  'Legal',
+  'ReviewCommittee',
+  'RiskAnalyst',
+  'ProgramOfficer',
+  'IntakeClerk',
+  'Client',
+] as const
 const PAGE_SIZE = 10
 
 export function UserAccessPage({ session, me }: UserAccessPageProps) {
@@ -198,9 +221,10 @@ export function UserAccessPage({ session, me }: UserAccessPageProps) {
       </section>
 
       <p className="helper-text">
-        Roles, least &rarr; most access: <strong>Client · Intern · Originator · LoanOfficer · Admin</strong>. The ×
-        on a chip removes that role · <strong>Admin</strong> is managed by a SuperAdmin only · <strong>Reset MFA</strong>{' '}
-        clears a user&rsquo;s authenticators so they can enrol a new device.
+        Workflow roles by stage: <strong>Intake Clerk → Program Officer → Risk Analyst → Review Committee → Program
+        Manager → Board → Legal → Finance Officer</strong>. <strong>Admin</strong> manages access and is granted by a
+        SuperAdmin only · the × on a chip removes that role · <strong>Reset MFA</strong> clears a user&rsquo;s
+        authenticators so they can enrol a new device.
       </p>
 
       <section className="card table-wrap stack-sm">

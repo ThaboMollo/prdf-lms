@@ -18,7 +18,7 @@ import { CasePage } from './pages/CasePage'
 import { ProfilePage } from './pages/ProfilePage'
 import { fetchMe } from './lib/api'
 import { supabase } from './lib/supabase'
-import { hasAnyRole, toAppRoles, isInternalUser } from './lib/rbac'
+import { hasAnyRole, toAppRoles, isInternalUser, ALL_INTERNAL_ROLES, MANAGEMENT_ROLES } from './lib/rbac'
 import { env } from './lib/config/env'
 import { MfaChallenge } from './features/mfa/MfaChallenge'
 import { MfaEnrolment } from './features/mfa/MfaEnrolment'
@@ -113,7 +113,7 @@ export function App() {
           <Route
             element={
               <RequireRole
-                isAllowed={hasAnyRole(toAppRoles(meQuery.data!.roles), ['Intern', 'Originator', 'LoanOfficer', 'Admin'])}
+                isAllowed={hasAnyRole(toAppRoles(meQuery.data!.roles), ALL_INTERNAL_ROLES)}
                 onSignOut={onSignOut}
               />
             }
@@ -126,7 +126,7 @@ export function App() {
               <Route
                 element={
                   <RequireRole
-                    isAllowed={hasAnyRole(toAppRoles(meQuery.data!.roles), ['Originator', 'LoanOfficer', 'Admin'])}
+                    isAllowed={hasAnyRole(toAppRoles(meQuery.data!.roles), ALL_INTERNAL_ROLES)}
                     onSignOut={onSignOut}
                   />
                 }
@@ -137,7 +137,7 @@ export function App() {
               <Route
                 element={
                   <RequireRole
-                    isAllowed={hasAnyRole(toAppRoles(meQuery.data!.roles), ['LoanOfficer', 'Admin'])}
+                    isAllowed={hasAnyRole(toAppRoles(meQuery.data!.roles), MANAGEMENT_ROLES)}
                     onSignOut={onSignOut}
                   />
                 }

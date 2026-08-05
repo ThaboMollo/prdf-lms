@@ -3,23 +3,38 @@ import type { LoanApplicationStatus } from '../../lib/api'
 type StepState = 'done' | 'current' | 'future' | 'rejected'
 export type LifecycleStep = { label: string; state: StepState; annotation?: string }
 
-// The happy-path rail (spec §4.3). The nine-value status enum
-// (packages/domain/status.ts) collapses onto these seven stages; the two
-// exceptions — InfoRequested and Rejected — are handled below rather than
-// given their own bead, because neither is a forward step.
-const HAPPY_PATH = ['Draft', 'Submitted', 'Review', 'Approved', 'Disbursed', 'Repaying', 'Closed'] as const
+// The happy-path rail — the PRDF review chain (roles email, 2026-08). Each
+// forward status maps onto one bead; InfoRequested and Rejected are handled
+// below rather than given their own bead, because neither is a forward step.
+const HAPPY_PATH = [
+  'Draft',
+  'Submitted',
+  'Screening',
+  'Diligence',
+  'Evaluation',
+  'Approved',
+  'Board',
+  'Contracting',
+  'Disbursed',
+  'Repaying',
+  'Closed'
+] as const
 
 // Where each status sits on the rail. Rejected leaves the path entirely, so it
 // is handled separately and intentionally absent here.
 const STATUS_STAGE: Record<Exclude<LoanApplicationStatus, 'Rejected'>, number> = {
   Draft: 0,
   Submitted: 1,
-  UnderReview: 2,
-  InfoRequested: 2, // sits on Review, annotated as awaiting the client
-  Approved: 3,
-  Disbursed: 4,
-  InRepayment: 5,
-  Closed: 6
+  Screening: 2,
+  InfoRequested: 2, // paused mid-review, annotated as awaiting the client
+  DueDiligence: 3,
+  Evaluation: 4,
+  Approved: 5,
+  BoardApproved: 6,
+  Contracting: 7,
+  Disbursed: 8,
+  InRepayment: 9,
+  Closed: 10
 }
 
 /**

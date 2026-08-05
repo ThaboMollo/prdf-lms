@@ -13,14 +13,37 @@ import { currentTenant } from '../tenancy/request-context';
 import { LIMITS } from '../common/generated-constraints';
 import { ConflictError, PermissionError, ValidationError } from '../common/errors';
 
+// Keep in sync with packages/domain/status.ts and the DB trigger
+// enforce_status_transition() (infra/supabase). The PRDF review chain: each
+// forward step is owned by one workflow role (see STAGE_OWNER below).
 const LOAN_STATUS_TRANSITIONS: Record<string, string[]> = {
   Draft: ['Submitted'],
-  Submitted: ['UnderReview', 'InfoRequested', 'Approved', 'Rejected'],
-  UnderReview: ['InfoRequested', 'Approved', 'Rejected'],
-  InfoRequested: ['Submitted', 'UnderReview'],
-  Approved: ['Disbursed'],
+  Submitted: ['Screening', 'InfoRequested', 'Rejected'],
+  Screening: ['DueDiligence', 'InfoRequested', 'Rejected'],
+  DueDiligence: ['Evaluation', 'InfoRequested', 'Rejected'],
+  Evaluation: ['Approved', 'Rejected'],
+  InfoRequested: ['Submitted', 'Screening'],
+  Approved: ['BoardApproved', 'Rejected'],
+  BoardApproved: ['Contracting', 'Rejected'],
+  Contracting: ['Disbursed'],
   Disbursed: ['InRepayment'],
   InRepayment: ['Closed'],
+};
+
+// The role(s) that own a case while it sits in a given status — i.e. who may
+// advance it OUT of that status (forward or decline). Admin/SuperAdmin override
+// any transition; Program Manager and Board may decline at any stage. Keyed by
+// the CURRENT status. Keep in sync with the roles email.
+const STAGE_OWNER: Record<string, string[]> = {
+  Submitted: ['IntakeClerk'],
+  Screening: ['ProgramOfficer'],
+  DueDiligence: ['RiskAnalyst'],
+  Evaluation: ['ReviewCommittee', 'ProgramManager'],
+  Approved: ['Board'],
+  BoardApproved: ['Legal'],
+  Contracting: ['FinanceOfficer'],
+  Disbursed: ['FinanceOfficer'],
+  InRepayment: ['FinanceOfficer'],
 };
 
 interface SecurityProjection {
@@ -126,8 +149,27 @@ export class ApplicationsService {
     if (fromStatus === toStatus) return;
     const allowed = LOAN_STATUS_TRANSITIONS[fromStatus] ?? [];
     if (!allowed.includes(toStatus)) throw new ValidationError(`Invalid status transition: ${fromStatus} -> ${toStatus}.`)
+
+    // Re-submission after an info request needs no elevated role (the applicant
+    // or their handler resends).
     if (toStatus === 'Submitted') return;
-    if (!isStaff(roles)) throw new PermissionError('Only LoanOfficer/Admin can perform this status transition.')
+
+    // Admin / SuperAdmin can drive any transition (operational override).
+    if (hasAnyRole(roles, 'Admin', 'SuperAdmin')) return;
+
+    const owners = STAGE_OWNER[fromStatus] ?? [];
+
+    // Decline is available to whoever owns the current stage, plus the decision
+    // makers (Program Manager, Board).
+    if (toStatus === 'Rejected') {
+      if (hasAnyRole(roles, ...owners, 'ProgramManager', 'Board')) return;
+      throw new PermissionError('You are not permitted to decline this application at its current stage.')
+    }
+
+    // Forward step: only the role that owns the current stage may advance it.
+    if (owners.length && hasAnyRole(roles, ...owners)) return;
+    const who = owners.length ? owners.join(' / ') : 'an authorised role';
+    throw new PermissionError(`Only ${who} can advance this application from ${fromStatus}.`)
   }
 
   private async getById(applicationId: string) {
@@ -208,8 +250,8 @@ export class ApplicationsService {
     const assignedTo = body.assignedToUserId ?? null;
 
     if (hasAnyRole(roles, ...ASSIGNED_ROLES)) {
-      if (!assignedTo || assignedTo !== actor.userId) throw new PermissionError('Intern/Originator can only create applications assigned to themselves.')
-      if (!clientId) throw new ValidationError('ClientId is required for intern/originator-created applications.', 'clientId')
+      if (!assignedTo || assignedTo !== actor.userId) throw new PermissionError('A stage worker can only create applications assigned to themselves.')
+      if (!clientId) throw new ValidationError('ClientId is required for staff-created applications.', 'clientId')
     } else if (hasRole(roles, 'Client')) {
       if (clientId) {
         const owns = await this.db.queryOne<{ exists: boolean }>(
@@ -496,7 +538,9 @@ export class ApplicationsService {
     await this.insertAuditLog(applicationId, 'ChangeApplicationStatus', actor.userId, { fromStatus: proj.status, toStatus, note });
     await this.createStatusNotifications(applicationId, toStatus, actor.userId, note);
 
-    if (toStatus === 'Approved') {
+    // The loan record is created once the Board authorises funding, so it
+    // exists (PendingDisbursement) by the time Legal contracts and Finance pays.
+    if (toStatus === 'BoardApproved') {
       await this.ensureLoanCreatedForApproved(applicationId);
     }
     return this.getById(applicationId);

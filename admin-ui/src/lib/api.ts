@@ -38,7 +38,17 @@ export type AdminAccessMutationResult = {
   isAdmin: boolean
 }
 
-export type AssignableRole = 'Client' | 'Intern' | 'Originator' | 'LoanOfficer' | 'Admin'
+export type AssignableRole =
+  | 'Client'
+  | 'IntakeClerk'
+  | 'ProgramOfficer'
+  | 'RiskAnalyst'
+  | 'ReviewCommittee'
+  | 'ProgramManager'
+  | 'Board'
+  | 'Legal'
+  | 'FinanceOfficer'
+  | 'Admin'
 
 export type ApplicationSummary = {
   id: string
