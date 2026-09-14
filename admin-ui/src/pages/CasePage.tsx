@@ -13,6 +13,7 @@ import { CaseDocuments } from '../features/applications/CaseDocuments'
 import { CaseTasks } from '../features/applications/CaseTasks'
 import { CaseNotes } from '../features/applications/CaseNotes'
 import { CaseAdvisory } from '../features/applications/CaseAdvisory'
+import { CasePricing } from '../features/applications/CasePricing'
 import { createApplicationsUseCases } from '../logic/usecases/applications'
 import { createLoansUseCases } from '../logic/usecases/loans'
 import { useFormErrors, FieldError, fieldErrorAttrs, fieldDomId, type FieldErrorMap } from '../hooks/useFormErrors'
@@ -33,11 +34,12 @@ type CasePageProps = {
   session: Session
 }
 
-type TabKey = 'overview' | 'documents' | 'money' | 'tasks' | 'notes' | 'history' | 'advisory'
+type TabKey = 'overview' | 'documents' | 'pricing' | 'money' | 'tasks' | 'notes' | 'history' | 'advisory'
 
 const BASE_TABS: { key: TabKey; label: string }[] = [
   { key: 'overview', label: 'Overview' },
   { key: 'documents', label: 'Documents' },
+  { key: 'pricing', label: 'Pricing' },
   { key: 'money', label: 'Money' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'notes', label: 'Notes' },
@@ -277,6 +279,7 @@ export function CasePage({ session }: CasePageProps) {
 
             {activeTab === 'overview' ? <OverviewTab detail={detail} /> : null}
             {activeTab === 'documents' ? <CaseDocuments applicationId={detail.id} accessToken={accessToken} /> : null}
+            {activeTab === 'pricing' ? <CasePricing accessToken={accessToken} defaultAmount={detail.requestedAmount} /> : null}
             {activeTab === 'money' ? (
               <MoneyTab
                 loanId={detail.loanId ?? null}

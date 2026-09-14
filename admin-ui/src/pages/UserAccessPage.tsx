@@ -33,8 +33,12 @@ type PendingAction =
   // challenge screen without a SuperAdmin clearing their factors here.
   | { type: 'reset-mfa'; user: AdminAccessListItem }
 
+// Client is deliberately absent: it identifies portal users and is assigned
+// automatically at signup (DB trigger handle_new_user). It cannot be granted
+// from the admin — no actor, not even SuperAdmin, may hand it out — so it must
+// not appear in the Assign Role dropdown. The backend and DB reject a Client
+// grant as well (defense in depth). Existing Client chips stay removable.
 const ALL_ROLES: AssignableRole[] = [
-  'Client',
   'IntakeClerk',
   'ProgramOfficer',
   'RiskAnalyst',

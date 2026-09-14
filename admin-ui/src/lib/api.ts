@@ -1,6 +1,7 @@
 import { env } from './config/env'
 import { parseApiResponse, ApiError } from '../../../packages/domain/api-error'
 import type { LoanApplicationStatus } from '../../../packages/domain/status'
+import type { RiskGrade, QuoteBreakdown, LatePaymentScenario } from '../../../packages/domain/pricing'
 
 export type { LoanApplicationStatus }
 
@@ -8,6 +9,7 @@ export type { LoanApplicationStatus }
 // without reaching across into packages/domain themselves.
 export { ApiError }
 export type { FieldError } from '../../../packages/domain/api-error'
+export type { RiskGrade, QuoteBreakdown, LatePaymentScenario }
 
 export type MeResponse = {
   userId: string
@@ -858,4 +860,27 @@ export async function createNfs(accessToken: string, input: CreateNfsInput): Pro
     body: JSON.stringify(input)
   })
   return parseResponse<NonFinancialSupportItem>(response)
+}
+
+// --- Pricing (Phase 1 credit model) ------------------------------------------
+// Read-only quote from the shared engine. The server is the source of truth for
+// the config values (prime, fees, penalty, rounding) and risk-grade margins.
+
+export type PricingQuoteInput = {
+  principal: number
+  daysFinanced: number
+  riskGrade: RiskGrade
+  daysLate?: number
+}
+
+export async function requestPricingQuote(
+  accessToken: string,
+  input: PricingQuoteInput
+): Promise<QuoteBreakdown> {
+  const response = await fetch(`${apiBaseUrl}/api/pricing/quote`, {
+    method: 'POST',
+    headers: authHeaders(accessToken),
+    body: JSON.stringify(input)
+  })
+  return parseResponse<QuoteBreakdown>(response)
 }

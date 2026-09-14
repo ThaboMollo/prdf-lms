@@ -60,6 +60,15 @@ export class AdminService {
 
   async assignRole(actor: CurrentUser, targetUserId: string, roleName: string) {
     this.ensureKnownRole(roleName);
+    // The Client role identifies portal users and is granted automatically at
+    // signup (handle_new_user trigger). It is deliberately not grantable from
+    // the admin — no actor, not even SuperAdmin, may hand it out. Removal stays
+    // permitted so a mistakenly-held Client chip can still be cleared.
+    if (roleName === 'Client') {
+      throw new PermissionError(
+        'The Client role is assigned automatically at signup and cannot be granted from the admin.',
+      );
+    }
     if (ELEVATED_ROLES.includes(roleName)) {
       ensureSuperAdmin(actor.roles);
     } else {
