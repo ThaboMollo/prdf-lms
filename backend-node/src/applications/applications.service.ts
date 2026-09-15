@@ -181,8 +181,18 @@ export class ApplicationsService {
               la.monthly_revenue::float8 as "monthlyRevenue", la.years_in_operation as "yearsInOperation",
               la.number_of_employees as "numberOfEmployees", la.bank_name as "bankName",
               la.current_step as "currentStep", la.draft_state as "draftState", la.last_saved_at as "lastSavedAt",
-              l.id as "loanId"
+              l.id as "loanId",
+              jsonb_build_object(
+                'businessName', c.business_name,
+                'registrationNo', c.registration_no,
+                'address', c.address,
+                'fullName', p.full_name,
+                'phone', p.phone,
+                'employmentStatus', c.employment_status
+              ) as "clientDetails"
        from public.loan_applications la
+       join public.clients c on c.id = la.client_id
+       left join public.profiles p on p.user_id = c.user_id
        left join public.loans l on l.application_id = la.id
        where la.id = $1`,
       [applicationId],
