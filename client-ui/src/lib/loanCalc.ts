@@ -7,6 +7,13 @@
  * monthly rate = annual rate / 12.
  */
 
+/**
+ * Client-facing lending-rate label. We don't advertise a fixed rate: the actual
+ * rate is set from the applicant's credit profile at assessment. The instalment
+ * figures shown alongside stay indicative (computed off the product's rate).
+ */
+export const RATE_PROFILE_LABEL = 'Subject to your credit profile'
+
 /** Monthly rate as a fraction of the annual percentage rate (annual / 100 / 12). */
 export function monthlyRate(annualRatePct: number): number {
   return annualRatePct / 100 / 12

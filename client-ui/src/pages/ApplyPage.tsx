@@ -14,7 +14,7 @@ import { NumericInput } from '../components/shared/NumericInput'
 import { LoanCalculator } from '../components/shared/LoanCalculator'
 import { AddressFields, type AddressValue } from '../components/shared/AddressFields'
 import { WizardCostCard } from '../components/shared/WizardCostCard'
-import { formatRand, calculateMonthlyInstalment, calculateTotalInterest, calculateTotalRepayment } from '../lib/loanCalc'
+import { formatRand, calculateMonthlyInstalment, calculateTotalInterest, calculateTotalRepayment, RATE_PROFILE_LABEL } from '../lib/loanCalc'
 import { useActiveLoanProduct, useDocumentRequirements, type LoanProduct } from '../../../packages/client-core/useLoanProduct'
 import { DOCUMENT_LABELS } from '../lib/requirements'
 import { activeTenant } from '../../../packages/tenant-config'
@@ -170,7 +170,7 @@ export function ApplyPage({ session }: ApplyPageProps) {
     multiple: req.allowsMultiple,
   }))
   const requiredDocTypes = docSlots.map((s) => s.type)
-  const rateLabel = loanProduct ? `${loanProduct.interestRate}% p.a.` : ''
+  const rateLabel = RATE_PROFILE_LABEL
 
   const monthly = loanProduct ? calculateMonthlyInstalment(amount, term, loanProduct.interestRate) : 0
   const total = loanProduct ? calculateTotalRepayment(amount, term, loanProduct.interestRate) : 0
@@ -1086,7 +1086,7 @@ function Step3({
   return (
     <div className="wizard-body">
       <h2>Loan Details</h2>
-      <p>Adjust the sliders to set your preferred loan amount and repayment term. Lending rate: {loanProduct ? `${loanProduct.interestRate}% p.a.` : '—'}.</p>
+      <p>Adjust the sliders to set your preferred loan amount and repayment term. Lending rate: {RATE_PROFILE_LABEL.toLowerCase()}.</p>
 
       <LoanCalculator
         compact
@@ -1248,7 +1248,7 @@ function Step5({
   const monthly = loanProduct ? calculateMonthlyInstalment(amount, term, loanProduct.interestRate) : 0
   const total = loanProduct ? calculateTotalRepayment(amount, term, loanProduct.interestRate) : 0
   const fees = loanProduct ? calculateTotalInterest(amount, term, loanProduct.interestRate) : 0
-  const rateLabel = loanProduct ? `${loanProduct.interestRate}% p.a.` : '—'
+  const rateLabel = RATE_PROFILE_LABEL
   const missingDocuments = missingDocTypes(documents, docSlots.map((s) => s.type))
 
   return (

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCalculator } from '../../contexts/CalculatorContext'
-import { calculateMonthlyInstalment, calculateTotalInterest, calculateTotalRepayment, formatRand } from '../../lib/loanCalc'
+import { calculateMonthlyInstalment, calculateTotalInterest, calculateTotalRepayment, formatRand, RATE_PROFILE_LABEL } from '../../lib/loanCalc'
 import { useActiveLoanProduct } from '../../../../packages/client-core/useLoanProduct'
 
 // Slider granularity — a presentation choice, not a business rule, so it
@@ -58,7 +58,7 @@ export function LoanCalculator({
   const monthly = calculateMonthlyInstalment(amount, term, product.interestRate)
   const total = calculateTotalRepayment(amount, term, product.interestRate)
   const interest = calculateTotalInterest(amount, term, product.interestRate)
-  const rateLabel = `${product.interestRate}% p.a.`
+  const rateLabel = RATE_PROFILE_LABEL
 
   function commitAmount(v: number) {
     const clamped = clamp(Math.round(v), product!.minAmount, product!.maxAmount)
