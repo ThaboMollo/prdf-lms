@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCalculator } from '../../contexts/CalculatorContext'
-import { calculateMonthlyInstalment, calculateTotalInterest, calculateTotalRepayment, formatRand, RATE_PROFILE_LABEL } from '../../lib/loanCalc'
+import { formatRand } from '../../lib/loanCalc'
+import { formatRateCeiling, indicativeQuote } from '../../lib/creditQuote'
 import { useActiveLoanProduct } from '../../../../packages/client-core/useLoanProduct'
+import { usePublicPricingConfig } from '../../../../packages/client-core/usePricingConfig'
+import { activeTenant } from '../../../../packages/tenant-config'
 
 // Slider granularity — a presentation choice, not a business rule, so it
 // stays local rather than moving into loan_products alongside min/max/rate.
@@ -37,6 +40,8 @@ export function LoanCalculator({
   const navigate = useNavigate()
   const { amount, term, hasInteracted, setCalculator } = useCalculator()
   const { data: product } = useActiveLoanProduct()
+  const { data: pricing } = usePublicPricingConfig()
+  const tenant = activeTenant()
 
   // Drafts let the typed value be edited freely; committed on blur/Enter.
   const [amountDraft, setAmountDraft] = useState<string | null>(null)
@@ -51,14 +56,14 @@ export function LoanCalculator({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id])
 
-  if (!product) {
+  // Both are needed to price: the product supplies the bands, pricing_config
+  // supplies the rate and fees. Waiting on both avoids rendering a figure
+  // computed from half the inputs.
+  if (!product || !pricing) {
     return <div className={compact ? '' : 'calculator-card'} aria-busy="true" />
   }
 
-  const monthly = calculateMonthlyInstalment(amount, term, product.interestRate)
-  const total = calculateTotalRepayment(amount, term, product.interestRate)
-  const interest = calculateTotalInterest(amount, term, product.interestRate)
-  const rateLabel = RATE_PROFILE_LABEL
+  const estimate = indicativeQuote(pricing, amount, term)
 
   function commitAmount(v: number) {
     const clamped = clamp(Math.round(v), product!.minAmount, product!.maxAmount)
@@ -82,7 +87,12 @@ export function LoanCalculator({
 
   return (
     <div className={compact ? '' : 'calculator-card'}>
-      {!compact && <h2>Get an indicative estimate</h2>}
+      {!compact && (
+        <div className="calc-header">
+          <h2>Get an indicative estimate</h2>
+          <span className="calc-header__tagline">{tenant.tagline}</span>
+        </div>
+      )}
 
       <div className="calc-field">
         <label>
@@ -164,24 +174,45 @@ export function LoanCalculator({
         </div>
       </div>
 
-      <div className="calc-display">
-        <div className="calc-metric calc-metric--highlight">
-          <span className="calc-metric-label">Indicative first instalment</span>
-          <span className="calc-metric-value">{formatRand(monthly)}</span>
-        </div>
-        <div className="calc-metric">
-          <span className="calc-metric-label">Indicative total repayment</span>
-          <span className="calc-metric-value">{formatRand(total)}</span>
-        </div>
-        <div className="calc-metric">
-          <span className="calc-metric-label">Lending rate</span>
-          <span className="calc-metric-value">{rateLabel}</span>
-        </div>
-        <div className="calc-metric">
-          <span className="calc-metric-label">Estimated total interest</span>
-          <span className="calc-metric-value">{formatRand(interest)}</span>
+      {/*
+        Rate disclosure sits above the figures on purpose: the figures are
+        quoted at the cheapest grade, so the applicant should read the ceiling
+        and the credit-review caveat before the numbers, not after them.
+      */}
+      <div className="calc-rate-notice">
+        <span className="calc-rate-notice__icon" aria-hidden="true">i</span>
+        <div className="calc-rate-notice__body">
+          <span className="calc-rate-notice__label">Indicative lending rate</span>
+          <span className="calc-rate-notice__value">{formatRateCeiling(pricing)}</span>
+          <p className="calc-rate-notice__detail">
+            Subject to credit review. Your final lending rate will be determined by{' '}
+            {tenant.displayName} following credit assessment and
+            applicable lending criteria.
+          </p>
         </div>
       </div>
+
+      {/*
+        Hidden in compact (wizard) mode: WizardCostCard sits alongside it there
+        and itemises the once-off fees, so two panels would otherwise show two
+        different totals for the same loan.
+      */}
+      {!compact && (
+        <div className="calc-display">
+          <div className="calc-metric">
+            <span className="calc-metric-label">Indicative monthly instalment</span>
+            <span className="calc-metric-value">{formatRand(estimate.monthlyInstalment)}</span>
+          </div>
+          <div className="calc-metric">
+            <span className="calc-metric-label">Indicative total repayment</span>
+            <span className="calc-metric-value">{formatRand(estimate.totalRepaymentExclFees)}</span>
+          </div>
+          <div className="calc-metric">
+            <span className="calc-metric-label">Estimated total interest</span>
+            <span className="calc-metric-value">{formatRand(estimate.interest)}</span>
+          </div>
+        </div>
+      )}
 
       {showApplyButton && (
         <button
@@ -192,6 +223,12 @@ export function LoanCalculator({
         >
           {applyLabel}
         </button>
+      )}
+
+      {!compact && (
+        <p className="calc-disclaimer">
+          This is not a credit approval or offer. Terms and conditions apply.
+        </p>
       )}
     </div>
   )

@@ -14,9 +14,13 @@ import type { TenantConfig } from '../schema';
 export const prdf: TenantConfig = {
   id: 'prdf',
   displayName: 'PRDF',
-  // Drawn from the actual hero copy in client-ui/src/pages/LandingPage.tsx
-  // ("EMPOWERING SOUTH AFRICAN BUSINESSES TO GROW"), not invented.
-  tagline: 'Empowering South African businesses to grow',
+  // Brand strapline. Rendered beside the loan calculator's heading; the hero
+  // H1 in client-ui/src/pages/LandingPage.tsx is separate copy and is NOT
+  // driven by this field, so the two can differ without either being wrong.
+  // Previously 'Empowering South African businesses to grow' (a copy of that
+  // H1) while nothing read the field; set to the strapline in the client's
+  // 2026-09-25 calculator mockup now that it is actually rendered.
+  tagline: 'Your partner in business growth',
   locale: 'en-ZA',
   currency: 'ZAR',
   // File itself lives at client-ui/public/prdf-logo.png and admin-ui/public/prdf-logo.png (duplicated binary, same file).

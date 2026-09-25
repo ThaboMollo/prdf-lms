@@ -267,6 +267,20 @@ jobs:
       - name: Test numeric input parsing
         run: node packages/ui-kit/test-numeric-input.mjs
 
+      # Credit-model pricing engine (docs/credit-model-phase1-plan.md §2/§7).
+      # Was never wired up when the engine landed. Pins the money math to the
+      # client's worked example AND to the base-scenario rows of
+      # PRDF_Credit_Model_With_Total_Client_Revenue.xlsx, and fails if the
+      # backend's hand-synced copy of the engine drifts from the canonical one.
+      - name: Test pricing engine
+        run: node packages/domain/test-pricing.mjs
+
+      # The months -> days-financed conversion the client portal applies before
+      # calling that engine. loan_products stores a term in months, the credit
+      # model is priced in days; this is where the two meet.
+      - name: Test client credit quote adapter
+        run: node client-ui/scripts/test-credit-quote.mjs
+
       - name: Install admin UI
         run: npm ci
         working-directory: admin-ui

@@ -6,6 +6,7 @@ import {
   QuoteBreakdown,
   RiskGrade,
   RoundingMode,
+  annualRate,
   quote as computeQuote,
 } from '../common/pricing';
 import { QuoteDto } from './dto/quote.dto';
@@ -18,6 +19,28 @@ interface PricingConfigRow {
   penaltyPeriodDays: number;
   daysPerYear: number;
   roundingMode: RoundingMode;
+}
+
+/**
+ * The subset of the pricing model the logged-out client portal may see.
+ *
+ * Still NOT the whole risk-grade ladder — the individual grades and their
+ * names stay internal — but it does carry both ends of the margin spread.
+ * The hero calculator discloses the ceiling ("Prime + up to 10.50%") so an
+ * applicant is told the worst case up front, while the worked figures beside
+ * it are quoted at the floor. Publishing only the floor, as this first did,
+ * would have advertised a rate with no stated upper bound.
+ */
+export interface PublicPricingConfig extends PricingConfig {
+  /** Grade the indicative rate is based on — the cheapest active one. */
+  indicativeGrade: RiskGrade;
+  indicativeMarginPct: number;
+  /** primeRatePct + indicativeMarginPct, precomputed for display. */
+  indicativeAnnualRatePct: number;
+  /** Dearest active margin — the "+ up to X%" half of the rate disclosure. */
+  maxMarginPct: number;
+  /** primeRatePct + maxMarginPct: the most an applicant can be charged. */
+  maxAnnualRatePct: number;
 }
 
 @Injectable()
@@ -53,6 +76,43 @@ export class PricingService {
       throw new BadRequestException(`Risk grade '${grade}' is not configured or is inactive.`);
     }
     return row.marginPct;
+  }
+
+  /**
+   * Fee structure + best-case rate for the public client-portal calculator.
+   *
+   * Unauthenticated by design (see PricingPublicController). Note this runs on
+   * DatabaseService's raw tenant pool rather than an RLS-scoped transaction —
+   * RlsTransactionInterceptor only opens one when the request carries verified
+   * JWT claims — so pricing_config's internal-read policy does not apply here.
+   * That is exactly why this method hand-picks its fields instead of returning
+   * the row: the narrowing is the access control.
+   */
+  async publicConfig(): Promise<PublicPricingConfig> {
+    const config = await this.loadConfig();
+    // Both ends of the spread in one round trip — the ladder itself is read
+    // but never returned, only its first and last margin.
+    const grades = await this.db.query<{ grade: RiskGrade; marginPct: number }>(
+      `select grade, margin_pct::float8 as "marginPct"
+         from public.risk_grades
+        where is_active = true
+        order by margin_pct asc`,
+    );
+    if (grades.length === 0) {
+      throw new BadRequestException('No active risk grade is configured.');
+    }
+
+    const best = grades[0];
+    const worst = grades[grades.length - 1];
+
+    return {
+      ...config,
+      indicativeGrade: best.grade,
+      indicativeMarginPct: best.marginPct,
+      indicativeAnnualRatePct: annualRate(config, best.marginPct),
+      maxMarginPct: worst.marginPct,
+      maxAnnualRatePct: annualRate(config, worst.marginPct),
+    };
   }
 
   /**

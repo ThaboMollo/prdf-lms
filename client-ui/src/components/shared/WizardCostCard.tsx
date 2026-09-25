@@ -1,16 +1,16 @@
 import { formatRand } from '../../lib/loanCalc'
+import type { IndicativeQuote } from '../../lib/creditQuote'
 
 type WizardCostCardProps = {
   amount: number
   term: number
-  monthly: number
-  total: number
-  fees: number
+  /** Null until the public pricing config has loaded. */
+  estimate: IndicativeQuote | null
   rateLabel: string
   onEdit: () => void
 }
 
-export function WizardCostCard({ amount, term, monthly, total, fees, rateLabel, onEdit }: WizardCostCardProps) {
+export function WizardCostCard({ amount, term, estimate, rateLabel, onEdit }: WizardCostCardProps) {
   return (
     <aside className="wizard-cost-card">
       <div className="wizard-cost-card__header">
@@ -30,19 +30,40 @@ export function WizardCostCard({ amount, term, monthly, total, fees, rateLabel, 
 
         <div className="wizard-cost-card__divider" />
 
+        {/*
+          Bullet loan: capital and interest settle at maturity, so the headline
+          figure is the total repayable, not a monthly instalment. Each once-off
+          fee is listed rather than rolled into one "fees" line — the applicant
+          is agreeing to them individually.
+        */}
         <div className="wizard-cost-card__row wizard-cost-card__row--monthly">
-          <span className="wizard-cost-card__label">Indicative First Instalment</span>
-          <span className="wizard-cost-card__monthly">{formatRand(monthly)}</span>
+          <span className="wizard-cost-card__label">Indicative Total Repayable</span>
+          <span className="wizard-cost-card__monthly">
+            {estimate ? formatRand(estimate.totalRepayable) : '—'}
+          </span>
         </div>
 
         <div className="wizard-cost-card__row">
-          <span className="wizard-cost-card__label">Indicative Total Payable</span>
-          <span className="wizard-cost-card__value">{formatRand(total)}</span>
+          <span className="wizard-cost-card__label">
+            Interest{estimate ? ` (${estimate.daysFinanced} days)` : ''}
+          </span>
+          <span className="wizard-cost-card__value">
+            {estimate ? formatRand(estimate.interest) : '—'}
+          </span>
         </div>
 
         <div className="wizard-cost-card__row">
-          <span className="wizard-cost-card__label">Estimated Total Interest</span>
-          <span className="wizard-cost-card__value">{formatRand(fees)}</span>
+          <span className="wizard-cost-card__label">Initiation Fee</span>
+          <span className="wizard-cost-card__value">
+            {estimate ? formatRand(estimate.initiationFee) : '—'}
+          </span>
+        </div>
+
+        <div className="wizard-cost-card__row">
+          <span className="wizard-cost-card__label">Management Fee</span>
+          <span className="wizard-cost-card__value">
+            {estimate ? formatRand(estimate.managementFee) : '—'}
+          </span>
         </div>
 
         <div className="wizard-cost-card__row">

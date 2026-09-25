@@ -52,6 +52,15 @@ const mod = { exports: {} };
 new Function('module', 'exports', 'require', result.outputFiles[0].text)(mod, mod.exports, require);
 const { round2, annualRate, calcInterest, calcPenalty, quote } = mod.exports;
 
+/** Asserts within a tolerance — for vectors carried at the spreadsheet's precision. */
+function near(name, actual, expected, tolerance) {
+  check(
+    name,
+    Math.abs(actual - expected) <= tolerance,
+    `expected ${expected} ±${tolerance}, got ${actual}`,
+  );
+}
+
 /** The confirmed configuration values (mirror pricing_config seed). */
 function config(roundingMode) {
   return {
@@ -145,6 +154,52 @@ console.log('--- edge cases ---');
   const noPenalty = quote(cfg, { principal: 250000, daysFinanced: 30, riskGrade: 'Low', marginPct: 5, daysLate: 0 });
   eq('quote with no daysLate -> penalty 0', noPenalty.penalty, 0);
   eq('quote total excludes penalty when on-time', noPenalty.totalClientRevenue, round2(3184.94 + 1000 + 7500, 'CEIL_2DP'));
+}
+
+console.log('--- spreadsheet base scenarios (PRDF_Credit_Model_With_Total_Client_Revenue.xlsx) ---');
+{
+  // Representative rows lifted from the client's own workbook, with the values
+  // Excel itself cached — the "PO Base Scenarios" and "Short Term Base" sheets
+  // across every risk grade, both product bands and all five term lengths the
+  // model uses. These are what the client portal calculator now quotes, so a
+  // change to the engine or the seeded config that moves any of them off the
+  // sheet is a business-visible regression, not an implementation detail.
+  //
+  // Tolerance is one cent: CEIL_2DP rounds up where the sheet rounds half-up
+  // (docs/credit-model-phase1-plan.md §2), a divergence that is deliberate and
+  // already asserted exactly by the worked-example section above.
+  const GRADE_MARGIN = { Low: 5, Moderate: 6.5, High: 8.5, Worst: 10.5 };
+
+  //           principal, days, grade,      annual%, interest,    mgmtFee, fullAmountInclFees
+  const ROWS = [
+    [ 250000,    90, 'Low',      15.5,   9554.794521,  7500,  268054.794521],
+    [ 250000,    90, 'Moderate', 17.0,  10479.452055,  7500,  268979.452055],
+    [ 250000,    90, 'High',     19.0,  11712.328767,  7500,  270212.328767],
+    [ 250000,    90, 'Worst',    21.0,  12945.205479,  7500,  271445.205479],
+    [ 500000,    90, 'Worst',    21.0,  25890.410959, 15000,  541890.410959],
+    [ 500000,   180, 'Low',      15.5,  38219.178082, 15000,  554219.178082],
+    [ 750000,   365, 'Moderate', 17.0, 127500.0,      22500,  901000.0],
+    [1000000,  1095, 'Worst',    21.0, 630000.0,      30000, 1661000.0],
+  ];
+
+  const cfg = config('CEIL_2DP');
+  for (const [principal, daysFinanced, grade, expectedRate, expectedInterest, expectedMgmt, expectedFull] of ROWS) {
+    const label = `R${principal} / ${daysFinanced}d / ${grade}`;
+    const q = quote(cfg, { principal, daysFinanced, riskGrade: grade, marginPct: GRADE_MARGIN[grade] });
+
+    eq(`${label} — annual rate`, q.annualRatePct, expectedRate);
+    near(`${label} — interest`, q.interest, expectedInterest, 0.01);
+    eq(`${label} — initiation fee`, q.initiationFee, 1000);
+    near(`${label} — management fee`, q.managementFee, expectedMgmt, 0.01);
+    // The sheet's "Full Amount incl. Initiation & Management Fees" column —
+    // principal + interest + both once-off fees, which is what the portal
+    // shows an applicant as "indicative total repayable".
+    near(`${label} — full amount incl. fees`, q.totalDueToFunder + q.totalFees, expectedFull, 0.02);
+  }
+
+  // Capital is excluded from lender revenue (Late Payment Scenarios!A2).
+  const rev = quote(cfg, { principal: 250000, daysFinanced: 90, riskGrade: 'Low', marginPct: 5 });
+  near('revenue excludes capital', rev.totalClientRevenue, 18054.794521, 0.01);
 }
 
 console.log('--- backend copy is a faithful mirror (drift check) ---');

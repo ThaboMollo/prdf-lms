@@ -111,7 +111,7 @@ begin
   values (
     'PRDF Standard',
     'Default product seeded ahead of Phase 5 tenant provisioning — reproduces the limits/rate that were previously hardcoded in application code.',
-    250000, 5000000, 1, 60, 18.5, true
+    250000, 1000000, 1, 36, 18.5, true
   )
   returning id into v_product_id;
 

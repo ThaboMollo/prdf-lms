@@ -50,13 +50,15 @@ The client sees a simplified 6-step milestone tracker (`Submitted → UnderRevie
 
 | Rule | Value | Enforced where |
 |---|---|---|
-| Loan amount | R250,000 – R5,000,000 | Client-side validation **and** a real DB CHECK constraint (exempted while status is `Draft`, so autosave of partial data doesn't fail) |
-| Loan term | 1 – 60 months | Same as above |
-| Interest rate | **Fixed at 18.5% p.a.** (Prime 10.5% + 8% margin) | Hardcoded constant, duplicated identically across `client-ui`, `admin-ui`, and (intended to match) `backend-node` |
+| Loan amount | R250,000 – R1,000,000 | `loan_products.min_amount`/`max_amount` (no longer hardcoded), enforced by `validate_loan_application_against_product()` on every non-`Draft` insert/update. Narrowed from R5,000,000 to the credit model's ceiling in `20260925120000_client_portal_loan_band.sql`. |
+| Loan term | 1 – 60 months | Same as above. Note the credit model prices in **days**; the client portal converts at `daysPerYear / 12` (see `client-ui/src/lib/creditQuote.ts`). Reconciling the two units is Phase 2. |
+| Interest rate | Prime + risk-grade margin: **15.5 / 17 / 19 / 21% p.a.** | `pricing_config.prime_rate_pct` + `risk_grades.margin_pct`, applied by the shared engine `packages/domain/pricing.ts`. The old hardcoded 18.5% constant is gone; `loan_products.interest_rate` still holds 18.5 but nothing prices off it any more. |
+| Fees | R1,000 initiation (flat, once-off) + 3% management fee on principal | `pricing_config`, same engine. Shown to applicants on the portal calculator. |
+| Late penalty | 2% per 30 days on (principal + accrued interest), linear, no grace | `pricing_config`, same engine. Quoted to staff only — the portal shows the rule, not a figure. |
 | Required documents | All 10 types, before submission is possible | DB trigger, fires regardless of actor |
 | File types accepted | `.pdf`, `.doc`, `.docx` | Client-side only — no server-side MIME validation observed |
 
-**Worth flagging**: the product's marketing copy describes the rate as "Prime-linked, from Prime up to Prime + 8%, depending on the quality of the transaction" — but no code path exists that prices anywhere below Prime+8%. Every approved loan gets the same rate. If risk-based pricing is intended, it isn't built yet; if it isn't intended, the copy should be corrected.
+**Previously flagged, now resolved**: the marketing copy described the rate as "Prime-linked ... depending on the quality of the transaction" while every loan in fact got a flat 18.5%. Risk-based pricing now exists — four grades, Prime +5 / +6.5 / +8.5 / +10.5 — set by the Risk Analyst at Due Diligence. The public calculator quotes the cheapest grade as a "from" rate; it never shows an applicant what a worse grade would cost.
 
 Document **verification status** (`Verified`/`Rejected`/`Uploaded`) is tracked and visible, but currently **does not gate** any status transition — an application can be `Approved` while its documents still sit at `Uploaded` (never actually verified). Only document *presence* is a hard gate, not verification outcome.
 

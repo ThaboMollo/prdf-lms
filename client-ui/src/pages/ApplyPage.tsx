@@ -14,8 +14,10 @@ import { NumericInput } from '../components/shared/NumericInput'
 import { LoanCalculator } from '../components/shared/LoanCalculator'
 import { AddressFields, type AddressValue } from '../components/shared/AddressFields'
 import { WizardCostCard } from '../components/shared/WizardCostCard'
-import { formatRand, calculateMonthlyInstalment, calculateTotalInterest, calculateTotalRepayment, RATE_PROFILE_LABEL } from '../lib/loanCalc'
+import { formatRand, RATE_PROFILE_LABEL } from '../lib/loanCalc'
+import { formatIndicativeRate, indicativeQuote, type IndicativeQuote } from '../lib/creditQuote'
 import { useActiveLoanProduct, useDocumentRequirements, type LoanProduct } from '../../../packages/client-core/useLoanProduct'
+import { usePublicPricingConfig } from '../../../packages/client-core/usePricingConfig'
 import { DOCUMENT_LABELS } from '../lib/requirements'
 import { activeTenant } from '../../../packages/tenant-config'
 // Offered list only — the API accepts these plus the retired ones, so a client
@@ -170,11 +172,14 @@ export function ApplyPage({ session }: ApplyPageProps) {
     multiple: req.allowsMultiple,
   }))
   const requiredDocTypes = docSlots.map((s) => s.type)
-  const rateLabel = RATE_PROFILE_LABEL
 
-  const monthly = loanProduct ? calculateMonthlyInstalment(amount, term, loanProduct.interestRate) : 0
-  const total = loanProduct ? calculateTotalRepayment(amount, term, loanProduct.interestRate) : 0
-  const fees = loanProduct ? calculateTotalInterest(amount, term, loanProduct.interestRate) : 0
+  // Priced off the shared credit model (packages/domain/pricing.ts) rather than
+  // the monthly-amortising loanCalc helpers — same engine as the admin case
+  // page, quoted at the best-case risk grade since the applicant is not graded
+  // until Due Diligence.
+  const { data: pricing } = usePublicPricingConfig()
+  const estimate = pricing ? indicativeQuote(pricing, amount, term) : null
+  const rateLabel = pricing ? formatIndicativeRate(pricing) : RATE_PROFILE_LABEL
 
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -587,7 +592,8 @@ export function ApplyPage({ session }: ApplyPageProps) {
               data={state.data}
               documents={documents}
               docSlots={docSlots}
-              loanProduct={loanProduct}
+              estimate={estimate}
+              rateLabel={rateLabel}
               submitting={submitting}
               submitError={submitError}
               submitFieldErrors={submitFieldErrors}
@@ -603,9 +609,7 @@ export function ApplyPage({ session }: ApplyPageProps) {
         <WizardCostCard
           amount={amount}
           term={term}
-          monthly={monthly}
-          total={total}
-          fees={fees}
+          estimate={estimate}
           rateLabel={rateLabel}
           onEdit={() => dispatch({ type: 'GOTO_STEP', step: 3 })}
         />
@@ -1086,7 +1090,7 @@ function Step3({
   return (
     <div className="wizard-body">
       <h2>Loan Details</h2>
-      <p>Adjust the sliders to set your preferred loan amount and repayment term. Lending rate: {RATE_PROFILE_LABEL.toLowerCase()}.</p>
+      <p>Adjust the sliders to set your preferred loan amount and repayment term.</p>
 
       <LoanCalculator
         compact
@@ -1225,7 +1229,8 @@ function Step5({
   data,
   documents,
   docSlots,
-  loanProduct,
+  estimate,
+  rateLabel,
   submitting,
   submitError,
   submitFieldErrors,
@@ -1235,7 +1240,8 @@ function Step5({
   data: WizardFormState
   documents: ApplicationDocument[]
   docSlots: DocSlot[]
-  loanProduct: LoanProduct | undefined
+  estimate: IndicativeQuote | null
+  rateLabel: string
   submitting: boolean
   submitError: string | null
   submitFieldErrors: FieldErrorItem[]
@@ -1245,10 +1251,6 @@ function Step5({
   const { step1, step2, step3 } = data
   const amount = step3?.requestedAmount ?? 0
   const term = step3?.termMonths ?? 0
-  const monthly = loanProduct ? calculateMonthlyInstalment(amount, term, loanProduct.interestRate) : 0
-  const total = loanProduct ? calculateTotalRepayment(amount, term, loanProduct.interestRate) : 0
-  const fees = loanProduct ? calculateTotalInterest(amount, term, loanProduct.interestRate) : 0
-  const rateLabel = RATE_PROFILE_LABEL
   const missingDocuments = missingDocTypes(documents, docSlots.map((s) => s.type))
 
   return (
@@ -1325,9 +1327,10 @@ function Step5({
       <div className="fee-breakdown">
         <h3>Indicative Cost Breakdown</h3>
         <dl className="review-dl">
-          <div className="review-row"><dt>Indicative first instalment</dt><dd style={{ color: 'var(--brand)', fontWeight: 700 }}>{formatRand(monthly)}</dd></div>
-          <div className="review-row"><dt>Indicative total repayment</dt><dd>{formatRand(total)}</dd></div>
-          <div className="review-row"><dt>Estimated total interest</dt><dd>{formatRand(fees)}</dd></div>
+          <div className="review-row"><dt>Indicative total repayable</dt><dd style={{ color: 'var(--brand)', fontWeight: 700 }}>{estimate ? formatRand(estimate.totalRepayable) : '—'}</dd></div>
+          <div className="review-row"><dt>Interest{estimate ? ` (${estimate.daysFinanced} days)` : ''}</dt><dd>{estimate ? formatRand(estimate.interest) : '—'}</dd></div>
+          <div className="review-row"><dt>Initiation fee (once-off)</dt><dd>{estimate ? formatRand(estimate.initiationFee) : '—'}</dd></div>
+          <div className="review-row"><dt>Management fee (once-off)</dt><dd>{estimate ? formatRand(estimate.managementFee) : '—'}</dd></div>
           <div className="review-row"><dt>Lending rate</dt><dd>{rateLabel}</dd></div>
         </dl>
       </div>

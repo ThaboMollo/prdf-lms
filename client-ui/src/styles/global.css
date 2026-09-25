@@ -1615,14 +1615,37 @@ tbody tr:nth-child(even):hover {
   box-shadow: 0 20px 60px rgba(30, 64, 175, 0.12);
 }
 
+.calc-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
 .calculator-card h2 {
   font-size: 1.3rem;
   font-weight: 400;
-  margin: 0 0 1.5rem;
+  margin: 0;
   color: var(--text);
   font-family: var(--font-heading);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+/* Brand strapline, right-aligned opposite the heading. max-width keeps it to
+   roughly two lines so it never crowds the heading on a narrow card. */
+.calc-header__tagline {
+  flex-shrink: 0;
+  max-width: 11rem;
+  text-align: right;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--brand);
+  font-family: var(--font-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .calc-field {
@@ -1729,13 +1752,18 @@ input[type="range"]::-moz-range-thumb {
 
 .calc-display {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 0.5rem;
   background: var(--bg);
   border-radius: var(--radius);
   padding: 1rem;
-  margin: 1.5rem 0;
+  margin: 1rem 0 1.25rem;
   border: 1px solid var(--border-light);
+}
+
+/* Hairline rules between the three figures, as in the client's mockup. */
+.calc-display .calc-metric + .calc-metric {
+  border-left: 1px solid var(--border-light);
 }
 
 .calc-metric {
@@ -1760,10 +1788,69 @@ input[type="range"]::-moz-range-thumb {
   font-family: var(--font-data);
 }
 
-.calc-metric-value.highlight {
-  color: var(--brand);
-  font-size: 1.3rem;
+/* ---- Indicative lending-rate disclosure ---- */
+.calc-rate-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  border-radius: var(--radius);
+  padding: 0.875rem 1rem;
+  margin: 1.5rem 0 0;
+}
+
+.calc-rate-notice__icon {
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: var(--brand);
+  color: #ffffff;
+  font-family: var(--font-heading);
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1.5rem;
+  text-align: center;
+}
+
+.calc-rate-notice__body {
+  min-width: 0;
+}
+
+.calc-rate-notice__label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #3b82f6;
+  font-family: var(--font-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.calc-rate-notice__value {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e40af;
   font-family: var(--font-data);
+}
+
+.calc-rate-notice__detail {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.calc-disclaimer {
+  margin: 0.875rem 0 0;
+  text-align: center;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--muted);
 }
 
 /* ----------------------------------------------------------------
@@ -2621,6 +2708,23 @@ input[type="range"]::-moz-range-thumb {
     grid-template-columns: 1fr;
   }
 
+  /* Stacked: the separator becomes a horizontal rule, not a left border. */
+  .calc-display .calc-metric + .calc-metric {
+    border-left: none;
+    border-top: 1px solid var(--border-light);
+    padding-top: 0.5rem;
+  }
+
+  .calc-header {
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .calc-header__tagline {
+    max-width: none;
+    text-align: left;
+  }
+
   .review-grid {
     grid-template-columns: 1fr;
   }
@@ -2860,28 +2964,6 @@ input[type="range"]::-moz-range-thumb {
   border-radius: 16px;
 }
 
-/* Monthly highlight row in calculator */
-.calc-metric--highlight {
-  background: linear-gradient(135deg, #eff6ff, #dbeafe);
-  border-radius: 10px;
-  padding: 0.625rem 0.875rem;
-  margin-bottom: 0.25rem;
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.calc-metric--highlight .calc-metric-label {
-  color: #3b82f6;
-  margin-bottom: 0;
-}
-
-.calc-metric--highlight .calc-metric-value {
-  color: #1e40af;
-  font-size: 1.25rem;
-  font-weight: 900;
-}
 
 /* Trust cards — icon badge */
 .trust-card-icon {
