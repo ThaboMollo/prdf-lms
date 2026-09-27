@@ -76,6 +76,8 @@ export type ClientDetails = {
 export type ApplicationDetails = ApplicationSummary & {
   loanId?: string | null
   clientDetails?: ClientDetails
+  /** Grade the Risk Analyst set at Due Diligence; null until graded. */
+  riskGrade?: RiskGrade | null
 }
 
 export type StatusHistoryItem = {
@@ -190,6 +192,14 @@ export type LoanDetails = {
   createdAt: string
   schedule: LoanScheduleItem[]
   repayments: LoanRepaymentItem[]
+  // Credit-model booking terms, snapshotted at approval. Null on loans booked
+  // before Phase 2, which still carry a monthly-amortising schedule.
+  riskGrade?: RiskGrade | null
+  daysFinanced?: number | null
+  initiationFee?: number | null
+  managementFee?: number | null
+  /** Principal less the once-off fees — what the client actually receives. */
+  netAdvance?: number | null
 }
 
 export type LoanSummary = {
@@ -871,6 +881,26 @@ export type PricingQuoteInput = {
   daysFinanced: number
   riskGrade: RiskGrade
   daysLate?: number
+}
+
+/**
+ * Persist the Risk Analyst's grade on the application.
+ *
+ * This is what makes the Pricing tab consequential: the grade saved here is
+ * what the loan is booked at when the case reaches Approved (prime + the
+ * grade's margin), replacing the legacy flat product rate.
+ */
+export async function saveRiskGrade(
+  accessToken: string,
+  applicationId: string,
+  riskGrade: RiskGrade
+): Promise<{ applicationId: string; riskGrade: RiskGrade }> {
+  const response = await fetch(`${apiBaseUrl}/api/applications/${applicationId}/risk-grade`, {
+    method: 'POST',
+    headers: authHeaders(accessToken),
+    body: JSON.stringify({ riskGrade })
+  })
+  return parseResponse<{ applicationId: string; riskGrade: RiskGrade }>(response)
 }
 
 export async function requestPricingQuote(

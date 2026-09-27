@@ -2430,3 +2430,32 @@ tbody tr:nth-child(even):hover {
     gap: 0.6rem;
   }
 }
+
+/* Risk-grade decision panel on the case Pricing tab.
+   Sits between the quote inputs and the breakdown because saving the grade is
+   a decision, not part of the calculation: it is what the loan is booked at. */
+.risk-grade-decision {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.85rem 1rem;
+  margin: 0.75rem 0;
+  border: 1px solid var(--border-light, #e2e8f0);
+  border-left: 3px solid var(--brand, #1e40af);
+  border-radius: 8px;
+  background: var(--bg, #f8fafc);
+}
+
+.risk-grade-decision p {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  max-width: 62ch;
+}
+
+.kpi-sub {
+  margin: 0.15rem 0 0;
+  font-size: 0.75rem;
+  color: var(--muted, #64748b);
+}

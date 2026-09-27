@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="en-ZA">
+<head>
+<meta charset="utf-8">
+<title>PRDF Client Portal — User Manual</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm 18mm; }
+
+  :root {
+    --brand: #1e40af;
+    --brand-dark: #1e3a8a;
+    --ink: #0f172a;
+    --muted: #475569;
+    --line: #cbd5e1;
+    --soft: #f1f5f9;
+    --warn: #b45309;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 10.2pt;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+
+  h1, h2, h3, h4 { line-height: 1.25; margin: 0 0 .35em; }
+  h2 { font-size: 15pt; color: var(--brand-dark); border-bottom: 2px solid var(--brand); padding-bottom: .25em; margin-top: 0; }
+  h3 { font-size: 11.5pt; color: var(--brand-dark); margin-top: 1.1em; }
+  h4 { font-size: 10.4pt; margin-top: .9em; }
+  p  { margin: 0 0 .6em; }
+  ul, ol { margin: 0 0 .7em; padding-left: 1.15em; }
+  li { margin-bottom: .22em; }
+
+  /* Each numbered section starts a new page: the manual is meant to be
+     opened at a section, not read only front to back. */
+  section.sheet { page-break-before: always; }
+
+  table { width: 100%; border-collapse: collapse; margin: .5em 0 .9em; font-size: 9.3pt; }
+  th, td { border: 1px solid var(--line); padding: 5px 7px; text-align: left; vertical-align: top; }
+  th { background: var(--soft); font-weight: 600; }
+
+  figure { margin: .7em 0 1em; page-break-inside: avoid; }
+  figure img { width: 100%; border: 1px solid var(--line); border-radius: 3px; display: block; }
+  figcaption { font-size: 8.6pt; color: var(--muted); margin-top: .35em; font-style: italic; }
+
+  .note {
+    border-left: 3px solid var(--brand);
+    background: var(--soft);
+    padding: .55em .8em;
+    margin: .7em 0;
+    font-size: 9.5pt;
+    page-break-inside: avoid;
+  }
+  .note.warn { border-left-color: var(--warn); background: #fffbeb; }
+  .note strong { color: var(--brand-dark); }
+  .note.warn strong { color: var(--warn); }
+
+  code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .92em; background: var(--soft); padding: 0 3px; border-radius: 2px; }
+
+  /* ---- cover ---- */
+  .cover { height: 250mm; display: flex; flex-direction: column; justify-content: center; }
+  .cover .eyebrow { letter-spacing: .18em; text-transform: uppercase; font-size: 9.5pt; color: var(--brand); font-weight: 700; }
+  .cover h1 { font-size: 30pt; color: var(--brand-dark); margin: .25em 0 .1em; }
+  .cover .sub { font-size: 13pt; color: var(--muted); margin-bottom: 2.2em; }
+  .cover dl { display: grid; grid-template-columns: 42mm 1fr; gap: .35em 0; font-size: 10pt; border-top: 2px solid var(--brand); padding-top: 1em; }
+  .cover dt { color: var(--muted); }
+  .cover dd { margin: 0; font-weight: 600; }
+
+  /* ---- signature block ---- */
+  .sigbox { border: 1px solid var(--line); border-radius: 4px; padding: .9em 1em; margin-top: .8em; page-break-inside: avoid; }
+  .sigbox h4 { margin-top: 0; }
+  .sigrow { display: grid; grid-template-columns: 36mm 1fr; gap: .1em 0; margin-bottom: .95em; align-items: end; }
+  .sigrow span { color: var(--muted); font-size: 9.5pt; }
+  .sigline { border-bottom: 1px solid #94a3b8; height: 8mm; }
+  .checklist td:first-child { width: 9mm; text-align: center; font-size: 12pt; }
+</style>
+</head>
+<body>
+
+<!-- ============================ COVER ============================ -->
+<div class="cover">
+  <p class="eyebrow">People's Republic Development Fund</p>
+  <h1>Client Portal<br>User Manual</h1>
+  <p class="sub">A step-by-step guide to applying for and managing a PRDF business loan</p>
+  <dl>
+    <dt>Document</dt><dd>Client Portal User Manual</dd>
+    <dt>Version</dt><dd>1.0</dd>
+    <dt>Date</dt><dd>26 September 2026</dd>
+    <dt>Audience</dt><dd>Loan applicants, and PRDF staff supporting them</dd>
+    <dt>Portal</dt><dd>https://prdf-lms.vercel.app</dd>
+    <dt>Purpose</dt><dd>User guide and handover record</dd>
+  </dl>
+  <p style="margin-top:2.4em;font-size:9pt;color:var(--muted)">
+    Every screenshot in this manual was captured from the working portal, not mocked up.
+    Figures shown are from a test application and are illustrative.
+  </p>
+</div>
+
+<!-- ============================ 1 ============================ -->
+<section class="sheet">
+<h2>1. About this manual</h2>
+
+<p>This manual shows you how to apply for a PRDF business loan and manage it once it is funded. It follows the screens in the order you will meet them, so you can read it straight through the first time and afterwards open it at whichever section you need.</p>
+
+<table>
+  <tr><th style="width:28mm">Sections 2–4</th><td>Before you apply — what you need, checking that you qualify, and creating your account</td></tr>
+  <tr><th>Sections 5–9</th><td>The application itself — the five steps, your documents, and the declaration you sign</td></tr>
+  <tr><th>Sections 10–13</th><td>After you apply — tracking progress, and your loan account once funds are released</td></tr>
+  <tr><th>Section 14</th><td>What your loan costs, explained</td></tr>
+  <tr><th>Section 15</th><td>If something goes wrong</td></tr>
+  <tr><th>Section 16</th><td>Acceptance and sign-off</td></tr>
+</table>
+
+<div class="note">
+  <strong>A note on the figures.</strong> The amounts in the screenshots come from a test application for R750 000 over 12 months. Your own figures will differ. Everything the portal quotes you before approval is <em>indicative</em> — Section 14 explains why, and what can change.
+</div>
+
+<h3>Who to contact</h3>
+<p>If you get stuck, contact your PRDF loan officer. If you have not been assigned one yet, use the contact details on the PRDF website. Section 15 covers the problems people hit most often, and many can be solved without waiting for help.</p>
+</section>
+
+<!-- ============================ 2 ============================ -->
+<section class="sheet">
+<h2>2. Before you begin</h2>
+
+<p>Gather all ten documents before you start. You cannot submit your application until every one of them is uploaded, and stopping halfway to find a missing document is the most common reason applications are abandoned.</p>
+
+<h3>2.1 What you need</h3>
+<table>
+  <tr><th style="width:52mm">Document</th><th>What it must be</th></tr>
+  <tr><td>ID Document</td><td>Certified copy of the director's or applicant's identity document</td></tr>
+  <tr><td>Proof of Address</td><td>Recent proof of business or director address</td></tr>
+  <tr><td>Company Registration (CIPC)</td><td>Your CIPC company registration certificate</td></tr>
+  <tr><td>Tax Clearance</td><td>SARS tax clearance or tax compliance status document</td></tr>
+  <tr><td>Bank Statements</td><td>Three months of business bank statements (you may upload several files)</td></tr>
+  <tr><td>Financial Statements</td><td>Latest annual financials or management accounts</td></tr>
+  <tr><td>Vendor Quotations</td><td>Three quotations for what you are funding (several files allowed)</td></tr>
+  <tr><td>Central Supplier Database (CSD) Report</td><td>Your CSD registration report</td></tr>
+  <tr><td>Purchase Order / Short-Term Contract</td><td>The order or contract itself, including validity. Contracts may not exceed three years</td></tr>
+  <tr><td>Trade Reference</td><td>A reference from a business organisation or trade reference</td></tr>
+</table>
+
+<div class="note warn">
+  <strong>File formats.</strong> Only <strong>PDF, DOC and DOCX</strong> files are accepted. Photographs and scans saved as JPG or PNG will be refused. If you only have a paper copy, scan or photograph it and save it as a PDF before uploading.
+</div>
+
+<h3>2.2 Also have ready</h3>
+<ul>
+  <li>Your CIPC registration number, in the form <code>2021/123456/07</code></li>
+  <li>Your SARS tax pin</li>
+  <li>Your average monthly revenue, years trading, and number of employees</li>
+  <li>Your business's physical address</li>
+  <li>A South African mobile number and an email address you can access</li>
+</ul>
+
+<h3>2.3 Practical points</h3>
+<p><strong>Browser.</strong> Any current version of Chrome, Edge, Safari or Firefox. The portal works on a phone, but uploading is far easier on a computer where your files already are.</p>
+<p><strong>Time.</strong> About 10 minutes with your documents to hand. You can save and come back at any point, so you do not have to finish in one sitting.</p>
+</section>
+
+<!-- ============================ 3 ============================ -->
+<section class="sheet">
+<h2>3. The PRDF website</h2>
+
+<p>Everything in this section works without an account. Start at <code>https://prdf-lms.vercel.app</code>.</p>
+
+<h3>3.1 The loan calculator</h3>
+<p>The calculator gives you an indicative price before you register anything. Drag the sliders, or click the figure and type directly into it.</p>
+<ul>
+  <li><strong>How much do you need?</strong> — R250 000 to R1 000 000</li>
+  <li><strong>Over how many months?</strong> — 1 to 36 months</li>
+</ul>
+<p>It then shows your indicative monthly instalment, total repayment, and estimated interest.</p>
+
+<figure>
+  <img src="screenshots/client-manual/01-landing-and-calculator.jpg" alt="PRDF landing page with the loan calculator">
+  <figcaption>Figure 1 — The landing page. The calculator is on the right, with the rate disclosure deliberately placed above the figures.</figcaption>
+</figure>
+
+<div class="note">
+  <strong>Read the rate notice first.</strong> The figures are quoted at the cheapest rate we offer, because at this point we know nothing about your business. The notice above them says <em>Prime + up to 10.50%</em> — that is the ceiling. Your actual rate is set after we assess your application. This is not a credit approval or an offer.
+</div>
+
+<p>Whatever you set on the calculator is carried through to your application, so you do not have to enter it twice.</p>
+
+<h3>3.2 Checking whether you qualify</h3>
+<p><strong>Check Eligibility</strong> opens a checklist of PRDF's criteria, grouped into developmental impact, ownership and control, and registration and compliance. Tick each one your business meets. A counter at the bottom shows your progress.</p>
+
+<figure>
+  <img src="screenshots/client-manual/02-eligibility-checklist.jpg" alt="Eligibility self-assessment checklist">
+  <figcaption>Figure 2 — The eligibility self-check. The sidebar lists the documents you will need; the counter sits bottom left.</figcaption>
+</figure>
+</section>
+
+<!-- ============================ 4 ============================ -->
+<section class="sheet">
+<h2>4. Eligibility outcomes and your account</h2>
+
+<h3>4.1 The two outcomes</h3>
+<p>When you click <strong>Check My Eligibility</strong> you get one of two answers.</p>
+
+<figure>
+  <img src="screenshots/client-manual/03-eligibility-you-qualify.jpg" alt="You qualify for PRDF funding">
+  <figcaption>Figure 3 — If you ticked every criterion. This is a preliminary assessment only: final approval still depends on document verification, affordability and PRDF's own assessment.</figcaption>
+</figure>
+
+<figure>
+  <img src="screenshots/client-manual/04-eligibility-not-qualified.jpg" alt="You do not currently qualify">
+  <figcaption>Figure 4 — If you left any criterion unticked. You are shown what to fix and referred to Phahla Consultants for compliance and funding-readiness help. You can retake the check at any time.</figcaption>
+</figure>
+
+<div class="note">
+  This self-check is not recorded and is not sent to PRDF. It is there to save you time. You can also skip it entirely and apply directly.
+</div>
+
+<h3>4.2 Creating your account</h3>
+<p><strong>Apply Now</strong>, or <strong>Create Account &amp; Apply</strong> on the result page, opens registration. All five fields are required.</p>
+
+<table>
+  <tr><th style="width:38mm">Field</th><th>Rule</th></tr>
+  <tr><td>First name</td><td>Cannot be blank</td></tr>
+  <tr><td>Last name</td><td>Cannot be blank</td></tr>
+  <tr><td>Phone number</td><td>A South African mobile number — <code>0</code> or <code>+27</code>, then 6, 7 or 8, then 8 digits. Spaces and dashes are fine</td></tr>
+  <tr><td>Email address</td><td>Must be a valid address, and one you can access</td></tr>
+  <tr><td>Password</td><td>At least 8 characters</td></tr>
+</table>
+
+<figure>
+  <img src="screenshots/client-manual/05-create-account.jpg" alt="Create your account form">
+  <figcaption>Figure 5 — Registration. If you used the calculator, the loan you were pricing is shown on the left.</figcaption>
+</figure>
+
+<p>If anything is wrong, the message appears directly beneath that field and the cursor jumps to it. Clicking <strong>Create Account &amp; Apply</strong> takes you straight into the application — there is no separate confirmation email to wait for.</p>
+</section>
+
+<!-- ============================ 5 ============================ -->
+<section class="sheet">
+<h2>5. Signing in</h2>
+
+<figure>
+  <img src="screenshots/client-manual/06-sign-in.jpg" alt="Sign in page">
+  <figcaption>Figure 6 — Sign in with the email address and password you registered with.</figcaption>
+</figure>
+
+<h3>5.1 If you forget your password</h3>
+<p>Type your email address into the <strong>Email address</strong> field first, then click <strong>Forgot your password?</strong> If you click it with the field empty you will be asked to fill it in.</p>
+
+<div class="note warn">
+  <strong>Known limitation.</strong> The password-reset email currently links to a page that does not yet exist, so the link will not let you set a new password. Until that page is built, <strong>contact PRDF and ask an administrator to reset your password for you.</strong> This is a known item on the handover list.
+</div>
+
+<h3>5.2 Staying signed in</h3>
+<p>Your session survives closing the browser, and expires after a period of inactivity — just sign in again. <strong>Logout</strong> is at the top right of every page.</p>
+
+<h3>5.3 Where you land</h3>
+<ul>
+  <li><strong>If you have never applied</strong>, you go straight into the application form. Home and Status only open once you have an application to show.</li>
+  <li><strong>If you have applied before</strong> — including an unfinished draft — you land on Home.</li>
+</ul>
+
+<h3>5.4 Finding your way around</h3>
+<table>
+  <tr><th style="width:30mm">Menu item</th><th>What it is for</th></tr>
+  <tr><td>Home</td><td>Your dashboard: current application, key figures, recent activity</td></tr>
+  <tr><td>Applications</td><td>The five-step application form</td></tr>
+  <tr><td>Documents</td><td>Your document checklist and uploads</td></tr>
+  <tr><td>My Loans</td><td>Loans that have been paid out</td></tr>
+  <tr><td>Status</td><td>Progress tracking for every application</td></tr>
+</table>
+<p>On a phone the menu collapses; the <strong>☰</strong> button at the top left opens it. The bell at the top right shows unread notifications.</p>
+</section>
+
+<!-- ============================ 6 ============================ -->
+<section class="sheet">
+<h2>6. Applying — Step 1: Business &amp; Compliance Profile</h2>
+
+<p>The application has five steps, shown across the top. A panel on the right prices your loan as you go. You can leave at any point and come back — see Section 9.</p>
+
+<figure>
+  <img src="screenshots/client-manual/07-step1-business-profile-top.jpg" alt="Step 1, business profile">
+  <figcaption>Figure 7 — Step 1, upper half: your business details and where it operates.</figcaption>
+</figure>
+
+<h3>6.1 Basic details</h3>
+<table>
+  <tr><th style="width:40mm">Field</th><th>Notes</th></tr>
+  <tr><td>Business name</td><td>Required</td></tr>
+  <tr><td>Industry</td><td>Required. Chosen from PRDF's blue and ocean economy list. If yours is not listed, choose <em>All purchase orders outside these industries</em></td></tr>
+  <tr><td>Street address</td><td>Required</td></tr>
+  <tr><td>Address line 2</td><td>Optional</td></tr>
+  <tr><td>City</td><td>Required</td></tr>
+  <tr><td>Province</td><td>Required — one of the nine provinces</td></tr>
+  <tr><td>Country</td><td>Defaults to South Africa</td></tr>
+</table>
+
+<h3>6.2 Demographics</h3>
+<p>These answers feed PRDF's development-impact reporting.</p>
+<table>
+  <tr><th style="width:40mm">Field</th><th>Notes</th></tr>
+  <tr><td>Primary Director Gender</td><td>Male, Female, or Prefer not to say</td></tr>
+  <tr><td>% SA National Ownership</td><td>Required, 0–100. Leaving it blank is rejected rather than recorded as zero</td></tr>
+  <tr><td>Where does the business operate?</td><td>Required — Rural, Township, or City / Urban</td></tr>
+  <tr><td>Three tick boxes</td><td>Black women owned, historically disadvantaged person, disabled persons or ownership</td></tr>
+</table>
+</section>
+
+<!-- ============================ 7 ============================ -->
+<section class="sheet">
+<h2>7. Step 1 continued, and Step 2</h2>
+
+<h3>7.1 Compliance &amp; registration</h3>
+
+<figure>
+  <img src="screenshots/client-manual/08-step1-compliance.jpg" alt="Step 1, compliance and registration section">
+  <figcaption>Figure 8 — Step 1, lower half: registration numbers and compliance declarations.</figcaption>
+</figure>
+
+<table>
+  <tr><th style="width:52mm">Field</th><th>Notes</th></tr>
+  <tr><td>CIPC Registration Number</td><td>Required, e.g. <code>2020/338914/07</code></td></tr>
+  <tr><td>SARS Tax Pin</td><td>Required</td></tr>
+  <tr><td>Registered with CIPC</td><td>Tick if true</td></tr>
+  <tr><td>Directors are 100% operational in the business</td><td>Tick if true</td></tr>
+  <tr><td>Directors are un-rehabilitated insolvents or under debt review</td><td>Read this one carefully — it is worded the opposite way round to the others. Leave it <strong>unticked</strong> if neither applies to you</td></tr>
+</table>
+
+<p><strong>Continue →</strong> checks the step. Anything missing is flagged under the field and the cursor jumps to the first problem.</p>
+
+<h3>7.2 Step 2: Financial Information</h3>
+
+<figure>
+  <img src="screenshots/client-manual/09-step2-financials.jpg" alt="Step 2, financial information">
+  <figcaption>Figure 9 — Step 2. Note "Saving…" in the header — your work is being stored as you type.</figcaption>
+</figure>
+
+<table>
+  <tr><th style="width:52mm">Field</th><th>Notes</th></tr>
+  <tr><td>Average monthly revenue (R)</td><td>Must be greater than zero. Enter a plain number — <code>620000</code>, not <code>R620 000</code></td></tr>
+  <tr><td>Years in operation</td><td>Zero or more. Trading less than a year? Enter <code>0</code></td></tr>
+  <tr><td>Number of employees</td><td>At least 1 — count yourself if you are the owner-operator</td></tr>
+  <tr><td>Business bank</td><td>Choose from the list</td></tr>
+</table>
+
+<p><strong>← Back</strong> returns to Step 1 with everything you entered still there.</p>
+</section>
+
+<!-- ============================ 8 ============================ -->
+<section class="sheet">
+<h2>8. Step 3: Loan Details</h2>
+
+<p>How much you need, for how long, and what for.</p>
+
+<figure>
+  <img src="screenshots/client-manual/10-step3-loan-details.jpg" alt="Step 3, loan details with sliders">
+  <figcaption>Figure 10 — Step 3. The panel on the right reprices every time you move a slider.</figcaption>
+</figure>
+
+<h3>8.1 Amount and term</h3>
+<table>
+  <tr><th style="width:52mm">Control</th><th>Range</th></tr>
+  <tr><td>How much do you need?</td><td>R250 000 – R1 000 000</td></tr>
+  <tr><td>Over how many months?</td><td>1 – 36 months</td></tr>
+</table>
+<p>If you go outside these limits the step is refused and the limit is quoted back to you.</p>
+
+<h3>8.2 What the funds are for</h3>
+<table>
+  <tr><th style="width:52mm">Field</th><th>Notes</th></tr>
+  <tr><td>How do we fund you?</td><td>Required. Choose the category that best fits — purchase order, transport, equipment, working capital, and so on</td></tr>
+  <tr><td>Tell us more about how you'll use the funds</td><td>Required, at least 5 characters</td></tr>
+</table>
+
+<div class="note">
+  <strong>Be specific here.</strong> An assessor reads this. <em>"Funding a confirmed purchase order to supply 40 tonnes of farmed abalone to an export buyer, covering feed, grading and cold-chain packaging"</em> tells them far more than <em>"expansion"</em>, and helps your application move faster.
+</div>
+</section>
+
+<!-- ============================ 9 ============================ -->
+<section class="sheet">
+<h2>9. Step 4: Documents, and saving your work</h2>
+
+<p>All ten documents are required. You cannot move on until each one has a file.</p>
+
+<figure>
+  <img src="screenshots/client-manual/11-step4-documents-empty.jpg" alt="Step 4, document upload zones">
+  <figcaption>Figure 11 — Step 4 before uploading: one drop zone per document.</figcaption>
+</figure>
+
+<h3>9.1 Uploading</h3>
+<p>Click a zone to open the file picker, or drag a file onto it. Each file uploads immediately — there is no separate save.</p>
+
+<figure>
+  <img src="screenshots/client-manual/12-step4-documents-uploaded.jpg" alt="Step 4 with all documents uploaded">
+  <figcaption>Figure 12 — After uploading. Each file shows with <strong>View</strong> and <strong>Remove</strong>. Bank Statements and Vendor Quotations also offer <strong>Add another file</strong>.</figcaption>
+</figure>
+
+<ul>
+  <li><strong>View</strong> opens the stored file in a new tab.</li>
+  <li><strong>Remove</strong> deletes it and frees the slot.</li>
+  <li>Only PDF, DOC and DOCX are accepted — see Section 2.</li>
+</ul>
+
+<h3>9.2 Saving and coming back later</h3>
+<p>Your work saves itself about a second and a half after you stop typing, and again each time you click Continue. The header tells you: <strong>Saving…</strong>, then <strong>✓ All changes saved</strong>.</p>
+<p>You can also click <strong>Save &amp; finish later</strong> on any step. To pick up where you left off, sign in and either use <em>Resume your draft</em> on Home or Status, or just click <strong>Applications</strong>.</p>
+
+<div class="note">
+  <strong>One application at a time.</strong> You can only have one unfinished application open. Opening the form again resumes the one you have rather than starting a new one, so you cannot accidentally create two. <strong>Discard draft</strong> in the header deletes it and its files permanently.
+</div>
+</section>
+
+<!-- ============================ 10 ============================ -->
+<section class="sheet">
+<h2>10. Step 5: Review and submit</h2>
+
+<p>Check everything before you submit. After this point you cannot edit your application yourself.</p>
+
+<figure>
+  <img src="screenshots/client-manual/13-step5-review.jpg" alt="Step 5, review your application">
+  <figcaption>Figure 13 — The review screen. Each document shows either its filename with a green tick, or <strong>Missing</strong> in red.</figcaption>
+</figure>
+
+<p>To change something, use <strong>← Back</strong>, or <strong>Edit loan details</strong> on the right-hand panel to jump straight to Step 3. <strong>Submit Application</strong> stays greyed out until every document is present.</p>
+
+<h3>10.1 The declaration</h3>
+<p><strong>Submit Application</strong> opens PRDF's consent declaration: twelve statements covering data privacy (POPIA), policy acknowledgements, and terms and conditions.</p>
+
+<figure>
+  <img src="screenshots/client-manual/14-consent-declaration.jpg" alt="Consent declaration with twelve statements">
+  <figcaption>Figure 14 — The declaration. <strong>Proceed</strong> only becomes available once every statement is answered YES.</figcaption>
+</figure>
+
+<div class="note warn">
+  <strong>This is a legal declaration.</strong> Read it rather than clicking through. Among other things you confirm that your information is true and accurate, that you understand approval is not guaranteed, that you must insure any assets bought with the loan, and that repayment will be collected by debit order. You cannot proceed without agreeing to all twelve. Your answers are stored with your application.
+</div>
+
+<h3>10.2 What happens next</h3>
+<ol>
+  <li>Your application is saved and your declaration attached.</li>
+  <li>Its status changes to <strong>Submitted</strong>.</li>
+  <li>You are taken to the Status page, where you can follow its progress.</li>
+</ol>
+</section>
+
+<!-- ============================ 11 ============================ -->
+<section class="sheet">
+<h2>11. Your dashboard and documents</h2>
+
+<h3>11.1 Home</h3>
+
+<figure>
+  <img src="screenshots/client-manual/15-home-dashboard.jpg" alt="Client dashboard">
+  <figcaption>Figure 15 — Home. The card at the top is your current application, with a button for whatever needs doing next.</figcaption>
+</figure>
+
+<p>The card shows your most recent active application in plain language, and offers the obvious next step — resume your draft, upload requested documents, or view your approval. Below it are three figures: applications submitted, active loans, and amount outstanding. Recent activity lists your last five applications.</p>
+
+<h3>11.2 Documents</h3>
+
+<figure>
+  <img src="screenshots/client-manual/16-documents-page.jpg" alt="Documents page with verified documents">
+  <figcaption>Figure 16 — The Documents page. Every document here has been checked and marked <strong>Verified</strong> by PRDF.</figcaption>
+</figure>
+
+<p>Use this page after you have submitted — most often because PRDF has asked for something more. The left panel is your checklist; the right panel uploads a file against whichever document you have selected.</p>
+
+<table>
+  <tr><th style="width:32mm">Badge</th><th>What it means</th></tr>
+  <tr><td>Missing</td><td>Not uploaded yet</td></tr>
+  <tr><td>Uploaded</td><td>Received, not yet checked</td></tr>
+  <tr><td>Verified</td><td>Checked and accepted</td></tr>
+  <tr><td>Rejected</td><td>Not accepted — upload a corrected copy</td></tr>
+</table>
+
+<p>To replace a document, click <strong>Replace</strong> beside it, drop the new file in, and click <strong>Upload Document</strong>.</p>
+</section>
+
+<!-- ============================ 12 ============================ -->
+<section class="sheet">
+<h2>12. Tracking your application</h2>
+
+<p><strong>Status</strong> shows every application you have made, each with a progress timeline.</p>
+
+<figure>
+  <img src="screenshots/client-manual/17-status-milestones.jpg" alt="Application status with milestone timeline">
+  <figcaption>Figure 17 — The milestone timeline. Ticked milestones are done, the highlighted one is where you are now.</figcaption>
+</figure>
+
+<table>
+  <tr><th style="width:42mm">Milestone</th><th>What it means</th></tr>
+  <tr><td>Application Submitted</td><td>We have it, and it is waiting to be assigned</td></tr>
+  <tr><td>Under Review</td><td>Being assessed, along with your documents</td></tr>
+  <tr><td>Approved</td><td>Your loan has been approved</td></tr>
+  <tr><td>Funds Disbursed</td><td>Money has been transferred to your business account</td></tr>
+  <tr><td>In Repayment</td><td>Your loan is active and being repaid</td></tr>
+  <tr><td>Loan Closed</td><td>Fully repaid</td></tr>
+</table>
+
+<div class="note warn">
+  <strong>If the timeline looks empty, nothing is wrong.</strong> While your application is being assessed it passes through several internal stages that the timeline does not yet show, and it can appear as though no progress has been made. <strong>Trust the status label at the top right of the card</strong>, not the circles. This is a known item on the handover list and is being fixed.
+</div>
+
+<div class="note">
+  <strong>If we need more from you</strong>, the status changes to <em>Information Requested</em> and an <strong>Action required</strong> panel appears. Check your notifications for what is needed, then upload it on the Documents page. Your application waits until you do.
+</div>
+</section>
+
+<!-- ============================ 13 ============================ -->
+<section class="sheet">
+<h2>13. Your loan once it is funded</h2>
+
+<h3>13.1 Repayment summary</h3>
+
+<figure>
+  <img src="screenshots/client-manual/18-status-repayment-summary.jpg" alt="Repayment summary on the status page">
+  <figcaption>Figure 18 — Once funds are released, a repayment summary appears beneath the timeline.</figcaption>
+</figure>
+
+<p>This shows your outstanding balance, your next instalment and when it is due, and the loan's status.</p>
+
+<h3>13.2 My Loans</h3>
+
+<figure>
+  <img src="screenshots/client-manual/19-my-loans.jpg" alt="My Loans list">
+  <figcaption>Figure 19 — Every loan that has been paid out. Click <strong>View</strong> to open one.</figcaption>
+</figure>
+
+<h3>13.3 Your loan account</h3>
+
+<figure>
+  <img src="screenshots/client-manual/20-loan-account.jpg" alt="Loan account with repayment schedule">
+  <figcaption>Figure 20 — The loan account: your balance, your rate, your schedule, and every payment received.</figcaption>
+</figure>
+
+<table>
+  <tr><th style="width:38mm">Figure</th><th>What it means</th></tr>
+  <tr><td>Status</td><td>Where the loan is — disbursed, in repayment, or closed</td></tr>
+  <tr><td>Outstanding</td><td>Capital still owed</td></tr>
+  <tr><td>Scheduled Due</td><td>The total of everything on your schedule — capital plus interest</td></tr>
+  <tr><td>Principal</td><td>The amount advanced to you</td></tr>
+  <tr><td>Term &amp; Rate</td><td>Your months and your actual annual interest rate</td></tr>
+  <tr><td>Paid</td><td>Total received from you so far</td></tr>
+</table>
+
+<div class="note">
+  <strong>Repayments are collected by debit order</strong>, as you agreed in your declaration. You cannot pay through the portal. Keep the account funded ahead of each due date. If you have paid but it is not showing yet, allow for bank clearing before querying it.
+</div>
+</section>
+
+<!-- ============================ 14 ============================ -->
+<section class="sheet">
+<h2>14. What your loan costs</h2>
+
+<p>There are three charges, plus a penalty if you pay late.</p>
+
+<table>
+  <tr><th style="width:40mm">Charge</th><th>How it works</th><th style="width:28mm">When</th></tr>
+  <tr><td>Interest</td><td>Calculated daily on the full amount you borrowed</td><td>Over the term</td></tr>
+  <tr><td>Initiation fee</td><td>A flat R1 000</td><td>Once-off</td></tr>
+  <tr><td>Management fee</td><td>3% of the amount you borrow</td><td>Once-off</td></tr>
+  <tr><td>Penalty</td><td>Only if you pay late — see 14.3</td><td>Only when late</td></tr>
+</table>
+
+<h3>14.1 Your interest rate</h3>
+<p>Your annual rate is the <strong>Prime lending rate plus a margin based on your risk grade</strong>, which PRDF sets after assessing your application. Prime is currently 10.5%.</p>
+
+<table>
+  <tr><th>Risk grade</th><th>Margin</th><th>Annual rate</th></tr>
+  <tr><td>Low</td><td>5.0%</td><td>15.5%</td></tr>
+  <tr><td>Moderate</td><td>6.5%</td><td>17.0%</td></tr>
+  <tr><td>High</td><td>8.5%</td><td>19.0%</td></tr>
+  <tr><td>Worst</td><td>10.5%</td><td>21.0%</td></tr>
+</table>
+
+<p>The portal quotes you at the cheapest grade before assessment, which is why it says <em>From 15.50% p.a.</em> Your actual rate can only be the same or higher, and appears on your loan account once your loan is booked.</p>
+
+<h3>14.2 How you repay</h3>
+<div class="note">
+  <strong>One payment at the end of the term.</strong> Interest builds up daily on the full amount you borrowed and is settled together with the capital on your maturity date. Your schedule therefore shows a single instalment rather than monthly ones. The fees are deducted from the money advanced to you, so you receive your loan amount less the initiation and management fees.
+</div>
+<p>For example: borrow R750 000 over 12 months at 17%, and you would receive <strong>R726 500</strong> (R750 000 less R23 500 in fees) and repay <strong>R877 500</strong> at maturity (R750 000 capital plus R127 500 interest).</p>
+
+<h3>14.3 Paying late</h3>
+<p>There is <strong>no grace period</strong>. A penalty starts accruing the first day you are late, calculated on your capital plus interest at 2% per 30 days. It is worked out in a straight line and never charged on top of earlier penalties.</p>
+
+<h3>14.4 Before approval, nothing is final</h3>
+<p>Everything the portal shows you before approval is indicative. Your final rate follows assessment; your final amount and term may differ from what you asked for; and approval depends on document verification, affordability and PRDF's assessment.</p>
+</section>
+
+<!-- ============================ 15 ============================ -->
+<section class="sheet">
+<h2>15. If something goes wrong</h2>
+
+<table>
+  <tr><th style="width:56mm">What you see</th><th>What to do</th></tr>
+  <tr><td>"Only .pdf, .doc, .docx files are accepted"</td><td>Your file is a photo or image. Save it as a PDF and upload again</td></tr>
+  <tr><td><strong>Submit Application</strong> is greyed out</td><td>A document is still missing. Check the Documents panel on the review screen for <strong>Missing</strong></td></tr>
+  <tr><td><strong>Continue</strong> does nothing</td><td>Something on the step is invalid. Look for red text — the cursor jumps to the first problem</td></tr>
+  <tr><td>"Add a few details before saving"</td><td>There is nothing to save yet. Fill in a field or two first</td></tr>
+  <tr><td>Your draft did not save</td><td>Check your internet connection, edit any field to trigger another save, and wait for <strong>✓ All changes saved</strong></td></tr>
+  <tr><td>Home and Status will not open</td><td>Expected if you have not applied yet. They open once you have an application</td></tr>
+  <tr><td>The password reset link does not work</td><td>Known limitation — contact PRDF to have your password reset (Section 5.1)</td></tr>
+  <tr><td>"Could not load your profile"</td><td>Refresh the page. If it persists, sign out and back in</td></tr>
+  <tr><td>Pages load but tables are empty</td><td>A connection problem. Use <strong>Retry</strong> on the panel</td></tr>
+  <tr><td>Your amount or term is rejected</td><td>It is outside R250 000–R1 000 000 or 1–36 months</td></tr>
+  <tr><td>You cannot start a second application</td><td>You already have an unfinished one. Finish or discard it first</td></tr>
+  <tr><td>A document shows <strong>Rejected</strong></td><td>It was not accepted. Upload a corrected copy from the Documents page</td></tr>
+  <tr><td>You were signed out unexpectedly</td><td>Your session expired. Sign in again — your saved work is safe</td></tr>
+  <tr><td>The progress timeline looks empty</td><td>Known display issue. Trust the status label on the card (Section 12)</td></tr>
+</table>
+
+<h3>Common questions</h3>
+<ul>
+  <li><strong>Can I change my application after submitting?</strong> No. Contact your loan officer.</li>
+  <li><strong>How long does a decision take?</strong> The site indicates five working days, depending on assessment.</li>
+  <li><strong>Is the quoted figure what I will pay?</strong> No — it is indicative until approval. See Section 14.</li>
+  <li><strong>Can I apply for more than one loan?</strong> One application at a time. Others appear in your Status list.</li>
+  <li><strong>How do I pay?</strong> By debit order. Not through the portal.</li>
+  <li><strong>Is my information safe?</strong> Your documents are stored privately and opened only through short-lived secure links. How we handle your data is set out in the POPIA consent you signed.</li>
+</ul>
+</section>
+
+<!-- ============================ 16 ============================ -->
+<section class="sheet">
+<h2>16. Acceptance and sign-off</h2>
+
+<p>This section records PRDF's acceptance of the Client Portal as delivered and documented in this manual.</p>
+
+<h3>16.1 Acceptance checklist</h3>
+<p>Each item can be verified in the live portal by following the section named.</p>
+
+<table class="checklist">
+  <tr><th style="width:9mm">✓</th><th>Item</th><th style="width:20mm">Section</th></tr>
+  <tr><td>☐</td><td>The public site loads and the calculator prices a loan without signing in</td><td>3.1</td></tr>
+  <tr><td>☐</td><td>The eligibility self-check returns both outcomes correctly</td><td>4.1</td></tr>
+  <tr><td>☐</td><td>A new account can be registered and signed into</td><td>4.2, 5</td></tr>
+  <tr><td>☐</td><td>All five application steps accept valid input and reject invalid input clearly</td><td>6–10</td></tr>
+  <tr><td>☐</td><td>A draft saves, survives signing out, and resumes where it was left</td><td>9.2</td></tr>
+  <tr><td>☐</td><td>All ten document types upload, and can be viewed and removed</td><td>9.1</td></tr>
+  <tr><td>☐</td><td>The declaration requires all twelve answers before it will proceed</td><td>10.1</td></tr>
+  <tr><td>☐</td><td>An application submits and appears on the Status timeline</td><td>10.2</td></tr>
+  <tr><td>☐</td><td>Status changes made by staff appear in the portal</td><td>12</td></tr>
+  <tr><td>☐</td><td>A funded loan shows its account, schedule and repayment history</td><td>13</td></tr>
+  <tr><td>☐</td><td>Loans are booked at the assessed risk grade, with fees recorded</td><td>14</td></tr>
+  <tr><td>☐</td><td>The portal is usable on a mobile phone</td><td>5.4</td></tr>
+  <tr><td>☐</td><td>The known limitations noted in Sections 5.1 and 12 have been read and accepted</td><td>5.1, 12</td></tr>
+</table>
+
+<h3>16.2 Declaration</h3>
+<p>By signing below, PRDF confirms that:</p>
+<ol>
+  <li>The Client Portal described in this manual has been delivered and demonstrated.</li>
+  <li>The acceptance criteria in 16.1 have been verified.</li>
+  <li>The known limitations disclosed in this manual have been read and accepted.</li>
+  <li>This manual constitutes the user documentation for the Client Portal.</li>
+  <li>The work is complete and accepted.</li>
+</ol>
+
+<h3>16.3 Signatures</h3>
+
+<div class="sigbox">
+  <h4>Accepted on behalf of PRDF</h4>
+  <div class="sigrow"><span>Full name</span><div class="sigline"></div></div>
+  <div class="sigrow"><span>Position</span><div class="sigline"></div></div>
+  <div class="sigrow"><span>Signature</span><div class="sigline"></div></div>
+  <div class="sigrow"><span>Date</span><div class="sigline"></div></div>
+</div>
+
+<div class="sigbox">
+  <h4>Delivered by</h4>
+  <div class="sigrow"><span>Full name</span><div class="sigline"></div></div>
+  <div class="sigrow"><span>Position</span><div class="sigline"></div></div>
+  <div class="sigrow"><span>Signature</span><div class="sigline"></div></div>
+  <div class="sigrow"><span>Date</span><div class="sigline"></div></div>
+</div>
+
+<div class="sigbox">
+  <h4>Conditions or exclusions to this acceptance</h4>
+  <p style="font-size:9.3pt;color:var(--muted);margin-bottom:.6em">Record anything accepted subject to a condition, or excluded from this sign-off.</p>
+  <div class="sigline" style="margin-bottom:6mm"></div>
+  <div class="sigline" style="margin-bottom:6mm"></div>
+  <div class="sigline"></div>
+</div>
+
+<p style="margin-top:1.4em;font-size:8.6pt;color:var(--muted);font-style:italic">
+  PRDF Client Portal — User Manual, version 1.0, 26 September 2026.
+</p>
+</section>
+
+</body>
+</html>

@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
-import { CurrentUser, fetchUserRoles, hasRole, hasAnyRole, isStaff, ASSIGNED_ROLES } from '../auth/roles.helper';
+import { CurrentUser, ensureInternal, fetchUserRoles, hasRole, hasAnyRole, isStaff, ASSIGNED_ROLES } from '../auth/roles.helper';
 import { LoanProductsService, LoanProduct } from '../loan-products/loan-products.service';
 import { DEFAULT_ANNUAL_RATE_PA } from '../common/interest';
 import { validateDocumentUpload, assertStoragePathWithinApplication } from '../common/file-validation';
@@ -11,7 +11,9 @@ import { randomUUID } from 'crypto';
 import axios from 'axios';
 import { currentTenant } from '../tenancy/request-context';
 import { LIMITS } from '../common/generated-constraints';
-import { ConflictError, PermissionError, ValidationError } from '../common/errors';
+import { ConflictError, NotFoundError, PermissionError, ValidationError } from '../common/errors';
+import { PricingService } from '../pricing/pricing.service';
+import { RiskGrade } from '../common/pricing';
 
 // Keep in sync with packages/domain/status.ts and the DB trigger
 // enforce_status_transition() (infra/supabase). The PRDF review chain: each
@@ -64,6 +66,7 @@ export class ApplicationsService {
   constructor(
     private readonly db: DatabaseService,
     private readonly loanProducts: LoanProductsService,
+    private readonly pricing: PricingService,
   ) {}
 
   private async getSecurityProjection(applicationId: string): Promise<SecurityProjection | null> {
@@ -181,6 +184,7 @@ export class ApplicationsService {
               la.monthly_revenue::float8 as "monthlyRevenue", la.years_in_operation as "yearsInOperation",
               la.number_of_employees as "numberOfEmployees", la.bank_name as "bankName",
               la.current_step as "currentStep", la.draft_state as "draftState", la.last_saved_at as "lastSavedAt",
+              la.risk_grade as "riskGrade",
               l.id as "loanId",
               jsonb_build_object(
                 'businessName', c.business_name,
@@ -236,11 +240,56 @@ export class ApplicationsService {
     );
     if (exists?.exists) return;
 
-    const source = await this.db.queryOne<{ requested_amount: number; term_months: number; loan_product_id: string | null }>(
-      `select requested_amount, term_months, loan_product_id from public.loan_applications where id = $1`,
+    const source = await this.db.queryOne<{
+      requested_amount: number;
+      term_months: number;
+      loan_product_id: string | null;
+      risk_grade: RiskGrade | null;
+    }>(
+      `select requested_amount, term_months, loan_product_id, risk_grade from public.loan_applications where id = $1`,
       [applicationId],
     );
     if (!source) return;
+
+    // Book off the credit model at the grade the Risk Analyst set at Due
+    // Diligence (Phase 2, docs/credit-model-phase1-plan.md §10).
+    //
+    // Before this, the rate came from loan_products.interest_rate — the legacy
+    // flat 18.5% — so the grade staff priced the case at was thrown away, and
+    // the fees quoted to the applicant were never recorded against the loan.
+    //
+    // A case cannot reach Approved ungraded (setRiskGrade is required to leave
+    // Due Diligence), but if an older row slips through we fall back to the
+    // product rate and book no fees rather than guessing a grade — an
+    // under-charge is recoverable, inventing a risk grade is not.
+    if (source.risk_grade) {
+      const terms = await this.pricing.bookingTerms({
+        principal: Number(source.requested_amount),
+        termMonths: source.term_months,
+        riskGrade: source.risk_grade,
+      });
+
+      await this.db.execute(
+        `insert into public.loans
+           (id, application_id, principal_amount, interest_rate, term_months, status,
+            outstanding_principal, risk_grade, days_financed, initiation_fee, management_fee,
+            net_advance, created_at)
+         values ($1,$2,$3,$4,$5,'PendingDisbursement',$3,$6,$7,$8,$9,$10,now())`,
+        [
+          randomUUID(),
+          applicationId,
+          source.requested_amount,
+          terms.annualRatePct,
+          source.term_months,
+          source.risk_grade,
+          terms.daysFinanced,
+          terms.initiationFee,
+          terms.managementFee,
+          terms.netAdvance,
+        ],
+      );
+      return;
+    }
 
     let interestRate = DEFAULT_ANNUAL_RATE_PA;
     if (source.loan_product_id) {
@@ -252,6 +301,52 @@ export class ApplicationsService {
       `insert into public.loans (id, application_id, principal_amount, interest_rate, term_months, status, outstanding_principal, created_at) values ($1,$2,$3,$4,$5,'PendingDisbursement',$3,now())`,
       [randomUUID(), applicationId, source.requested_amount, interestRate, source.term_months],
     );
+  }
+
+  /**
+   * Record the Risk Analyst's grade on the application.
+   *
+   * This is what makes the Pricing tab more than a calculator: the grade set
+   * here is the one ensureLoanCreatedForApproved() books the loan at.
+   */
+  async setRiskGrade(actor: CurrentUser, applicationId: string, riskGrade: RiskGrade) {
+    ensureInternal(await fetchUserRoles(this.db, actor.userId));
+
+    const existing = await this.db.queryOne<{ status: string; risk_grade: string | null }>(
+      `select status, risk_grade from public.loan_applications where id = $1`,
+      [applicationId],
+    );
+    if (!existing) throw new NotFoundError('Application not found.');
+
+    // Once a loan exists its rate is a snapshot; re-grading the application
+    // would silently disagree with what was booked.
+    const booked = await this.db.queryOne<{ exists: boolean }>(
+      `select exists (select 1 from public.loans where application_id = $1) as exists`,
+      [applicationId],
+    );
+    if (booked?.exists) {
+      throw new ValidationError(
+        'This application already has a booked loan; its risk grade can no longer be changed.',
+        'riskGrade',
+      );
+    }
+
+    await this.db.execute(`update public.loan_applications set risk_grade = $1 where id = $2`, [
+      riskGrade,
+      applicationId,
+    ]);
+
+    await this.db.execute(
+      `insert into public.audit_log (id, entity, entity_id, action, actor_user_id, at, metadata) values ($1,'loan_applications',$2,'SetRiskGrade',$3,now(),$4::jsonb)`,
+      [
+        randomUUID(),
+        applicationId,
+        actor.userId,
+        JSON.stringify({ from: existing.risk_grade, to: riskGrade }),
+      ],
+    );
+
+    return { applicationId, riskGrade };
   }
 
   async create(actor: CurrentUser, body: CreateApplicationDto) {

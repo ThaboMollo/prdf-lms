@@ -2343,11 +2343,16 @@ input[type="range"]::-moz-range-thumb {
    ---------------------------------------------------------------- */
 .review-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0, 1fr), not 1fr: a bare 1fr track has min-width:auto, so the
+     Documents panel's long storage filenames widen the tracks past the flex
+     column and the grid slides under the sticky cost card, hiding the Financial
+     Info values on the one screen meant for checking them. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 1rem;
 }
 
 .review-section {
+  min-width: 0;
   background: var(--bg);
   border: 1px solid var(--border-light);
   border-radius: 12px;
@@ -2371,9 +2376,16 @@ input[type="range"]::-moz-range-thumb {
 
 .review-row {
   display: flex;
+  /* grid item of .review-dl: without this it cannot shrink below its content,
+     so a long stored filename pushes the value outside the review card. */
+  min-width: 0;
   justify-content: space-between;
   align-items: baseline;
-  gap: 1rem;
+  /* wrap so a long label (e.g. "Purchase Order / Short Term Contracts (Not
+     greater than 3 years)") drops its value to the next line instead of
+     squeezing it to zero width and hiding the uploaded/missing state. */
+  flex-wrap: wrap;
+  gap: 0.15rem 1rem;
   font-size: 0.9rem;
 }
 
@@ -2396,6 +2408,9 @@ input[type="range"]::-moz-range-thumb {
 /* Document rows on the review step: status icon + ellipsized filename */
 .review-doc {
   display: inline-flex;
+  /* inline-flex sizes to its content; min-width:0 lets the ellipsis on
+     .review-doc__text actually engage inside the dd. */
+  min-width: 0;
   align-items: center;
   justify-content: flex-end;
   gap: 0.4rem;
@@ -2408,6 +2423,7 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .review-doc__text {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2726,7 +2742,7 @@ input[type="range"]::-moz-range-thumb {
   }
 
   .review-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .dashboard-kpi-row {

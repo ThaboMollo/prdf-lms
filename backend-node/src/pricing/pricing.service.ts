@@ -8,6 +8,7 @@ import {
   RoundingMode,
   annualRate,
   quote as computeQuote,
+  round2,
 } from '../common/pricing';
 import { QuoteDto } from './dto/quote.dto';
 
@@ -133,5 +134,66 @@ export class PricingService {
       marginPct,
       daysLate: dto.daysLate ?? 0,
     });
+  }
+
+  /**
+   * Months -> days, matching the client portal's conversion exactly
+   * (client-ui/src/lib/creditQuote.ts). A calendar month is daysPerYear / 12,
+   * so a stated 12 months is worth exactly one year of interest at the annual
+   * rate and lands on the spreadsheet's 365 / 730 / 1095-day rows.
+   */
+  monthsToDays(months: number, daysPerYear: number): number {
+    return Math.round(months * (daysPerYear / 12));
+  }
+
+  /**
+   * Everything needed to BOOK a loan, as opposed to preview one.
+   *
+   * Phase 2 (docs/credit-model-phase1-plan.md §10). The booked rate is
+   * prime + the margin of the grade the Risk Analyst set at Due Diligence —
+   * not loan_products.interest_rate, which is the legacy flat 18.5% and was
+   * what every loan was silently booked at before this.
+   *
+   * No actor/role check: this is called from the application status machine
+   * when a case reaches Approved, not from a request handler.
+   */
+  async bookingTerms(input: {
+    principal: number;
+    termMonths: number;
+    riskGrade: RiskGrade;
+  }): Promise<{
+    annualRatePct: number;
+    daysFinanced: number;
+    interest: number;
+    initiationFee: number;
+    managementFee: number;
+    totalFees: number;
+    /** Principal + interest. What the client repays at maturity. */
+    totalDueToFunder: number;
+    /** Principal less the once-off fees. What the client actually receives. */
+    netAdvance: number;
+  }> {
+    const config = await this.loadConfig();
+    const marginPct = await this.loadMargin(input.riskGrade);
+    const daysFinanced = this.monthsToDays(input.termMonths, config.daysPerYear);
+
+    const breakdown = computeQuote(config, {
+      principal: input.principal,
+      daysFinanced,
+      riskGrade: input.riskGrade,
+      marginPct,
+      daysLate: 0,
+    });
+
+    return {
+      annualRatePct: annualRate(config, marginPct),
+      daysFinanced,
+      interest: breakdown.interest,
+      initiationFee: breakdown.initiationFee,
+      managementFee: breakdown.managementFee,
+      totalFees: breakdown.totalFees,
+      totalDueToFunder: breakdown.totalDueToFunder,
+      netAdvance: round2(input.principal - breakdown.totalFees, config.roundingMode),
+    };
   }
 }

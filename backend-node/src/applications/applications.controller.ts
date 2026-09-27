@@ -12,6 +12,7 @@ import { CreateNoteDto } from './dto/create-note.dto';
 import { PresignUploadDto } from './dto/presign-upload.dto';
 import { ConfirmUploadDto } from './dto/confirm-upload.dto';
 import { RecordConsentDto } from './dto/record-consent.dto';
+import { SetRiskGradeDto } from './dto/set-risk-grade.dto';
 
 @ApiTags('applications')
 @Controller('api/applications')
@@ -67,6 +68,11 @@ export class ApplicationsController {
   @HttpCode(204)
   async recordConsent(@GetCurrentUser() user: CurrentUser, @Param('id') id: string, @Body() body: RecordConsentDto) {
     await this.svc.recordConsent(user, id, body);
+  }
+
+  @Post(':id/risk-grade')
+  setRiskGrade(@GetCurrentUser() user: CurrentUser, @Param('id') id: string, @Body() body: SetRiskGradeDto) {
+    return this.svc.setRiskGrade(user, id, body.riskGrade);
   }
 
   @Get(':id/history')

@@ -4,7 +4,14 @@ import { CurrentUser, fetchUserRoles, isStaff, isFinance, hasAnyRole, hasRole, A
 import { randomUUID } from 'crypto';
 import { PoolClient } from 'pg';
 import { DEFAULT_ANNUAL_RATE_PA, monthlyInterest, roundCents } from '../common/interest';
+
 import { ConflictError, PermissionError, ValidationError } from '../common/errors';
+
+// The credit model's year length (pricing_config.days_per_year). Kept as a
+// constant here rather than read per-loan because loans.days_financed was
+// already derived with it at booking; changing one without the other would
+// make the schedule disagree with the quote the client signed.
+const DAYS_PER_YEAR = 365;
 
 @Injectable()
 export class LoansService {
@@ -42,7 +49,13 @@ export class LoansService {
 
   private async getLoanDetails(loanId: string) {
     const loan = await this.db.queryOne(
-      `select id, application_id as "applicationId", principal_amount::float8 as "principalAmount", outstanding_principal::float8 as "outstandingPrincipal", interest_rate::float8 as "interestRate", term_months as "termMonths", status, disbursed_at as "disbursedAt", created_at as "createdAt" from public.loans where id=$1`,
+      `select id, application_id as "applicationId", principal_amount::float8 as "principalAmount",
+              outstanding_principal::float8 as "outstandingPrincipal", interest_rate::float8 as "interestRate",
+              term_months as "termMonths", status, disbursed_at as "disbursedAt", created_at as "createdAt",
+              risk_grade as "riskGrade", days_financed as "daysFinanced",
+              initiation_fee::float8 as "initiationFee", management_fee::float8 as "managementFee",
+              net_advance::float8 as "netAdvance"
+         from public.loans where id=$1`,
       [loanId],
     );
     if (!loan) return null;
@@ -76,14 +89,21 @@ export class LoansService {
 
     await this.db.withTransaction(async (client: PoolClient) => {
       const loanResult = await client.query(
-        `select id, application_id, principal_amount, outstanding_principal, interest_rate, term_months, status from public.loans where id=$1 for update`,
+        `select id, application_id, principal_amount, outstanding_principal, interest_rate, term_months, status,
+                days_financed, initiation_fee, management_fee, net_advance
+           from public.loans where id=$1 for update`,
         [loanId],
       );
       const loan = loanResult.rows[0];
       if (!loan) return null;
       if (loan.status !== 'PendingDisbursement' && loan.status !== 'Disbursed') throw new ValidationError(`Loan status ${loan.status} cannot be disbursed.`)
 
-      const amount = Math.min(body.amount, parseFloat(loan.outstanding_principal));
+      // On a credit-model loan the client receives principal LESS the once-off
+      // fees, so the cash out is capped at net_advance rather than the full
+      // principal. Legacy loans have no net_advance and cap at the balance.
+      const advanceCeiling =
+        loan.net_advance == null ? parseFloat(loan.outstanding_principal) : parseFloat(loan.net_advance);
+      const amount = Math.min(body.amount, advanceCeiling);
       if (amount <= 0) throw new ValidationError('Disbursement amount must be greater than zero.', 'amount')
 
       await client.query(
@@ -162,15 +182,49 @@ export class LoansService {
     return this.getLoanDetails(loanId);
   }
 
+  /**
+   * Build the repayment schedule at disbursement.
+   *
+   * Two shapes, decided by whether the loan was booked off the credit model:
+   *
+   *   days_financed set  -> BULLET. One instalment at maturity carrying the
+   *                         full principal plus simple daily interest over
+   *                         days_financed. This is the model the applicant was
+   *                         quoted, consented to, and the spreadsheet prices.
+   *
+   *   days_financed null -> the legacy monthly-amortising schedule, kept only
+   *                         so loans booked before Phase 2 still disburse the
+   *                         way they were priced.
+   *
+   * Fees are deliberately absent from both: the initiation and management fees
+   * are deducted from the advance (see loans.net_advance), which is why the
+   * credit model defines "total due to funder" as principal + interest only.
+   */
   private async buildRepaymentSchedule(client: PoolClient, loan: any) {
     const principal = parseFloat(loan.principal_amount);
     const termMonths = parseInt(loan.term_months);
-    // interest_rate is the annual percentage (prime + margin); each month
-    // charges annual/12 on the outstanding balance at the start of the month.
     const annualRatePct = parseFloat(loan.interest_rate) || DEFAULT_ANNUAL_RATE_PA;
+    const daysFinanced = loan.days_financed == null ? null : parseInt(loan.days_financed);
+    const baseDate = new Date();
+
+    if (daysFinanced != null) {
+      // Simple daily interest on full principal, frozen at maturity.
+      // Mirrors calcInterest() in common/pricing.ts; DAYS_PER_YEAR is the
+      // model's 365 rather than a calendar year so the two agree to the cent.
+      const interest = roundCents((principal * (annualRatePct / 100)) / DAYS_PER_YEAR * daysFinanced);
+      const dueDate = new Date(baseDate);
+      dueDate.setDate(dueDate.getDate() + daysFinanced);
+
+      await client.query(
+        `insert into public.repayment_schedule (id, loan_id, installment_no, due_date, due_principal, due_interest, due_total, paid_amount, status) values ($1,$2,1,$3,$4,$5,$6,0,'Pending')`,
+        [randomUUID(), loan.id, dueDate, roundCents(principal), interest, roundCents(principal + interest)],
+      );
+      return;
+    }
+
+    // Legacy: equal principal portions, interest on the opening balance.
     const installmentPrincipal = roundCents(principal / termMonths);
     let remainingPrincipal = principal;
-    const baseDate = new Date();
 
     for (let i = 1; i <= termMonths; i++) {
       const p = i === termMonths ? remainingPrincipal : installmentPrincipal;

@@ -116,11 +116,22 @@ export function CasePage({ session }: CasePageProps) {
     ])
   }
 
+  /**
+   * Re-read everything a disbursement or repayment moves, and WAIT for it.
+   *
+   * refetchQueries, not invalidateQueries, and a prefix key for the loan.
+   * Disbursing used to leave the tab showing "Contracting / PendingDisbursement"
+   * long after the API had disbursed the loan and written its schedule — the
+   * operator's only signal was the form clearing, which reads like a failure
+   * and invites a second click on a button that moves money. The loan key was
+   * also built from `detail?.loanId` captured in this closure, so a stale
+   * render could invalidate a key nothing was subscribed to.
+   */
   async function refreshMoney() {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['case-loan', detail?.loanId] }),
-      queryClient.invalidateQueries({ queryKey: ['case-application', id] }),
-      queryClient.invalidateQueries({ queryKey: ['case-history', id] })
+      queryClient.refetchQueries({ queryKey: ['case-loan'] }),
+      queryClient.refetchQueries({ queryKey: ['case-application', id] }),
+      queryClient.refetchQueries({ queryKey: ['case-history', id] })
     ])
   }
 
@@ -279,7 +290,19 @@ export function CasePage({ session }: CasePageProps) {
 
             {activeTab === 'overview' ? <OverviewTab detail={detail} /> : null}
             {activeTab === 'documents' ? <CaseDocuments applicationId={detail.id} accessToken={accessToken} /> : null}
-            {activeTab === 'pricing' ? <CasePricing accessToken={accessToken} defaultAmount={detail.requestedAmount} /> : null}
+            {activeTab === 'pricing' ? (
+              <CasePricing
+                accessToken={accessToken}
+                applicationId={detail.id}
+                defaultAmount={detail.requestedAmount}
+                termMonths={detail.termMonths}
+                savedRiskGrade={detail.riskGrade ?? null}
+                hasBookedLoan={Boolean(detail.loanId)}
+                onRiskGradeSaved={() => {
+                  void queryClient.refetchQueries({ queryKey: ['case-application', id] })
+                }}
+              />
+            ) : null}
             {activeTab === 'money' ? (
               <MoneyTab
                 loanId={detail.loanId ?? null}
@@ -420,6 +443,9 @@ function MoneyTab({
 
   const outstanding = loan.outstandingPrincipal
   const totalDue = loan.schedule.reduce((sum, item) => sum + item.dueTotal, 0)
+  // What Finance should actually pay out: the advance net of the once-off fees
+  // on a credit-model loan, or the full balance on a legacy one.
+  const payoutCeiling = loan.netAdvance ?? outstanding
 
   function validateAmount(amount: number | null, max?: number): FieldErrorMap {
     if (amount === null || !Number.isFinite(amount) || amount <= 0) {
@@ -434,7 +460,7 @@ function MoneyTab({
   async function onDisburse() {
     const result = await disburseForm.submit(
       () => loansUseCases.disburseLoan(loanId as string, disburseAmount as number, disburseReference),
-      { validate: () => validateAmount(disburseAmount) }
+      { validate: () => validateAmount(disburseAmount, payoutCeiling) }
     )
     if (result !== undefined) {
       setDisburseAmount(null)
@@ -463,10 +489,42 @@ function MoneyTab({
         <article className="kpi-card"><p className="kpi-label">Scheduled Due</p><p className="kpi-value">{formatCurrency(totalDue)}</p></article>
       </div>
       <div className="grid-three">
-        <article className="kpi-card"><p className="kpi-label">Interest Rate</p><p className="kpi-value">{Number(loan.interestRate).toFixed(2)}% p.a.</p></article>
-        <article className="kpi-card"><p className="kpi-label">Term</p><p className="kpi-value">{loan.termMonths} months</p></article>
+        <article className="kpi-card">
+          <p className="kpi-label">Interest Rate</p>
+          <p className="kpi-value">{Number(loan.interestRate).toFixed(2)}% p.a.</p>
+          {loan.riskGrade ? <p className="kpi-sub">{loan.riskGrade} grade</p> : null}
+        </article>
+        <article className="kpi-card">
+          <p className="kpi-label">Term</p>
+          <p className="kpi-value">{loan.termMonths} months</p>
+          {loan.daysFinanced ? <p className="kpi-sub">{loan.daysFinanced} days financed</p> : null}
+        </article>
         <article className="kpi-card"><p className="kpi-label">Status</p><p className="kpi-value">{loan.status}</p></article>
       </div>
+
+      {/*
+        Fees are deducted from the advance, never billed on the schedule — the
+        credit model's "total due to funder" is principal + interest only. Shown
+        here so Finance pays out the right number: before Phase 2 the fees were
+        quoted to the applicant, consented to, and then never recorded anywhere.
+      */}
+      {loan.netAdvance != null ? (
+        <div className="grid-three">
+          <article className="kpi-card">
+            <p className="kpi-label">Initiation fee</p>
+            <p className="kpi-value">{formatCurrency(loan.initiationFee ?? 0)}</p>
+          </article>
+          <article className="kpi-card">
+            <p className="kpi-label">Management fee</p>
+            <p className="kpi-value">{formatCurrency(loan.managementFee ?? 0)}</p>
+          </article>
+          <article className="kpi-card">
+            <p className="kpi-label">Net advance</p>
+            <p className="kpi-value">{formatCurrency(loan.netAdvance)}</p>
+            <p className="kpi-sub">principal less once-off fees — pay out this amount</p>
+          </article>
+        </div>
+      ) : null}
 
       <div className="grid-two">
         <article className="card form-grid">
