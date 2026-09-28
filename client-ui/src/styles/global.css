@@ -1768,6 +1768,14 @@ input[type="range"]::-moz-range-thumb {
 
 .calc-metric {
   text-align: center;
+  /* Column, so the label box can be given a fixed height and every value then
+     starts on the same line. Previously the labels were plain blocks: only
+     "Indicative monthly instalment" wrapped to two lines, which pushed its
+     figure a line lower than the other two. */
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0 0.25rem;
 }
 
 .calc-metric-label {
@@ -1776,9 +1784,18 @@ input[type="range"]::-moz-range-thumb {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  display: block;
-  margin-bottom: 0.3rem;
   font-family: var(--font-caption);
+  line-height: 1.3;
+  /* Exactly two lines' worth, whether the label uses one or two. This is what
+     aligns the three figures; it is a reserved box, not padding. */
+  min-height: 2.6em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.3rem;
+  /* Split "Indicative monthly / instalment" evenly rather than leaving one
+     orphaned word on the second line. */
+  text-wrap: balance;
 }
 
 .calc-metric-value {
@@ -1786,6 +1803,10 @@ input[type="range"]::-moz-range-thumb {
   font-weight: 600;
   color: var(--text);
   font-family: var(--font-data);
+  /* Pinned to the bottom of the metric so a three-line label in some future
+     translation still cannot break the shared baseline. */
+  margin-top: auto;
+  white-space: nowrap;
 }
 
 /* ---- Indicative lending-rate disclosure ---- */
@@ -2341,14 +2362,57 @@ input[type="range"]::-moz-range-thumb {
 /* ----------------------------------------------------------------
    Wizard Review Summary
    ---------------------------------------------------------------- */
+.review-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.review-head h2,
+.review-head p {
+  margin: 0;
+}
+
+.review-head__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex: none;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.review-head__status--ok {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #047857;
+}
+
+.review-head__status--error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: var(--danger);
+}
+
 .review-grid {
   display: grid;
   /* minmax(0, 1fr), not 1fr: a bare 1fr track has min-width:auto, so the
      Documents panel's long storage filenames widen the tracks past the flex
-     column and the grid slides under the sticky cost card, hiding the Financial
-     Info values on the one screen meant for checking them. */
+     column and the grid slides out of the wizard body. */
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 1rem;
+  align-items: start;
+}
+
+/* Documents spans both columns — ten long labels never fitted a half. */
+.review-section--wide {
+  grid-column: 1 / -1;
+  min-width: 0;
 }
 
 .review-section {
@@ -2359,15 +2423,59 @@ input[type="range"]::-moz-range-thumb {
   padding: 1rem 1.25rem;
 }
 
+.review-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.review-section__head-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: none;
+}
+
 .review-section h3 {
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--muted);
-  margin: 0 0 0.85rem;
+  margin: 0;
   font-weight: 600;
   font-family: var(--font-caption);
 }
+
+/* Per-section, because the wizard's single Back button made correcting a
+   business-profile typo from the review step a four-click journey. */
+.review-section__edit {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--brand);
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: inherit;
+}
+
+.review-section__edit:hover {
+  text-decoration: underline;
+}
+
+.review-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.review-badge--ok { background: #ecfdf5; color: #047857; }
+.review-badge--warn { background: #fffbeb; color: #b45309; }
+.review-badge--error { background: #fef2f2; color: var(--danger); }
 
 .review-dl {
   display: grid;
@@ -2381,9 +2489,8 @@ input[type="range"]::-moz-range-thumb {
   min-width: 0;
   justify-content: space-between;
   align-items: baseline;
-  /* wrap so a long label (e.g. "Purchase Order / Short Term Contracts (Not
-     greater than 3 years)") drops its value to the next line instead of
-     squeezing it to zero width and hiding the uploaded/missing state. */
+  /* wrap so a long label drops its value to the next line instead of
+     squeezing it to zero width. */
   flex-wrap: wrap;
   gap: 0.15rem 1rem;
   font-size: 0.9rem;
@@ -2405,47 +2512,154 @@ input[type="range"]::-moz-range-thumb {
   white-space: nowrap;
 }
 
-/* Document rows on the review step: status icon + ellipsized filename */
-.review-doc {
-  display: inline-flex;
-  /* inline-flex sizes to its content; min-width:0 lets the ellipsis on
-     .review-doc__text actually engage inside the dd. */
-  min-width: 0;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.4rem;
+/* ---- Documents panel ---- */
+.review-docs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.15rem;
 }
 
-.review-doc i {
-  color: var(--success, #16a34a);
+.review-doc-item {
+  display: grid;
+  /* icon | label | files | count — the label column is capped so a short
+     label cannot stretch and a long one cannot starve the filename column. */
+  grid-template-columns: auto minmax(0, 1.1fr) minmax(0, 1.4fr) auto;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+  padding: 0.45rem 0.5rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.review-doc-item:nth-child(odd) {
+  background: rgba(15, 23, 42, 0.025);
+}
+
+.review-doc-item > i {
   font-size: 0.8rem;
-  flex: none;
+  color: var(--success, #16a34a);
 }
 
-.review-doc__text {
+.review-doc-item--missing > i { color: var(--danger); }
+.review-doc-item--short > i { color: #d97706; }
+
+.review-doc-item__label {
+  color: var(--muted);
   min-width: 0;
+}
+
+/* Column, not a comma-joined line: three bank statements are three files and
+   should read as three rows, each ellipsized on its own. */
+.review-doc-item__files {
+  min-width: 0;
+  display: grid;
+  gap: 0.15rem;
+  justify-items: end;
+  text-align: right;
+}
+
+.review-doc-item__file {
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 600;
+  color: var(--text);
+  font-size: 0.82rem;
 }
 
-.review-doc--missing .review-doc__text {
+.review-doc-item__missing {
   color: var(--danger);
+  font-weight: 600;
 }
 
-.fee-breakdown {
+.review-doc-item__count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.review-doc-item__count--short {
+  color: #b45309;
+}
+
+/* ---- Indicative quote band ---- */
+.review-quote {
   background: var(--brand-soft);
-  border: 1px solid var(--border-light);
+  border: 1px solid rgba(30, 64, 175, 0.18);
   border-radius: 12px;
   padding: 1.25rem;
   margin-top: 1rem;
 }
 
-.fee-breakdown h3 {
-  font-size: 0.85rem;
+.review-quote__headline {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid rgba(30, 64, 175, 0.18);
+}
+
+.review-quote__headline-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
   font-weight: 700;
-  margin: 0 0 0.85rem;
   color: var(--brand);
+  font-family: var(--font-caption);
+}
+
+.review-quote__headline-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--brand);
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+.review-quote__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.9rem 1.25rem;
+  margin: 0.9rem 0 0;
+}
+
+.review-quote__cell {
+  min-width: 0;
+}
+
+.review-quote__cell dt {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-bottom: 0.2rem;
+}
+
+.review-quote__cell dd {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 720px) {
+  .review-doc-item {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .review-doc-item__files {
+    grid-column: 2 / -1;
+    justify-items: start;
+    text-align: left;
+  }
 }
 
 .terms-check {
@@ -2729,6 +2943,12 @@ input[type="range"]::-moz-range-thumb {
     border-left: none;
     border-top: 1px solid var(--border-light);
     padding-top: 0.5rem;
+  }
+
+  /* One metric per row, so there is no shared baseline to hold and the
+     reserved two-line label box is just dead space. */
+  .calc-metric-label {
+    min-height: 0;
   }
 
   .calc-header {
@@ -4716,4 +4936,435 @@ html {
   font-size: 0.85rem;
   color: var(--muted, #64748b);
   line-height: 1.5;
+}
+
+/* ----------------------------------------------------------------
+   Searchable select (combobox)
+   ---------------------------------------------------------------- */
+.searchable-select {
+  position: relative;
+}
+
+.searchable-select__input {
+  width: 100%;
+  /* Room for the caret; the native <input> this replaced had no affordance at
+     all, which is why Chrome hung its own autofill glyph there. */
+  padding-right: 2.25rem;
+}
+
+.searchable-select__caret {
+  position: absolute;
+  right: 0.9rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.searchable-select__list {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  max-height: 16rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+}
+
+.searchable-select__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 7px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: var(--text);
+}
+
+/* .is-active is keyboard OR pointer position — they share one highlight so
+   arrowing and hovering never show two different "current" rows. */
+.searchable-select__option.is-active {
+  background: var(--brand-soft);
+}
+
+.searchable-select__option.is-selected {
+  font-weight: 700;
+}
+
+.searchable-select__option.is-selected i {
+  color: var(--brand);
+  font-size: 0.75rem;
+}
+
+.searchable-select__option-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.searchable-select__empty {
+  padding: 0.65rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ----------------------------------------------------------------
+   Document upload progress (wizard step 4)
+   ---------------------------------------------------------------- */
+.doc-progress-banner {
+  background: var(--bg);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  margin: 0 0 1.25rem;
+}
+
+.doc-progress-banner--ready {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.doc-progress-banner__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.doc-progress-banner__label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.doc-progress-banner__count {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.doc-progress-banner__track,
+.upload-row__track {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.1);
+  overflow: hidden;
+}
+
+.doc-progress-banner__fill,
+.upload-row__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--brand);
+  transition: width 180ms ease-out;
+}
+
+.doc-progress-banner--ready .doc-progress-banner__fill {
+  background: var(--success, #16a34a);
+}
+
+.doc-slot__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.doc-slot__count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.doc-slot__count--short {
+  color: #b45309;
+}
+
+.upload-row {
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  padding: 0.55rem 0.75rem;
+  background: var(--surface);
+  display: grid;
+  gap: 0.35rem;
+}
+
+.upload-row--error {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.upload-row--error .upload-row__fill {
+  background: var(--danger);
+}
+
+.upload-row__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.upload-row__name {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.upload-row__name i {
+  flex: none;
+  font-size: 0.75rem;
+  color: var(--brand);
+}
+
+.upload-row--error .upload-row__name i {
+  color: var(--danger);
+}
+
+.upload-row__meta {
+  flex: none;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.upload-row__bottom {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.upload-row__size {
+  font-size: 0.72rem;
+  color: var(--muted);
+  min-width: 0;
+}
+
+.upload-row--error .upload-row__size {
+  color: var(--danger);
+}
+
+/* ----------------------------------------------------------------
+   Pre-review document check modal
+   ---------------------------------------------------------------- */
+.doc-check-card {
+  width: min(520px, 100%);
+  padding: 0;
+  gap: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.doc-check-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.doc-check-header h2 {
+  margin: 0 0 0.2rem;
+  font-size: 1.05rem;
+}
+
+.doc-check-header p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.doc-check-header__icon {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+}
+
+.doc-check-header--warn .doc-check-header__icon {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.doc-check-header--ok .doc-check-header__icon {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.doc-check-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.75rem 1.5rem;
+  display: grid;
+  gap: 0.4rem;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.doc-check-list__item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0.75rem;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.doc-check-list__label {
+  min-width: 0;
+  color: var(--text);
+}
+
+.doc-check-list__count {
+  flex: none;
+  font-weight: 700;
+  color: #b45309;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.doc-check-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border-light);
+  flex-wrap: wrap;
+}
+
+/* ----------------------------------------------------------------
+   Applications list + read-only application review
+   ---------------------------------------------------------------- */
+.app-row__name {
+  display: block;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* The short id stays available for phone calls with a loan officer, but
+   subordinate to the name now that there is a real one. */
+.app-row__ref {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.app-review__header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: none;
+  flex-wrap: wrap;
+}
+
+.app-review__notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  background: var(--bg);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.app-review__notice i {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-top: 0.15rem;
+  flex: none;
+}
+
+.app-review__body {
+  padding: 1.25rem;
+}
+
+.app-review__footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Free-text "how you'll use the funds", under the loan figures. */
+.review-purpose {
+  margin: 0.7rem 0 0;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--border-light);
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* A filename is a button in read-only mode (it opens a signed URL), so it has
+   to shed the button chrome and keep the ellipsis the span version has. */
+.review-doc-item__file--link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--brand);
+  cursor: pointer;
+  text-align: right;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-doc-item__file--link:hover {
+  text-decoration: underline;
+}
+
+.review-quote__note {
+  margin: 0.9rem 0 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(30, 64, 175, 0.18);
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .review-doc-item__file--link {
+    text-align: left;
+  }
 }

@@ -14,11 +14,11 @@ import { NumericInput } from '../components/shared/NumericInput'
 import { LoanCalculator } from '../components/shared/LoanCalculator'
 import { AddressFields, type AddressValue } from '../components/shared/AddressFields'
 import { WizardCostCard } from '../components/shared/WizardCostCard'
-import { formatRand, RATE_PROFILE_LABEL } from '../lib/loanCalc'
+import { RATE_PROFILE_LABEL } from '../lib/loanCalc'
 import { formatIndicativeRate, indicativeQuote, type IndicativeQuote } from '../lib/creditQuote'
 import { useActiveLoanProduct, useDocumentRequirements, type LoanProduct } from '../../../packages/client-core/useLoanProduct'
 import { usePublicPricingConfig } from '../../../packages/client-core/usePricingConfig'
-import { DOCUMENT_LABELS } from '../lib/requirements'
+import { DOCUMENT_LABELS, expectedFileCount } from '../lib/requirements'
 import { activeTenant } from '../../../packages/tenant-config'
 // Offered list only — the API accepts these plus the retired ones, so a client
 // profile written before 2026-07-15 still round-trips. See constraints.ts.
@@ -35,9 +35,11 @@ import {
 import { createApplicationsUseCases } from '../logic/usecases/applications'
 import { createDocumentsUseCases } from '../logic/usecases/documents'
 import { ConsentModal } from '../components/shared/ConsentModal'
+import { DocumentCheckModal, type DocumentCheckItem } from '../components/shared/DocumentCheckModal'
+import { UploadProgressRow, type ActiveUpload } from '../components/shared/UploadProgressRow'
+import { ApplicationReview, docFileName } from '../components/shared/ApplicationReview'
+import { buildReviewModelFromWizard, type DocSlot } from '../features/applications/reviewModel'
 import type { ConsentPayload } from '../features/consent/consentItems'
-
-type DocSlot = { type: string; label: string; hint: string; multiple: boolean }
 
 const STEPS = ['Business Profile', 'Financials', 'Loan Details', 'Documents', 'Review']
 
@@ -62,12 +64,6 @@ const LOAN_PURPOSES = [
   'Marine Transport',
   'Other'
 ]
-
-// Strip the "applications/<id>/<uuid>-" prefix to show the original filename.
-function docFileName(storagePath: string): string {
-  const last = storagePath.split('/').pop() ?? storagePath
-  return last.replace(/^[0-9a-fA-F-]{36}-/, '')
-}
 
 function missingDocTypes(documents: ApplicationDocument[], requiredTypes: string[]): string[] {
   return requiredTypes.filter((t) => !documents.some((d) => d.docType === t))
@@ -170,6 +166,7 @@ export function ApplyPage({ session }: ApplyPageProps) {
     label: DOCUMENT_LABELS[req.docType]?.label ?? req.docType,
     hint: DOCUMENT_LABELS[req.docType]?.hint ?? '',
     multiple: req.allowsMultiple,
+    expectedCount: expectedFileCount(req.docType),
   }))
   const requiredDocTypes = docSlots.map((s) => s.type)
 
@@ -192,8 +189,12 @@ export function ApplyPage({ session }: ApplyPageProps) {
   const [hydrating, setHydrating] = useState(true)
   const [savingDraft, setSavingDraft] = useState(false)
   const [savedTick, setSavedTick] = useState(false)
-  const [docBusy, setDocBusy] = useState(false)
   const [discarding, setDiscarding] = useState(false)
+  // In-flight uploads, keyed by a client-side id. A list rather than a single
+  // boolean: the dropzone accepts a multi-file drop, so several PUTs can be
+  // open at once and each needs its own bar.
+  const [uploads, setUploads] = useState<ActiveUpload[]>([])
+  const docBusy = uploads.some((u) => !u.error)
   // Serialize saves so rapid autosaves never race the "one active draft" index:
   // each save waits for the previous and reuses the id it established.
   const draftIdRef = useRef<string | null>(draftParam)
@@ -360,29 +361,42 @@ export function ApplyPage({ session }: ApplyPageProps) {
     return draftIdRef.current ?? (await saveProgress(state.data, state.currentStep, { silent: true }))
   }
 
+  function dismissUpload(uploadId: string) {
+    setUploads((prev) => prev.filter((u) => u.id !== uploadId))
+  }
+
   async function handleUploadDoc(docType: string, file: File) {
-    setDocBusy(true)
+    const uploadId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    setUploads((prev) => [
+      ...prev,
+      { id: uploadId, docType, fileName: file.name, size: file.size, progress: 0 },
+    ])
     try {
       const id = await ensureDraft()
       if (!id) throw new Error('Could not start your draft — please try again.')
-      await documentsUseCases.uploadDocumentFlow(id, docType, file)
+      await documentsUseCases.uploadDocumentFlow(id, docType, file, 'Uploaded', (fraction) => {
+        setUploads((prev) => prev.map((u) => (u.id === uploadId ? { ...u, progress: fraction } : u)))
+      })
       await queryClient.invalidateQueries({ queryKey: ['draft-documents', id] })
+      // Only drop the row once the persisted document is in the cache —
+      // removing it any earlier leaves a frame with neither the bar nor the
+      // uploaded file, which reads as the upload having vanished.
+      setUploads((prev) => prev.filter((u) => u.id !== uploadId))
     } catch (err) {
-      toast.push(err instanceof Error ? err.message : 'Upload failed.', 'error')
-    } finally {
-      setDocBusy(false)
+      const message = err instanceof Error ? err.message : 'Upload failed.'
+      // Kept in the list (not removed) so the failure stays attached to the
+      // slot it belongs to; a toast alone disappears before it is read.
+      setUploads((prev) => prev.map((u) => (u.id === uploadId ? { ...u, error: message } : u)))
+      toast.push(message, 'error')
     }
   }
 
   async function handleRemoveDoc(doc: ApplicationDocument) {
-    setDocBusy(true)
     try {
       await documentsUseCases.deleteDocument(doc.applicationId, doc.id)
       await queryClient.invalidateQueries({ queryKey: ['draft-documents', doc.applicationId] })
     } catch (err) {
       toast.push(err instanceof Error ? err.message : 'Could not remove the document.', 'error')
-    } finally {
-      setDocBusy(false)
     }
   }
 
@@ -575,6 +589,8 @@ export function ApplyPage({ session }: ApplyPageProps) {
               documents={documents}
               docSlots={docSlots}
               uploading={docBusy}
+              uploads={uploads}
+              onDismissUpload={dismissUpload}
               onUpload={handleUploadDoc}
               onRemove={handleRemoveDoc}
               onView={handleViewDoc}
@@ -598,6 +614,8 @@ export function ApplyPage({ session }: ApplyPageProps) {
               submitError={submitError}
               submitFieldErrors={submitFieldErrors}
               onBack={() => dispatch({ type: 'PREV' })}
+              onEditStep={(step) => dispatch({ type: 'GOTO_STEP', step })}
+              onViewDoc={handleViewDoc}
               onOpenConsent={() => {
                 setSubmitError(null)
                 setConsentOpen(true)
@@ -606,13 +624,21 @@ export function ApplyPage({ session }: ApplyPageProps) {
           )}
         </div>
 
-        <WizardCostCard
-          amount={amount}
-          term={term}
-          estimate={estimate}
-          rateLabel={rateLabel}
-          onEdit={() => dispatch({ type: 'GOTO_STEP', step: 3 })}
-        />
+        {/*
+          Deliberately absent on step 5. The review body already itemises the
+          same quote full-width, so the sticky aside was a second copy of every
+          figure — and being sticky it floated over the summary it duplicated
+          (the overlap in the reported screenshot). One number, one place.
+        */}
+        {state.currentStep < 5 && (
+          <WizardCostCard
+            amount={amount}
+            term={term}
+            estimate={estimate}
+            rateLabel={rateLabel}
+            onEdit={() => dispatch({ type: 'GOTO_STEP', step: 3 })}
+          />
+        )}
       </div>
 
       <ConsentModal
@@ -1142,6 +1168,8 @@ function Step4({
   documents,
   docSlots,
   uploading,
+  uploads,
+  onDismissUpload,
   onUpload,
   onRemove,
   onView,
@@ -1153,6 +1181,8 @@ function Step4({
   documents: ApplicationDocument[]
   docSlots: DocSlot[]
   uploading: boolean
+  uploads: ActiveUpload[]
+  onDismissUpload: (id: string) => void
   onUpload: (docType: string, file: File) => void
   onRemove: (doc: ApplicationDocument) => void
   onView: (doc: ApplicationDocument) => void
@@ -1161,16 +1191,26 @@ function Step4({
   onSaveDraft: () => void
   savingDraft: boolean
 }) {
-  const [error, setError] = useState<string | null>(null)
+  const [checkOpen, setCheckOpen] = useState(false)
 
-  function handleNext() {
-    if (missingDocTypes(documents, docSlots.map((s) => s.type)).length) {
-      setError('Please upload all required documents before continuing.')
-      return
-    }
-    setError(null)
-    onNext()
-  }
+  const missing = missingDocTypes(documents, docSlots.map((s) => s.type))
+  const uploadedCount = docSlots.length - missing.length
+  // docSlots is [] while the requirements query is in flight; without the
+  // length check "nothing missing" would be vacuously true and the button
+  // would open the review with no documents attached at all.
+  const ready = docSlots.length > 0 && missing.length === 0 && !uploading
+
+  // Slots holding fewer files than the label promises (bank statements, vendor
+  // quotations). Advisory — see expectedFileCount in lib/requirements.ts.
+  const shortfalls: DocumentCheckItem[] = docSlots
+    .filter((slot) => slot.expectedCount && slot.expectedCount > 1)
+    .map((slot) => ({
+      docType: slot.type,
+      label: slot.label,
+      uploaded: documents.filter((d) => d.docType === slot.type).length,
+      expected: slot.expectedCount as number,
+    }))
+    .filter((item) => item.uploaded < item.expected)
 
   return (
     <div className="wizard-body">
@@ -1180,12 +1220,49 @@ function Step4({
         (.doc, .docx) — images are not accepted. Files are saved to your draft as you add them.
       </p>
 
+      <div className={`doc-progress-banner${ready ? ' doc-progress-banner--ready' : ''}`}>
+        <div className="doc-progress-banner__head">
+          <span className="doc-progress-banner__label">
+            {uploading
+              ? 'Uploading…'
+              : ready
+                ? 'All required documents uploaded'
+                : `${uploadedCount} of ${docSlots.length} documents uploaded`}
+          </span>
+          <span className="doc-progress-banner__count">{uploadedCount}/{docSlots.length}</span>
+        </div>
+        <div
+          className="doc-progress-banner__track"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={docSlots.length}
+          aria-valuenow={uploadedCount}
+          aria-label="Required documents uploaded"
+        >
+          <div
+            className="doc-progress-banner__fill"
+            style={{ width: docSlots.length ? `${(uploadedCount / docSlots.length) * 100}%` : '0%' }}
+          />
+        </div>
+      </div>
+
       <div className="document-upload-grid">
         {docSlots.map((slot) => {
           const existing = documents.filter((d) => d.docType === slot.type)
+          const slotUploads = uploads.filter((u) => u.docType === slot.type)
+          const expected = slot.expectedCount
+          const short = Boolean(expected && expected > 1 && existing.length < expected)
           return (
             <div key={slot.type} className="doc-slot">
-              <label style={{ fontWeight: 600, fontSize: '0.9rem' }}>{slot.label}</label>
+              <div className="doc-slot__head">
+                <label style={{ fontWeight: 600, fontSize: '0.9rem' }}>{slot.label}</label>
+                {expected && expected > 1 ? (
+                  <span className={`doc-slot__count${short ? ' doc-slot__count--short' : ''}`}>
+                    {existing.length} of {expected}
+                  </span>
+                ) : null}
+              </div>
+
               {existing.map((doc) => (
                 <div key={doc.id} className="doc-uploaded-row">
                   <span className="doc-uploaded-name">✓ {docFileName(doc.storagePath)}</span>
@@ -1195,6 +1272,11 @@ function Step4({
                   </span>
                 </div>
               ))}
+
+              {slotUploads.map((upload) => (
+                <UploadProgressRow key={upload.id} upload={upload} onDismiss={onDismissUpload} />
+              ))}
+
               {(slot.multiple || existing.length === 0) && (
                 <FileDropzone
                   label={existing.length ? 'Add another file' : ''}
@@ -1210,14 +1292,42 @@ function Step4({
         })}
       </div>
 
-      {error ? <p className="text-error" role="alert" style={{ marginTop: '0.5rem' }}>{error}</p> : null}
-      {uploading ? <p className="muted-text" style={{ fontSize: '0.85rem' }}>Uploading…</p> : null}
-
       <div className="wizard-nav">
         <button type="button" className="btn btn-ghost" onClick={onBack}>← Back</button>
         <SaveDraftButton onClick={onSaveDraft} saving={savingDraft} />
-        <button type="button" className="btn btn-primary" onClick={handleNext}>Review Application →</button>
+        {/*
+          Disabled rather than validated-on-click: the button is the only thing
+          on this screen that says whether the set is complete, so it should
+          read as unavailable while it is not. The title carries the reason,
+          since a disabled button cannot explain itself.
+        */}
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => setCheckOpen(true)}
+          disabled={!ready}
+          title={
+            uploading
+              ? 'Waiting for uploads to finish…'
+              : missing.length
+                ? `Upload all required documents first — ${missing.length} still missing.`
+                : undefined
+          }
+        >
+          Review Application →
+        </button>
       </div>
+
+      <DocumentCheckModal
+        open={checkOpen}
+        shortfalls={shortfalls}
+        totalFiles={documents.length}
+        onClose={() => setCheckOpen(false)}
+        onProceed={() => {
+          setCheckOpen(false)
+          onNext()
+        }}
+      />
     </div>
   )
 }
@@ -1235,6 +1345,8 @@ function Step5({
   submitError,
   submitFieldErrors,
   onBack,
+  onEditStep,
+  onViewDoc,
   onOpenConsent,
 }: {
   data: WizardFormState
@@ -1246,94 +1358,37 @@ function Step5({
   submitError: string | null
   submitFieldErrors: FieldErrorItem[]
   onBack: () => void
+  onEditStep: (step: number) => void
+  onViewDoc: (doc: ApplicationDocument) => void
   onOpenConsent: () => void
 }) {
-  const { step1, step2, step3 } = data
-  const amount = step3?.requestedAmount ?? 0
-  const term = step3?.termMonths ?? 0
-  const missingDocuments = missingDocTypes(documents, docSlots.map((s) => s.type))
+  const model = buildReviewModelFromWizard(data, documents, docSlots)
+  const blocked = model.missingCount > 0
 
   return (
     <div className="wizard-body">
-      <h2>Review Your Application</h2>
-      <p>Please review all details carefully before submitting.</p>
-
-      <div className="review-grid">
-        {step1 && (
-          <div className="review-section">
-            <h3>Business Profile</h3>
-            <dl className="review-dl">
-              <div className="review-row"><dt>Business name</dt><dd>{step1.businessName}</dd></div>
-              <div className="review-row"><dt>Reg. number</dt><dd>{step1.registrationNo}</dd></div>
-              <div className="review-row"><dt>Industry</dt><dd>{step1.industry}</dd></div>
-              <div className="review-row"><dt>Province</dt><dd>{step1.province}</dd></div>
-              <div className="review-row"><dt>Location type</dt><dd>{step1.spatialType}</dd></div>
-            </dl>
-          </div>
-        )}
-
-        {step2 && (
-          <div className="review-section">
-            <h3>Financial Info</h3>
-            <dl className="review-dl">
-              <div className="review-row"><dt>Monthly revenue</dt><dd>{formatRand(step2.monthlyRevenue)}</dd></div>
-              <div className="review-row"><dt>Years operating</dt><dd>{step2.yearsInOperation}</dd></div>
-              <div className="review-row"><dt>Employees</dt><dd>{step2.numberOfEmployees}</dd></div>
-              <div className="review-row"><dt>Bank</dt><dd>{step2.bankName}</dd></div>
-            </dl>
-          </div>
-        )}
-
-        {step3 && (
-          <div className="review-section">
-            <h3>Loan Details</h3>
-            <dl className="review-dl">
-              <div className="review-row"><dt>Amount</dt><dd>{formatRand(amount)}</dd></div>
-              <div className="review-row"><dt>Term</dt><dd>{term} months</dd></div>
-              <div className="review-row"><dt>Category</dt><dd>{step3.loanPurposeCategory}</dd></div>
-            </dl>
-          </div>
-        )}
-
-        <div className="review-section">
-          <h3>Documents</h3>
-          <dl className="review-dl">
-            {docSlots.map((slot) => {
-              const files = documents.filter((d) => d.docType === slot.type)
-              const label = slot.label
-              const provided = files.length > 0
-              const value = !provided
-                ? 'Missing'
-                : slot.multiple
-                  ? `${files.length} file${files.length !== 1 ? 's' : ''}`
-                  : docFileName(files[0].storagePath)
-              return (
-                <div key={slot.type} className="review-row">
-                  <dt>{label}</dt>
-                  <dd
-                    className={provided ? 'review-doc review-doc--ok' : 'review-doc review-doc--missing'}
-                    title={provided ? files.map((f) => docFileName(f.storagePath)).join(', ') : undefined}
-                  >
-                    {provided ? <i className="fa-solid fa-circle-check" aria-hidden="true" /> : null}
-                    <span className="review-doc__text">{value}</span>
-                  </dd>
-                </div>
-              )
-            })}
-          </dl>
+      <div className="review-head">
+        <div>
+          <h2>Review Your Application</h2>
+          <p>Please review all details carefully before submitting.</p>
+        </div>
+        <div className={`review-head__status review-head__status--${blocked ? 'error' : 'ok'}`}>
+          <i className={`fa-solid ${blocked ? 'fa-circle-exclamation' : 'fa-circle-check'}`} aria-hidden="true" />
+          <span>
+            {blocked
+              ? 'Not ready to submit'
+              : `Ready to submit · ${model.docsProvided} of ${model.docsTotal} documents`}
+          </span>
         </div>
       </div>
 
-      <div className="fee-breakdown">
-        <h3>Indicative Cost Breakdown</h3>
-        <dl className="review-dl">
-          <div className="review-row"><dt>Indicative total repayable</dt><dd style={{ color: 'var(--brand)', fontWeight: 700 }}>{estimate ? formatRand(estimate.totalRepayable) : '—'}</dd></div>
-          <div className="review-row"><dt>Interest{estimate ? ` (${estimate.daysFinanced} days)` : ''}</dt><dd>{estimate ? formatRand(estimate.interest) : '—'}</dd></div>
-          <div className="review-row"><dt>Initiation fee (once-off)</dt><dd>{estimate ? formatRand(estimate.initiationFee) : '—'}</dd></div>
-          <div className="review-row"><dt>Management fee (once-off)</dt><dd>{estimate ? formatRand(estimate.managementFee) : '—'}</dd></div>
-          <div className="review-row"><dt>Lending rate</dt><dd>{rateLabel}</dd></div>
-        </dl>
-      </div>
+      <ApplicationReview
+        model={model}
+        estimate={estimate}
+        rateLabel={rateLabel}
+        onEditStep={onEditStep}
+        onViewDocument={onViewDoc}
+      />
 
       <p className="consent-notice">
         Before your application is saved and sent, you will be asked to review and acknowledge PRDF's
@@ -1347,7 +1402,7 @@ function Step5({
           ))}
         </ul>
       )}
-      {missingDocuments.length > 0 && (
+      {blocked && (
         <p className="text-error" role="alert" style={{ marginTop: '0.5rem' }}>
           Upload all required documents before submitting.
         </p>
@@ -1359,7 +1414,7 @@ function Step5({
           type="button"
           className={`btn btn-primary${submitting ? ' btn-loading' : ''}`}
           onClick={onOpenConsent}
-          disabled={submitting || missingDocuments.length > 0}
+          disabled={submitting || blocked}
         >
           {submitting ? '' : 'Submit Application'}
         </button>

@@ -16,6 +16,8 @@ import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { HomePage } from './pages/HomePage'
 import { ApplyPage } from './pages/ApplyPage'
+import { ApplicationsPage } from './pages/ApplicationsPage'
+import { ApplicationReviewPage } from './pages/ApplicationReviewPage'
 import { StatusPage } from './pages/StatusPage'
 import { DocumentsPage } from './pages/DocumentsPage'
 import { LoansPage } from './pages/LoansPage'
@@ -101,13 +103,17 @@ export function App() {
                 <Route element={<RequireClientProgress session={session as Session} />}>
                   <Route path="/home" element={<HomePage session={session as Session} me={meQuery.data!} />} />
                   <Route path="/status" element={<StatusPage session={session as Session} me={meQuery.data!} />} />
+                  {/* Guarded like /home and /status: a client with no
+                      applications at all has nothing to list, so they go
+                      straight into the wizard rather than to an empty table. */}
+                  <Route path="/applications" element={<ApplicationsPage session={session as Session} me={meQuery.data!} />} />
+                  <Route path="/applications/:id" element={<ApplicationReviewPage session={session as Session} me={meQuery.data!} />} />
                 </Route>
                 <Route path="/apply" element={<ApplyPage session={session as Session} me={meQuery.data!} />} />
                 <Route path="/documents" element={<DocumentsPage session={session as Session} me={meQuery.data!} />} />
                 <Route path="/loans" element={<LoansPage session={session as Session} />} />
                 <Route path="/loans/:id" element={<LoanDetailsPage session={session as Session} />} />
                 <Route path="/dashboard" element={<Navigate to="/home" replace />} />
-                <Route path="/applications" element={<Navigate to="/apply" replace />} />
               </Route>
             </Route>
           ) : (

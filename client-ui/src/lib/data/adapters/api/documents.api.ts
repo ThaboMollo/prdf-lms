@@ -7,16 +7,23 @@ import {
   uploadToSignedUrl,
   verifyDocument,
   type ApplicationDocument,
-  type DocumentVerificationStatus
+  type DocumentVerificationStatus,
+  type UploadProgressHandler
 } from '../../../api'
 import type { DocumentsRepository } from '../../repositories/documents.repo'
 
 export function createApiDocumentsAdapter(accessToken: string): DocumentsRepository {
   return {
     getDocuments: (applicationId: string) => listDocuments(accessToken, applicationId),
-    async uploadDocument(applicationId: string, docType: string, file: File, status?: string): Promise<ApplicationDocument> {
+    async uploadDocument(
+      applicationId: string,
+      docType: string,
+      file: File,
+      status?: string,
+      onProgress?: UploadProgressHandler
+    ): Promise<ApplicationDocument> {
       const presign = await presignUpload(accessToken, applicationId, docType, file.name, file.type)
-      await uploadToSignedUrl(presign.uploadUrl, file)
+      await uploadToSignedUrl(presign.uploadUrl, file, onProgress)
       return confirmUpload(accessToken, applicationId, docType, presign.storagePath, status)
     },
     presignUpload: (applicationId: string, docType: string, fileName: string, contentType?: string) =>

@@ -26,10 +26,48 @@ export type ApplicationSummary = {
   createdAt: string
   submittedAt: string | null
   assignedToUserId: string | null
+  // Parts of the derived loan name — see packages/domain/loanName.ts.
+  // Joined by GET /api/applications; null for a client with no profile row yet.
+  businessName?: string | null
+  applicantFullName?: string | null
 }
 
+/**
+ * The CURRENT client profile, joined onto the application.
+ *
+ * Not a snapshot: these columns live on public.clients, which the API rewrites
+ * on every draft save (patchClientProfile), so a later application changes what
+ * these say about an earlier one. Screens reviewing a submitted application
+ * read draftState first and fall back to this.
+ */
+export type ApplicationClientDetails = {
+  businessName: string | null
+  registrationNo: string | null
+  address: string | null
+  fullName: string | null
+  phone: string | null
+  employmentStatus: string | null
+  province: string | null
+  spatialType: string | null
+  industry: string | null
+  gender: string | null
+}
+
+/**
+ * Fields below `loanId` were already returned by GET /api/applications/:id
+ * (see backend-node applications.service.ts getById) but were undeclared here,
+ * so callers could not reach them without an assertion.
+ */
 export type ApplicationDetails = ApplicationSummary & {
   loanId?: string | null
+  loanProductId?: string | null
+  riskGrade?: string | null
+  lastSavedAt?: string | null
+  monthlyRevenue?: number | null
+  yearsInOperation?: number | null
+  numberOfEmployees?: number | null
+  bankName?: string | null
+  clientDetails?: ApplicationClientDetails | null
   // Draft resume fields (present on Draft rows saved by the apply wizard).
   currentStep?: number | null
   draftState?: Record<string, unknown> | null
@@ -166,6 +204,11 @@ export type LoanDetails = {
   status: LoanStatus
   disbursedAt: string | null
   createdAt: string
+  // Parts of the derived loan name, joined from the originating application
+  // so a loan reads the same here as on the Applications screens.
+  businessName?: string | null
+  applicantFullName?: string | null
+  applicationCreatedAt?: string | null
   schedule: LoanScheduleItem[]
   repayments: LoanRepaymentItem[]
 }
@@ -179,6 +222,11 @@ export type LoanSummary = {
   status: LoanStatus
   disbursedAt: string | null
   createdAt: string
+  // Parts of the derived loan name, joined from the originating application
+  // so a loan reads the same here as on the Applications screens.
+  businessName?: string | null
+  applicantFullName?: string | null
+  applicationCreatedAt?: string | null
 }
 
 export type PortfolioSummary = {
@@ -291,18 +339,53 @@ export async function presignUpload(
   return parseResponse<PresignUploadResponse>(response)
 }
 
-export async function uploadToSignedUrl(uploadUrl: string, file: File): Promise<void> {
-  const response = await fetch(uploadUrl, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': file.type || 'application/octet-stream'
-    },
-    body: file
-  })
+/** Fraction of the file sent so far, 0..1. */
+export type UploadProgressHandler = (fraction: number) => void
 
-  if (!response.ok) {
-    throw new Error(`Upload failed: ${response.status} ${response.statusText}`)
-  }
+/**
+ * XMLHttpRequest rather than fetch: fetch exposes no upload progress at all
+ * (a request ReadableStream is still not shipped everywhere, and Safari has
+ * none), and the wizard's documents step needs a real per-file bar — a
+ * three-month bank statement PDF over a mobile link is a long silence
+ * otherwise.
+ */
+export function uploadToSignedUrl(
+  uploadUrl: string,
+  file: File,
+  onProgress?: UploadProgressHandler
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest()
+    request.open('PUT', uploadUrl, true)
+    request.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+
+    request.upload.addEventListener('progress', (event) => {
+      // lengthComputable is false for chunked bodies; report nothing rather
+      // than a made-up number so the caller can fall back to indeterminate.
+      if (event.lengthComputable && event.total > 0) {
+        onProgress?.(event.loaded / event.total)
+      }
+    })
+
+    // The bytes are on the wire once upload completes, but the object is not
+    // durable until the response lands — hold the bar just short of full so
+    // "100%" and "saved" mean the same thing.
+    request.upload.addEventListener('load', () => onProgress?.(0.99))
+
+    request.addEventListener('load', () => {
+      if (request.status >= 200 && request.status < 300) {
+        onProgress?.(1)
+        resolve()
+        return
+      }
+      reject(new Error(`Upload failed: ${request.status} ${request.statusText}`))
+    })
+    request.addEventListener('error', () => reject(new Error('Upload failed: network error')))
+    request.addEventListener('abort', () => reject(new Error('Upload cancelled.')))
+    request.addEventListener('timeout', () => reject(new Error('Upload timed out.')))
+
+    request.send(file)
+  })
 }
 
 export async function confirmUpload(

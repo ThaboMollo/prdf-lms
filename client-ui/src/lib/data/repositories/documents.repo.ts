@@ -1,9 +1,20 @@
-import type { ApplicationDocument, DocumentVerificationStatus, PresignUploadResponse } from '../../api'
+import type {
+  ApplicationDocument,
+  DocumentVerificationStatus,
+  PresignUploadResponse,
+  UploadProgressHandler
+} from '../../api'
 import { createApiDocumentsAdapter } from '../adapters/api/documents.api'
 
 export type DocumentsRepository = {
   getDocuments: (applicationId: string) => Promise<ApplicationDocument[]>
-  uploadDocument: (applicationId: string, docType: string, file: File, status?: string) => Promise<ApplicationDocument>
+  uploadDocument: (
+    applicationId: string,
+    docType: string,
+    file: File,
+    status?: string,
+    onProgress?: UploadProgressHandler
+  ) => Promise<ApplicationDocument>
   presignUpload: (
     applicationId: string,
     docType: string,

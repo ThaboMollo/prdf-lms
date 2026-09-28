@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { createApplicationsUseCases } from '../../logic/usecases/applications'
 import { formatCurrency, formatDateTime } from '../../lib/format'
+import { buildLoanName } from '../../../../packages/domain/loanName'
 import { LifecycleRail } from './LifecycleRail'
 import { StatusBadge } from './StatusBadge'
 
@@ -105,7 +106,20 @@ function CaseDrawerPanel({ accessToken, openId, onClose }: CaseDrawerPanelProps)
   }, [isOpen, onClose])
 
   const detail = detailsQuery.data
-  const businessName = detail?.clientDetails?.businessName?.trim() || detail?.purpose || 'Case'
+  // The derived loan name ({business} {first name} {date}) rather than the
+  // client's business name alone: a repeat borrower has several cases under
+  // one business, and the old label made them indistinguishable in the
+  // breadcrumb and drawer header. Falls back to the business name, then the
+  // free-text purpose, exactly as before.
+  const businessName =
+    buildLoanName({
+      businessName: detail?.clientDetails?.businessName,
+      applicantFullName: detail?.clientDetails?.fullName,
+      date: detail?.createdAt,
+    }) ||
+    detail?.clientDetails?.businessName?.trim() ||
+    detail?.purpose ||
+    'Case'
   const clientName = detail?.clientDetails?.fullName?.trim()
 
   return (

@@ -16,6 +16,7 @@ import {
   type TaskItem
 } from '../lib/api'
 import { calculateDaysElapsed, formatCurrency, formatDateTime } from '../lib/format'
+import { buildLoanName } from '../../../packages/domain/loanName'
 import { paginateItems, parsePageParam } from '../lib/pagination'
 import { getPrimaryRole, toAppRoles } from '../lib/rbac'
 import { createApplicationsUseCases } from '../logic/usecases/applications'
@@ -222,7 +223,7 @@ function QueuePanel({
           const inner = (
             <>
               <div>
-                <p className="list-title">{app.purpose || `#${app.id.slice(0, 8)}`}</p>
+                <p className="list-title">{buildLoanName({ businessName: app.businessName, applicantFullName: app.applicantFullName, date: app.createdAt })}</p>
                 <small>{formatCurrency(app.requestedAmount)} · Updated {formatDateTime(app.submittedAt ?? app.createdAt)}</small>
               </div>
               <StatusBadge status={app.status} />

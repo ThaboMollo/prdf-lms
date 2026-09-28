@@ -19,6 +19,7 @@ import { createLoansUseCases } from '../logic/usecases/loans'
 import { useFormErrors, FieldError, fieldErrorAttrs, fieldDomId, type FieldErrorMap } from '../hooks/useFormErrors'
 import { NumericInput } from '../components/shared/NumericInput'
 import { formatCurrency, formatDateTime } from '../lib/format'
+import { buildLoanName } from '../../../packages/domain/loanName'
 import { listAssignableUsers } from '../lib/api'
 import type {
   ApplicationDetails,
@@ -70,7 +71,20 @@ export function CasePage({ session }: CasePageProps) {
     enabled: Boolean(id)
   })
   const detail = detailsQuery.data
-  const businessName = detail?.clientDetails?.businessName?.trim() || detail?.purpose || 'Case'
+  // The derived loan name ({business} {first name} {date}) rather than the
+  // client's business name alone: a repeat borrower has several cases under
+  // one business, and the old label made them indistinguishable in the
+  // breadcrumb and drawer header. Falls back to the business name, then the
+  // free-text purpose, exactly as before.
+  const businessName =
+    buildLoanName({
+      businessName: detail?.clientDetails?.businessName,
+      applicantFullName: detail?.clientDetails?.fullName,
+      date: detail?.createdAt,
+    }) ||
+    detail?.clientDetails?.businessName?.trim() ||
+    detail?.purpose ||
+    'Case'
 
   useSetBreadcrumbs([
     { label: 'Dashboard', to: '/dashboard' },

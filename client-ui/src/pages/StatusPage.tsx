@@ -8,6 +8,7 @@ import { StatusBadge } from '../components/shared/StatusBadge'
 import type { ApplicationSummary, MeResponse } from '../lib/api'
 import { formatCurrency, formatDateTime } from '../lib/format'
 import { createApplicationsUseCases } from '../logic/usecases/applications'
+import { buildLoanName } from '../../../packages/domain/loanName'
 import { createLoansUseCases } from '../logic/usecases/loans'
 import { MILESTONES, REPAYMENT_STATUSES, getMilestoneState } from '../../../packages/domain/milestones'
 
@@ -74,7 +75,7 @@ function ApplicationTimeline({ app, accessToken }: { app: ApplicationSummary; ac
         <div className="status-app-card-header">
           <div>
             <p className="section-eyebrow">Draft</p>
-            <h3>{app.purpose || `Application ${app.id.slice(0, 8)}`}</h3>
+            <h3>{buildLoanName({ businessName: app.businessName, applicantFullName: app.applicantFullName, date: app.createdAt })}</h3>
             <p className="muted-text">Created {formatDateTime(app.createdAt)}</p>
           </div>
           <StatusBadge status={app.status} />
@@ -96,7 +97,7 @@ function ApplicationTimeline({ app, accessToken }: { app: ApplicationSummary; ac
       <div className="status-app-card-header">
         <div>
           <p className="section-eyebrow">Application - {app.id.slice(0, 8)}</p>
-          <h3>{app.purpose || 'Loan Application'}</h3>
+          <h3>{buildLoanName({ businessName: app.businessName, applicantFullName: app.applicantFullName, date: app.createdAt })}</h3>
           <p className="muted-text">Last updated {formatDateTime(app.submittedAt ?? app.createdAt)}</p>
         </div>
         <StatusBadge status={app.status} />

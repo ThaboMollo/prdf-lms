@@ -2,6 +2,8 @@
 // generated from the same list, so a province this dropdown offers can never be
 // one the server rejects.
 import { SA_PROVINCES } from '../../../../packages/domain/constraints'
+import { COUNTRIES } from '../../../../packages/domain/countries'
+import { SearchableSelect } from './SearchableSelect'
 
 export type AddressValue = {
   addressLine1: string
@@ -74,11 +76,14 @@ export function AddressFields({ value, onChange, errors }: AddressFieldsProps) {
       <div className="address-fields__country">
         <div className="form-field">
           <label htmlFor="country">Country</label>
-          <input
+          <SearchableSelect
             id="country"
-            type="text"
+            options={COUNTRIES}
             value={value.country}
-            onChange={set('country')}
+            onChange={(country) => onChange({ ...value, country })}
+            placeholder="Search for a country…"
+            emptyLabel="No country matches that search"
+            invalid={Boolean(errors?.country)}
           />
           {errors?.country && <span className="field-error">{errors.country}</span>}
         </div>

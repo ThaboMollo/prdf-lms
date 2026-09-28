@@ -62,6 +62,9 @@ export type ApplicationSummary = {
   createdAt: string
   submittedAt: string | null
   assignedToUserId: string | null
+  // Parts of the derived loan name — see packages/domain/loanName.ts.
+  businessName?: string | null
+  applicantFullName?: string | null
 }
 
 export type ClientDetails = {
@@ -71,6 +74,10 @@ export type ClientDetails = {
   fullName: string | null
   phone: string | null
   employmentStatus: string | null
+  province: string | null
+  spatialType: string | null
+  industry: string | null
+  gender: string | null
 }
 
 export type ApplicationDetails = ApplicationSummary & {

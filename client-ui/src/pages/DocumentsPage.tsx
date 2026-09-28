@@ -13,6 +13,7 @@ import { DOCUMENT_LABELS, getDocumentLabel } from '../lib/requirements'
 import { useActiveLoanProduct, useDocumentRequirements } from '../../../packages/client-core/useLoanProduct'
 import { createApplicationsUseCases } from '../logic/usecases/applications'
 import { createDocumentsUseCases } from '../logic/usecases/documents'
+import { buildLoanName } from '../../../packages/domain/loanName'
 
 type DocumentsPageProps = {
   session: Session
@@ -110,7 +111,7 @@ export function DocumentsPage({ session }: DocumentsPageProps) {
             <select value={effectiveAppId ?? ''} onChange={(e) => setSelectedAppId(e.target.value)}>
               {apps.map((app) => (
                 <option key={app.id} value={app.id}>
-                  {app.purpose || `Application ${app.id.slice(0, 8)}`} • {formatDateTime(app.createdAt)}
+                  {buildLoanName({ businessName: app.businessName, applicantFullName: app.applicantFullName, date: app.createdAt })}
                 </option>
               ))}
             </select>

@@ -7,6 +7,7 @@ import { EmptyState } from '../components/shared/EmptyState'
 import { PageHeader } from '../components/shared/PageHeader'
 import { StatusBadge } from '../components/shared/StatusBadge'
 import { formatCurrency, formatDateTime } from '../lib/format'
+import { buildLoanName } from '../../../packages/domain/loanName'
 
 type LoanDetailsPageProps = {
   session: Session
@@ -29,7 +30,15 @@ export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
   return (
     <section className="stack">
       <PageHeader
-        title="Loan Account"
+        title={
+          loanQuery.data
+            ? buildLoanName({
+                businessName: loanQuery.data.businessName,
+                applicantFullName: loanQuery.data.applicantFullName,
+                date: loanQuery.data.applicationCreatedAt ?? loanQuery.data.createdAt,
+              })
+            : 'Loan Account'
+        }
         subtitle="View loan status, repayment schedule, and repayment history."
         actions={<Link to="/loans" className="btn btn-secondary">Back to My Loans</Link>}
       />

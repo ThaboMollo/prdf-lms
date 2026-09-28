@@ -9,7 +9,7 @@
  * inline array — each with different label text. There is exactly one
  * label per doc_type now.
  */
-export const DOCUMENT_LABELS: Record<string, { label: string; hint: string }> = {
+export const DOCUMENT_LABELS: Record<string, { label: string; hint: string; expectedCount?: number }> = {
   IDDocument: {
     label: 'ID Document',
     hint: 'Certified copy of the director or applicant identity document',
@@ -29,6 +29,7 @@ export const DOCUMENT_LABELS: Record<string, { label: string; hint: string }> = 
   BankStatement: {
     label: 'Bank Statements (last 3 months)',
     hint: 'Upload 3 months of business bank statements',
+    expectedCount: 3,
   },
   Financials: {
     label: 'Financial Statements',
@@ -37,6 +38,7 @@ export const DOCUMENT_LABELS: Record<string, { label: string; hint: string }> = 
   VendorQuotation: {
     label: 'Vendor Quotations (3x)',
     hint: 'Three vendor quotations for the goods or services to be funded',
+    expectedCount: 3,
   },
   RfqSupplierSpec: {
     label: 'Central Supplier Database (CSD) Reports',
@@ -54,4 +56,17 @@ export const DOCUMENT_LABELS: Record<string, { label: string; hint: string }> = 
 
 export function getDocumentLabel(docType: string): string {
   return DOCUMENT_LABELS[docType]?.label ?? docType
+}
+
+/**
+ * How many files a multi-file slot is expected to hold.
+ *
+ * Advisory, not a rule: `document_requirements.allows_multiple` is a boolean,
+ * so the database cannot express "three of these". A short count therefore
+ * warns on the way to Review rather than blocking submission — an applicant
+ * whose bank consolidates three months into one PDF is not in breach, and
+ * hard-blocking them would be wrong. Undefined means "one file is enough".
+ */
+export function expectedFileCount(docType: string): number | undefined {
+  return DOCUMENT_LABELS[docType]?.expectedCount
 }

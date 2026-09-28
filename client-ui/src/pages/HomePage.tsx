@@ -9,6 +9,7 @@ import { KPIStatCard } from '../components/shared/KPIStatCard'
 import type { ApplicationSummary, MeResponse } from '../lib/api'
 import { formatDateTime } from '../lib/format'
 import { createApplicationsUseCases } from '../logic/usecases/applications'
+import { buildLoanName } from '../../../packages/domain/loanName'
 
 type HomePageProps = {
   session: Session
@@ -149,7 +150,7 @@ function ActiveApplicationCard({
       <div className="active-loan-card-header">
         <div>
           <p className="section-eyebrow">Active Application</p>
-          <h2>{app.purpose || 'Loan Application'}</h2>
+          <h2>{buildLoanName({ businessName: app.businessName, applicantFullName: app.applicantFullName, date: app.createdAt })}</h2>
           <p>{statusMessages[app.status] ?? 'Application in progress.'}</p>
         </div>
         <StatusBadge status={app.status} />
@@ -193,7 +194,7 @@ function RecentActivity({ applications }: { applications: ApplicationSummary[] }
           <tbody>
             {applications.map((app) => (
               <tr key={app.id}>
-                <td>{app.purpose || `Application ${app.id.slice(0, 8)}`}</td>
+                <td>{buildLoanName({ businessName: app.businessName, applicantFullName: app.applicantFullName, date: app.createdAt })}</td>
                 <td>{formatDateTime(app.submittedAt ?? app.createdAt)}</td>
                 <td>{app.requestedAmount ? `R ${app.requestedAmount.toLocaleString('en-ZA')}` : '-'}</td>
                 <td><StatusBadge status={app.status} /></td>

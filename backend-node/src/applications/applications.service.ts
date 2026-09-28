@@ -192,7 +192,18 @@ export class ApplicationsService {
                 'address', c.address,
                 'fullName', p.full_name,
                 'phone', p.phone,
-                'employmentStatus', c.employment_status
+                'employmentStatus', c.employment_status,
+                -- Added for the client-facing read-only review. Additive: the
+                -- admin UI reads only the keys it declares in its own
+                -- ClientDetails type, so widening this object cannot break it.
+                -- Note these live on clients, which patchClientProfile rewrites
+                -- on every draft save — so they are the CURRENT profile, not a
+                -- snapshot. The review screen prefers draft_state for exactly
+                -- that reason and uses these only as a fallback.
+                'province', c.province,
+                'spatialType', c.spatial_type,
+                'industry', c.industry,
+                'gender', c.gender
               ) as "clientDetails"
        from public.loan_applications la
        join public.clients c on c.id = la.client_id
@@ -461,7 +472,14 @@ export class ApplicationsService {
 
   async list(actor: CurrentUser) {
     const roles = await fetchUserRoles(this.db, actor.userId);
-    let sql = `select la.id, la.client_id as "clientId", la.requested_amount::float8 as "requestedAmount", la.term_months as "termMonths", la.purpose, la.status, la.created_at as "createdAt", la.submitted_at as "submittedAt", la.assigned_to_user_id as "assignedToUserId" from public.loan_applications la join public.clients c on c.id = la.client_id`;
+    // business_name / full_name are joined for the derived loan name
+    // ({business} {first name} {date} — see packages/domain/loanName.ts). The
+    // list previously carried neither, so every list screen fell back to
+    // rendering `purpose`, i.e. whatever free text the applicant typed.
+    // left join on profiles: an assisted client invited by staff has a
+    // clients row before it has a profile, and an inner join would drop
+    // their applications from the list entirely.
+    let sql = `select la.id, la.client_id as "clientId", la.requested_amount::float8 as "requestedAmount", la.term_months as "termMonths", la.purpose, la.status, la.created_at as "createdAt", la.submitted_at as "submittedAt", la.assigned_to_user_id as "assignedToUserId", c.business_name as "businessName", p.full_name as "applicantFullName" from public.loan_applications la join public.clients c on c.id = la.client_id left join public.profiles p on p.user_id = c.user_id`;
     let params: any[] = [];
 
     if (isStaff(roles)) {

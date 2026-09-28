@@ -27,10 +27,13 @@ export class LoansService {
     let sql = `select l.id, l.application_id as "applicationId", l.principal_amount::float8 as "principalAmount",
                       l.outstanding_principal::float8 as "outstandingPrincipal", l.interest_rate::float8 as "interestRate",
                       l.term_months as "termMonths", l.status, l.disbursed_at as "disbursedAt", l.created_at as "createdAt",
-                      c.business_name as "businessName"
+                      c.business_name as "businessName",
+                      p.full_name as "applicantFullName",
+                      la.created_at as "applicationCreatedAt"
                from public.loans l
                join public.loan_applications la on la.id = l.application_id
-               join public.clients c on c.id = la.client_id`;
+               join public.clients c on c.id = la.client_id
+               left join public.profiles p on p.user_id = c.user_id`;
     let params: any[] = [];
 
     if (isStaff(roles)) {
@@ -48,14 +51,24 @@ export class LoansService {
   }
 
   private async getLoanDetails(loanId: string) {
+    // A loan is named after the application it came from, so the detail view
+    // agrees with the list and with the applications screens
+    // (packages/domain/loanName.ts). Joined rather than stored for the same
+    // reason the name is derived everywhere else.
     const loan = await this.db.queryOne(
-      `select id, application_id as "applicationId", principal_amount::float8 as "principalAmount",
-              outstanding_principal::float8 as "outstandingPrincipal", interest_rate::float8 as "interestRate",
-              term_months as "termMonths", status, disbursed_at as "disbursedAt", created_at as "createdAt",
-              risk_grade as "riskGrade", days_financed as "daysFinanced",
-              initiation_fee::float8 as "initiationFee", management_fee::float8 as "managementFee",
-              net_advance::float8 as "netAdvance"
-         from public.loans where id=$1`,
+      `select l.id, l.application_id as "applicationId", l.principal_amount::float8 as "principalAmount",
+              l.outstanding_principal::float8 as "outstandingPrincipal", l.interest_rate::float8 as "interestRate",
+              l.term_months as "termMonths", l.status, l.disbursed_at as "disbursedAt", l.created_at as "createdAt",
+              l.risk_grade as "riskGrade", l.days_financed as "daysFinanced",
+              l.initiation_fee::float8 as "initiationFee", l.management_fee::float8 as "managementFee",
+              l.net_advance::float8 as "netAdvance",
+              c.business_name as "businessName", p.full_name as "applicantFullName",
+              la.created_at as "applicationCreatedAt"
+         from public.loans l
+         join public.loan_applications la on la.id = l.application_id
+         join public.clients c on c.id = la.client_id
+         left join public.profiles p on p.user_id = c.user_id
+        where l.id=$1`,
       [loanId],
     );
     if (!loan) return null;

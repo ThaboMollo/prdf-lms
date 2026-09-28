@@ -8,6 +8,7 @@ import { PageHeader } from '../components/shared/PageHeader'
 import { StatusBadge } from '../components/shared/StatusBadge'
 import { CardSkeleton } from '../components/shared/Skeletons'
 import { formatCurrency, formatDate } from '../lib/format'
+import { buildLoanName } from '../../../packages/domain/loanName'
 
 type LoansPageProps = {
   session: Session
@@ -39,11 +40,21 @@ export function LoansPage({ session }: LoansPageProps) {
         <div className="card table-wrap">
           <table>
             <thead>
-              <tr><th>Status</th><th>Principal</th><th>Outstanding</th><th>Term</th><th>Disbursed</th><th /></tr>
+              <tr><th>Loan</th><th>Status</th><th>Principal</th><th>Outstanding</th><th>Term</th><th>Disbursed</th><th /></tr>
             </thead>
             <tbody>
               {loansQuery.data.map((loan) => (
                 <tr key={loan.id}>
+                  <td>
+                    <span className="app-row__name">
+                      {buildLoanName({
+                        businessName: loan.businessName,
+                        applicantFullName: loan.applicantFullName,
+                        date: loan.applicationCreatedAt ?? loan.createdAt,
+                      })}
+                    </span>
+                    <span className="app-row__ref">#{loan.id.slice(0, 8)}</span>
+                  </td>
                   <td><StatusBadge status={loan.status} /></td>
                   <td>{formatCurrency(loan.principalAmount)}</td>
                   <td>{formatCurrency(loan.outstandingPrincipal)}</td>
