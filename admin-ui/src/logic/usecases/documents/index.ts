@@ -1,4 +1,5 @@
 import { createDocumentsRepository } from '../../../lib/data/repositories/documents.repo'
+import type { CreateDocumentRequestInput } from '../../../lib/api'
 
 export function createDocumentsUseCases(accessToken: string) {
   const repository = createDocumentsRepository(accessToken)
@@ -15,6 +16,11 @@ export function createDocumentsUseCases(accessToken: string) {
     verifyDocument: (applicationId: string, documentId: string, note?: string) =>
       repository.verifyDocument(applicationId, documentId, 'Verified', note),
     rejectDocument: (applicationId: string, documentId: string, note?: string) =>
-      repository.verifyDocument(applicationId, documentId, 'Rejected', note)
+      repository.verifyDocument(applicationId, documentId, 'Rejected', note),
+    getDocumentRequests: (applicationId: string) => repository.getDocumentRequests(applicationId),
+    requestDocument: (applicationId: string, input: CreateDocumentRequestInput) =>
+      repository.createDocumentRequest(applicationId, input),
+    cancelDocumentRequest: (applicationId: string, requestId: string) =>
+      repository.cancelDocumentRequest(applicationId, requestId)
   }
 }

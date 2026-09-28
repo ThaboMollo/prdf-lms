@@ -288,6 +288,117 @@ select pg_temp.check_error_unlike(
 commit;
 
 -- =============================================================================
+-- Document requests (admin-requested documents)
+--
+-- The applicant must see and be able to answer an ask raised against their own
+-- application, and must see nothing of anyone else's. The request's definition
+-- is the reviewer's: an applicant who could rewrite doc_type or details could
+-- quietly turn "we need your tax clearance" into something already on file.
+-- =============================================================================
+-- The positive case, first: a suite of "nobody may do this" assertions passes
+-- just as happily against a policy that blocks the reviewer too, which would
+-- mean the feature does not work at all.
+begin;
+select public.test_login('bbbbbbbb-0000-0000-0000-000000000001');  -- loan officer
+select pg_temp.check_error_unlike(
+  'reviewer CAN raise a document request',
+  $sql$insert into public.document_requests
+         (id, application_id, doc_type, details, file_type, status, requested_by)
+       values ('c0000000-0000-0000-0000-00000000000c',
+               'eeeeeeee-0000-0000-0000-000000000001', 'BankStatement',
+               'Three most recent months.', 'pdf', 'Pending',
+               'bbbbbbbb-0000-0000-0000-000000000001')$sql$,
+  '%row-level security%'
+);
+commit;
+
+begin;
+select public.test_login('aaaaaaaa-0000-0000-0000-000000000001');  -- Alice
+
+select pg_temp.check_that(
+  'applicant sees the document request raised on their own application',
+  (select count(*) = 1 from public.document_requests
+    where id = 'a0000000-0000-0000-0000-00000000000a'),
+  (select format('saw %s, expected 1', count(*)) from public.document_requests
+    where id = 'a0000000-0000-0000-0000-00000000000a')
+);
+
+select pg_temp.check_that(
+  'applicant cannot see a document request on another client''s application',
+  (select count(*) = 0 from public.document_requests
+    where id = 'b0000000-0000-0000-0000-00000000000b'),
+  (select format('saw %s, expected 0', count(*)) from public.document_requests
+    where id = 'b0000000-0000-0000-0000-00000000000b')
+);
+commit;
+
+-- An applicant raising their own request would let them satisfy a reviewer's
+-- checklist with an ask they wrote themselves.
+begin;
+select public.test_login('aaaaaaaa-0000-0000-0000-000000000001');  -- Alice
+select pg_temp.check_blocked(
+  'applicant cannot raise a document request',
+  $sql$insert into public.document_requests
+         (application_id, doc_type, details, file_type, status, requested_by)
+       values ('eeeeeeee-0000-0000-0000-000000000001', 'BankStatement', 'self-raised', 'pdf', 'Pending',
+               'aaaaaaaa-0000-0000-0000-000000000001')$sql$
+);
+commit;
+
+-- The applicant DOES hold UPDATE on their own requests — fulfilment is recorded
+-- under their JWT — so the definition is pinned by trigger, not by the policy.
+begin;
+select public.test_login('aaaaaaaa-0000-0000-0000-000000000001');  -- Alice
+select pg_temp.check_blocked(
+  'applicant cannot rewrite what was asked for',
+  $sql$update public.document_requests set doc_type = 'IDDocument'
+        where id = 'a0000000-0000-0000-0000-00000000000a'$sql$
+);
+commit;
+
+begin;
+select public.test_login('aaaaaaaa-0000-0000-0000-000000000001');  -- Alice
+select pg_temp.check_error_unlike(
+  'applicant CAN mark their own request fulfilled',
+  $sql$update public.document_requests
+          set status = 'Fulfilled',
+              fulfilled_document_id = 'ffffffff-0000-0000-0000-000000000001',
+              fulfilled_at = now()
+        where id = 'a0000000-0000-0000-0000-00000000000a'$sql$,
+  '%can only be changed%'
+);
+commit;
+
+-- Deleting the document that answered a request must reopen it, not leave it
+-- reading Fulfilled with nothing behind it. Alice may delete her own draft's
+-- document, which is exactly the path that triggers this.
+begin;
+select public.test_login('aaaaaaaa-0000-0000-0000-000000000001');  -- Alice
+delete from public.loan_documents where id = 'ffffffff-0000-0000-0000-000000000001';
+select pg_temp.check_that(
+  'deleting the fulfilling document reopens the request',
+  (select status = 'Pending' and fulfilled_document_id is null and fulfilled_at is null
+     from public.document_requests where id = 'a0000000-0000-0000-0000-00000000000a'),
+  (select format('status=%s, doc=%s', status, coalesce(fulfilled_document_id::text, 'null'))
+     from public.document_requests where id = 'a0000000-0000-0000-0000-00000000000a')
+);
+
+-- Rolling back here would also discard the recorded result (see the
+-- transaction-discipline note at the top), so the fixture document is put back
+-- explicitly instead — Alice may insert on her own draft, which is the same
+-- path that created it.
+insert into public.loan_documents
+  (id, application_id, doc_type, storage_path, status, uploaded_by)
+values
+  ('ffffffff-0000-0000-0000-000000000001',
+   'eeeeeeee-0000-0000-0000-000000000001',
+   'ID_DOCUMENT',
+   'applications/eeeeeeee-0000-0000-0000-000000000001/id.pdf',
+   'Pending',
+   'aaaaaaaa-0000-0000-0000-000000000001');
+commit;
+
+-- =============================================================================
 -- Report
 -- =============================================================================
 \echo ''
@@ -317,7 +428,7 @@ do $$
 declare
   n_failed int;
   n_total  int;
-  n_min    int := 16;
+  n_min    int := 25;
 begin
   select count(*) filter (where not passed), count(*)
     into n_failed, n_total

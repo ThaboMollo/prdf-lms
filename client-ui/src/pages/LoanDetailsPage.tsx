@@ -6,7 +6,7 @@ import { createLoansUseCases } from '../logic/usecases/loans'
 import { EmptyState } from '../components/shared/EmptyState'
 import { PageHeader } from '../components/shared/PageHeader'
 import { StatusBadge } from '../components/shared/StatusBadge'
-import { formatCurrency, formatDateTime } from '../lib/format'
+import { formatCurrency, formatDate, formatDateTime } from '../lib/format'
 import { buildLoanName } from '../../../packages/domain/loanName'
 
 type LoanDetailsPageProps = {
@@ -93,7 +93,7 @@ export function LoanDetailsPage({ session }: LoanDetailsPageProps) {
                   {loanQuery.data.schedule.map((item) => (
                     <tr key={item.id}>
                       <td>{item.installmentNo}</td>
-                      <td>{item.dueDate}</td>
+                      <td>{formatDate(item.dueDate)}</td>
                       <td>{formatCurrency(item.dueTotal)}</td>
                       <td>{formatCurrency(item.paidAmount)}</td>
                       <td>{item.status}</td>

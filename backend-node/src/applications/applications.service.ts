@@ -13,6 +13,7 @@ import { currentTenant } from '../tenancy/request-context';
 import { LIMITS } from '../common/generated-constraints';
 import { ConflictError, NotFoundError, PermissionError, ValidationError } from '../common/errors';
 import { PricingService } from '../pricing/pricing.service';
+import { DocumentsService } from '../documents/documents.service';
 import { RiskGrade } from '../common/pricing';
 
 // Keep in sync with packages/domain/status.ts and the DB trigger
@@ -67,6 +68,7 @@ export class ApplicationsService {
     private readonly db: DatabaseService,
     private readonly loanProducts: LoanProductsService,
     private readonly pricing: PricingService,
+    private readonly documents: DocumentsService,
   ) {}
 
   private async getSecurityProjection(applicationId: string): Promise<SecurityProjection | null> {
@@ -744,7 +746,11 @@ export class ApplicationsService {
     return { bucket: 'loan-documents', storagePath, uploadUrl, expiresInSeconds: 7200 };
   }
 
-  async confirmUpload(actor: CurrentUser, applicationId: string, body: { docType: string; storagePath: string; status?: string }) {
+  async confirmUpload(
+    actor: CurrentUser,
+    applicationId: string,
+    body: { docType: string; storagePath: string; status?: string; documentRequestId?: string },
+  ) {
     const roles = await fetchUserRoles(this.db, actor.userId);
     const proj = await this.getSecurityProjection(applicationId);
     if (!proj) return null;
@@ -767,6 +773,13 @@ export class ApplicationsService {
       `insert into public.audit_log (id, entity, entity_id, action, actor_user_id, at, metadata) values ($1,'loan_documents',$2,'ConfirmDocumentUpload',$3,now(),$4::jsonb)`,
       [randomUUID(), docId, actor.userId, JSON.stringify({ docType: body.docType, storagePath: body.storagePath })],
     );
+    // Same request, same RLS transaction as the insert above: if linking fails
+    // the document row rolls back with it, rather than leaving the applicant
+    // with an upload recorded against a request that still reads outstanding.
+    if (body.documentRequestId) {
+      await this.documents.fulfilRequest(applicationId, body.documentRequestId, docId);
+    }
+
     return this.db.queryOne(
       `select id, application_id as "applicationId", doc_type as "docType", storage_path as "storagePath", status, uploaded_by as "uploadedBy", uploaded_at as "uploadedAt" from public.loan_documents where id=$1`,
       [docId],

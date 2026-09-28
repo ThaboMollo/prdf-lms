@@ -1327,6 +1327,57 @@ tbody tr:nth-child(even):hover {
   gap: 0.6rem;
 }
 
+/* ----------------------------------------------------------------
+   Document requests (reviewer side)
+   ---------------------------------------------------------------- */
+.doc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.doc-head .helper-text {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+/* Marks a chip the applicant still owes us, so an outstanding ask is legible
+   in the picker without opening it. */
+.doc-chip__tag {
+  flex: none;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--warning);
+  color: #1b1200;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* The reviewer's own words, played back. Quoted rather than restyled as body
+   copy so it reads as the instruction that was sent, not as UI chrome. */
+.doc-request__details {
+  margin: 0;
+  padding: 0.5rem 0.7rem;
+  border-left: 3px solid var(--brand);
+  background: var(--brand-tint);
+  border-radius: 0 6px 6px 0;
+  font-size: 0.88rem;
+  white-space: pre-wrap;
+}
+
+.request-doc-card {
+  width: min(520px, 100%);
+}
+
+.request-doc-card textarea {
+  resize: vertical;
+  font: inherit;
+}
+
 /* Full-screen reader */
 .doc-lightbox {
   position: fixed;
@@ -1601,8 +1652,20 @@ tbody tr:nth-child(even):hover {
 .notif-popover {
   position: absolute;
   right: 0;
+  /* Above the sticky page content the topbar overlays (.topbar is z-index 5),
+     or the popover renders behind the first card on the page. */
+  z-index: 60;
   width: min(340px, 90vw);
+  max-height: min(70vh, 480px);
+  overflow-y: auto;
   background: var(--surface);
+  /* The topbar sets color:#fff for its own contents, and that inherits into
+     this panel — which sits on --surface (white). Every notification's title
+     and message rendered white-on-white and was invisible; only the "Mark
+     read" link, which carries its own colour, showed. Re-assert the text
+     colours here rather than unsetting them on .topbar, so the popover reads
+     correctly whatever the topbar is themed to. */
+  color: var(--text);
   border: 1px solid var(--border-light);
   border-radius: 10px;
   box-shadow: var(--shadow);
@@ -1620,7 +1683,6 @@ tbody tr:nth-child(even):hover {
 
 .notif-popover li {
   border-bottom: 1px solid var(--notif-border);
-  padding-bottom: 0.4rem;
 }
 
 .notif-popover li:last-child {
@@ -1631,6 +1693,30 @@ tbody tr:nth-child(even):hover {
 .notif-popover small {
   margin: 0;
   display: block;
+  color: var(--text);
+}
+
+.notif-popover li > p {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.notif-popover li > small {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  margin-top: 0.1rem;
+}
+
+.notif-popover li {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.45rem 0.1rem 0.5rem;
+}
+
+.notif-popover .link-btn {
+  justify-self: start;
+  margin-top: 0.2rem;
 }
 
 /* ----------------------------------------------------------------

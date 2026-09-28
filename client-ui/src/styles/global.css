@@ -1052,6 +1052,107 @@ tbody tr:nth-child(even):hover {
 }
 
 /* ----------------------------------------------------------------
+   Requested documents (applicant side)
+
+   Sits inside a status card and has to read as an interruption — this is the
+   one thing on the page the applicant must act on — without shouting over the
+   milestone timeline above it. Warning-tinted left rule rather than a full
+   alert panel.
+   ---------------------------------------------------------------- */
+.doc-request-panel {
+  margin-top: 1rem;
+  border: 1px solid var(--warning);
+  border-left-width: 4px;
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.doc-request-panel__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.doc-request-panel__head i {
+  color: var(--warning);
+  font-size: 1.1rem;
+  margin-top: 0.15rem;
+}
+
+.doc-request-panel__head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.doc-request-panel__head p {
+  margin: 0.2rem 0 0;
+  font-size: 0.88rem;
+}
+
+.doc-request-item + .doc-request-item {
+  border-top: 1px solid var(--border-light);
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+}
+
+/* A whole-row button, so the entire request is the target — the instruction
+   says "click the notification", not "find the small link in it". */
+.doc-request-item__summary {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4rem 0;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.doc-request-item__summary:hover .list-title {
+  text-decoration: underline;
+}
+
+.doc-request-item__summary:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.doc-request-item__text {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.doc-request-item__type {
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* The reviewer's own words, played back verbatim. */
+.doc-request-item__details {
+  font-size: 0.87rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  color: var(--text);
+}
+
+.doc-request-item__upload {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.5rem 0 0.25rem;
+}
+
+/* ----------------------------------------------------------------
    Phase 3D: Dropzone (with active feedback)
    ---------------------------------------------------------------- */
 .dropzone {
@@ -1141,8 +1242,20 @@ tbody tr:nth-child(even):hover {
 .notif-popover {
   position: absolute;
   right: 0;
+  /* Above the sticky page content the topbar overlays (.topbar is z-index 5),
+     or the popover renders behind the first card on the page. */
+  z-index: 60;
   width: min(340px, 90vw);
+  max-height: min(70vh, 480px);
+  overflow-y: auto;
   background: var(--surface);
+  /* The topbar sets color:#fff for its own contents, and that inherits into
+     this panel — which sits on --surface (white). Every notification's title
+     and message rendered white-on-white and was invisible; only the "Mark
+     read" link, which carries its own colour, showed. Re-assert the text
+     colours here rather than unsetting them on .topbar, so the popover reads
+     correctly whatever the topbar is themed to. */
+  color: var(--text);
   border: 1px solid var(--border-light);
   border-radius: 10px;
   box-shadow: var(--shadow);
@@ -1160,7 +1273,6 @@ tbody tr:nth-child(even):hover {
 
 .notif-popover li {
   border-bottom: 1px solid var(--notif-border);
-  padding-bottom: 0.4rem;
 }
 
 .notif-popover li:last-child {
@@ -1171,6 +1283,30 @@ tbody tr:nth-child(even):hover {
 .notif-popover small {
   margin: 0;
   display: block;
+  color: var(--text);
+}
+
+.notif-popover li > p {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.notif-popover li > small {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  margin-top: 0.1rem;
+}
+
+.notif-popover li {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.45rem 0.1rem 0.5rem;
+}
+
+.notif-popover .link-btn {
+  justify-self: start;
+  margin-top: 0.2rem;
 }
 
 /* ----------------------------------------------------------------

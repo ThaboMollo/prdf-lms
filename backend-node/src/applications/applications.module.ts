@@ -4,9 +4,10 @@ import { ApplicationsService } from './applications.service';
 import { AuthModule } from '../auth/auth.module';
 import { LoanProductsModule } from '../loan-products/loan-products.module';
 import { PricingModule } from '../pricing/pricing.module';
+import { DocumentsModule } from '../documents/documents.module';
 
 @Module({
-  imports: [AuthModule, LoanProductsModule, PricingModule],
+  imports: [AuthModule, LoanProductsModule, PricingModule, DocumentsModule],
   controllers: [ApplicationsController],
   providers: [ApplicationsService],
 })

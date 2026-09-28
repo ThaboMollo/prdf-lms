@@ -1,11 +1,15 @@
 import {
+  cancelDocumentRequest,
   confirmUpload,
+  createDocumentRequest,
+  listDocumentRequests,
   getDocumentUrl,
   listDocuments,
   presignUpload,
   uploadToSignedUrl,
   verifyDocument,
   type ApplicationDocument,
+  type CreateDocumentRequestInput,
   type DocumentVerificationStatus
 } from '../../../api'
 import type { DocumentsRepository } from '../../repositories/documents.repo'
@@ -24,6 +28,11 @@ export function createApiDocumentsAdapter(accessToken: string): DocumentsReposit
     confirmUpload: (applicationId: string, docType: string, storagePath: string, status?: string) =>
       confirmUpload(accessToken, applicationId, docType, storagePath, status),
     verifyDocument: (applicationId: string, documentId: string, status: DocumentVerificationStatus, note?: string) =>
-      verifyDocument(accessToken, applicationId, documentId, status, note)
+      verifyDocument(accessToken, applicationId, documentId, status, note),
+    getDocumentRequests: (applicationId: string) => listDocumentRequests(accessToken, applicationId),
+    createDocumentRequest: (applicationId: string, input: CreateDocumentRequestInput) =>
+      createDocumentRequest(accessToken, applicationId, input),
+    cancelDocumentRequest: (applicationId: string, requestId: string) =>
+      cancelDocumentRequest(accessToken, applicationId, requestId)
   }
 }

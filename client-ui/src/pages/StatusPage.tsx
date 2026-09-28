@@ -4,9 +4,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { EmptyState } from '../components/shared/EmptyState'
 import { ListSkeleton } from '../components/shared/Skeletons'
+import { RequestedDocuments } from '../components/shared/RequestedDocuments'
 import { StatusBadge } from '../components/shared/StatusBadge'
 import type { ApplicationSummary, MeResponse } from '../lib/api'
-import { formatCurrency, formatDateTime } from '../lib/format'
+import { formatCurrency, formatDate, formatDateTime } from '../lib/format'
 import { createApplicationsUseCases } from '../logic/usecases/applications'
 import { buildLoanName } from '../../../packages/domain/loanName'
 import { createLoansUseCases } from '../logic/usecases/loans'
@@ -152,6 +153,12 @@ function ApplicationTimeline({ app, accessToken }: { app: ApplicationSummary; ac
         </div>
       ) : null}
 
+      {/* Outstanding asks render their own upload slots, and nothing at all
+          when there are none. Deliberately not gated on InfoRequested: a
+          reviewer can ask for a document without moving the application's
+          status, and an ask the applicant cannot see never gets answered. */}
+      <RequestedDocuments applicationId={app.id} accessToken={accessToken} />
+
       {REPAYMENT_STATUSES.has(app.status) ? (
         <RepaymentSection appId={app.id} accessToken={accessToken} />
       ) : null}
@@ -204,7 +211,7 @@ function RepaymentSection({ appId, accessToken }: { appId: string; accessToken: 
               <div className="repayment-kpi">
                 <span className="repayment-kpi-label">Next Instalment Due</span>
                 <span className="repayment-kpi-value">{formatCurrency(nextInstalment.dueTotal)}</span>
-                <span className="repayment-kpi-sub">{nextInstalment.dueDate}</span>
+                <span className="repayment-kpi-sub">{formatDate(nextInstalment.dueDate)}</span>
               </div>
             ) : (
               <div className="repayment-kpi">
@@ -243,7 +250,7 @@ function RepaymentSection({ appId, accessToken }: { appId: string; accessToken: 
                   {loan.schedule.map((item) => (
                     <tr key={item.id}>
                       <td>{item.installmentNo}</td>
-                      <td>{item.dueDate}</td>
+                      <td>{formatDate(item.dueDate)}</td>
                       <td>{formatCurrency(item.dueTotal)}</td>
                       <td>{formatCurrency(item.paidAmount)}</td>
                       <td>{item.status}</td>

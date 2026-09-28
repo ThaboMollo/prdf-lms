@@ -73,7 +73,7 @@ export class LoansService {
     );
     if (!loan) return null;
     const schedule = await this.db.query(
-      `select id, installment_no as "installmentNo", due_date as "dueDate", due_principal::float8 as "duePrincipal", due_interest::float8 as "dueInterest", due_total::float8 as "dueTotal", paid_amount::float8 as "paidAmount", status, paid_at as "paidAt" from public.repayment_schedule where loan_id=$1 order by installment_no asc`,
+      `select id, installment_no as "installmentNo", due_date::text as "dueDate", due_principal::float8 as "duePrincipal", due_interest::float8 as "dueInterest", due_total::float8 as "dueTotal", paid_amount::float8 as "paidAmount", status, paid_at as "paidAt" from public.repayment_schedule where loan_id=$1 order by installment_no asc`,
       [loanId],
     );
     const repayments = await this.db.query(

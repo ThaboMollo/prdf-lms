@@ -1,5 +1,6 @@
 import type {
   ApplicationDocument,
+  DocumentRequest,
   DocumentVerificationStatus,
   PresignUploadResponse,
   UploadProgressHandler
@@ -37,6 +38,20 @@ export type DocumentsRepository = {
   deleteDocument: (applicationId: string, documentId: string) => Promise<void>
   // A short-lived signed URL for viewing/downloading a stored document.
   createSignedUrl: (applicationId: string, documentId: string) => Promise<string>
+  // Documents a reviewer has asked this applicant for, outstanding or not.
+  getDocumentRequests: (applicationId: string) => Promise<DocumentRequest[]>
+  /**
+   * Upload against a specific request. Separate from uploadDocument rather than
+   * a sixth positional argument on it: the request id is what closes the ask,
+   * so it belongs in the signature, not at the end of an options tail.
+   */
+  uploadForRequest: (
+    applicationId: string,
+    requestId: string,
+    docType: string,
+    file: File,
+    onProgress?: UploadProgressHandler
+  ) => Promise<ApplicationDocument>
 }
 
 export function createDocumentsRepository(accessToken: string): DocumentsRepository {

@@ -15,7 +15,7 @@ import {
   type NotificationItem,
   type TaskItem
 } from '../lib/api'
-import { calculateDaysElapsed, formatCurrency, formatDateTime } from '../lib/format'
+import { calculateDaysElapsed, formatCurrency, formatDate, formatDateTime } from '../lib/format'
 import { buildLoanName } from '../../../packages/domain/loanName'
 import { paginateItems, parsePageParam } from '../lib/pagination'
 import { getPrimaryRole, toAppRoles } from '../lib/rbac'
@@ -273,7 +273,7 @@ function TaskPanel({
             <>
               <div>
                 <p className="list-title">{task.title}</p>
-                <small>{task.dueDate ?? 'No due date'}</small>
+                <small>{task.dueDate ? formatDate(task.dueDate) : 'No due date'}</small>
               </div>
               <span>{task.status}</span>
             </>

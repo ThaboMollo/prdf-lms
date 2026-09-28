@@ -99,3 +99,20 @@ values
    'Pending',
    'aaaaaaaa-0000-0000-0000-000000000001')
 on conflict (id) do nothing;
+
+-- --- Document requests ----------------------------------------------------
+-- Two outstanding asks raised by the LoanOfficer: one on Alice's application
+-- (the applicant who must be able to see and fulfil it) and one on Bob's (the
+-- cross-client isolation target — Alice must not see it at all).
+insert into public.document_requests
+  (id, application_id, doc_type, custom_name, details, file_type, status, requested_by)
+values
+  ('a0000000-0000-0000-0000-00000000000a',
+   'eeeeeeee-0000-0000-0000-000000000001',
+   'TaxClearance', null, 'SARS tax compliance PIN letter.', 'pdf', 'Pending',
+   'bbbbbbbb-0000-0000-0000-000000000001'),
+  ('b0000000-0000-0000-0000-00000000000b',
+   'eeeeeeee-0000-0000-0000-000000000002',
+   'Other', 'Signed lease agreement', 'All pages, including the signature page.', 'pdf', 'Pending',
+   'bbbbbbbb-0000-0000-0000-000000000001')
+on conflict (id) do nothing;

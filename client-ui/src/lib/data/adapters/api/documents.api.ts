@@ -2,6 +2,7 @@ import {
   confirmUpload,
   deleteDocument as deleteDocumentRequest,
   getDocumentUrl,
+  listDocumentRequests,
   listDocuments,
   presignUpload,
   uploadToSignedUrl,
@@ -33,6 +34,18 @@ export function createApiDocumentsAdapter(accessToken: string): DocumentsReposit
     verifyDocument: (applicationId: string, documentId: string, status: DocumentVerificationStatus, note?: string) =>
       verifyDocument(accessToken, applicationId, documentId, status, note),
     deleteDocument: (applicationId: string, documentId: string) => deleteDocumentRequest(accessToken, applicationId, documentId),
-    createSignedUrl: (applicationId: string, documentId: string) => getDocumentUrl(accessToken, applicationId, documentId)
+    createSignedUrl: (applicationId: string, documentId: string) => getDocumentUrl(accessToken, applicationId, documentId),
+    getDocumentRequests: (applicationId: string) => listDocumentRequests(accessToken, applicationId),
+    async uploadForRequest(
+      applicationId: string,
+      requestId: string,
+      docType: string,
+      file: File,
+      onProgress?: UploadProgressHandler
+    ): Promise<ApplicationDocument> {
+      const presign = await presignUpload(accessToken, applicationId, docType, file.name, file.type)
+      await uploadToSignedUrl(presign.uploadUrl, file, onProgress)
+      return confirmUpload(accessToken, applicationId, docType, presign.storagePath, 'Uploaded', requestId)
+    }
   }
 }

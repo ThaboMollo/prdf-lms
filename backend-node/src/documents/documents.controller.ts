@@ -5,6 +5,7 @@ import { GetCurrentUser } from '../auth/current-user.decorator';
 import { CurrentUser } from '../auth/roles.helper';
 import { DocumentsService } from './documents.service';
 import { CreateRequirementDto } from './dto/create-requirement.dto';
+import { CreateDocumentRequestDto } from './dto/create-document-request.dto';
 import { VerifyDocumentDto } from './dto/verify-document.dto';
 
 @ApiTags('documents')
@@ -20,6 +21,22 @@ export class DocumentsController {
 
   @Post('document-requirements')
   create(@GetCurrentUser() u: CurrentUser, @Body() body: CreateRequirementDto) { return this.svc.createRequirement(u, body); }
+
+  @Get('applications/:appId/document-requests')
+  listRequests(@GetCurrentUser() u: CurrentUser, @Param('appId') appId: string) {
+    return this.svc.listRequests(u, appId);
+  }
+
+  @Post('applications/:appId/document-requests')
+  @HttpCode(201)
+  createRequest(@GetCurrentUser() u: CurrentUser, @Param('appId') appId: string, @Body() body: CreateDocumentRequestDto) {
+    return this.svc.createRequest(u, appId, body);
+  }
+
+  @Post('applications/:appId/document-requests/:requestId/cancel')
+  cancelRequest(@GetCurrentUser() u: CurrentUser, @Param('appId') appId: string, @Param('requestId') requestId: string) {
+    return this.svc.cancelRequest(u, appId, requestId);
+  }
 
   @Post('applications/:appId/documents/:docId/verify')
   @HttpCode(204)

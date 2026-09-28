@@ -126,6 +126,36 @@ export type ApplicationDocument = {
 
 export type DocumentVerificationStatus = 'Verified' | 'Rejected'
 
+/**
+ * A document a reviewer has asked this applicant for. Distinct from
+ * document_requirements (product-level configuration): this is raised against
+ * one application, by the person reviewing it.
+ *
+ * `docType` is a DOCUMENT_LABELS key, or the literal 'Other' — in which case
+ * `customName` carries the applicant-facing name the reviewer typed.
+ */
+export type DocumentRequest = {
+  id: string
+  applicationId: string
+  docType: string
+  customName: string | null
+  details: string | null
+  fileType: string
+  status: 'Pending' | 'Fulfilled' | 'Cancelled'
+  requestedBy: string
+  requestedAt: string
+  fulfilledDocumentId: string | null
+  fulfilledAt: string | null
+  cancelledAt: string | null
+}
+
+export type CreateDocumentRequestInput = {
+  docType: string
+  customName?: string
+  details?: string
+  fileType?: string
+}
+
 export type CreateApplicationInput = {
   clientId?: string
   requestedAmount: number
@@ -920,4 +950,36 @@ export async function requestPricingQuote(
     body: JSON.stringify(input)
   })
   return parseResponse<QuoteBreakdown>(response)
+}
+
+export async function listDocumentRequests(accessToken: string, applicationId: string): Promise<DocumentRequest[]> {
+  const response = await fetch(`${apiBaseUrl}/api/applications/${applicationId}/document-requests`, {
+    headers: authHeaders(accessToken)
+  })
+  return parseResponse<DocumentRequest[]>(response)
+}
+
+export async function createDocumentRequest(
+  accessToken: string,
+  applicationId: string,
+  input: CreateDocumentRequestInput
+): Promise<DocumentRequest> {
+  const response = await fetch(`${apiBaseUrl}/api/applications/${applicationId}/document-requests`, {
+    method: 'POST',
+    headers: authHeaders(accessToken),
+    body: JSON.stringify(input)
+  })
+  return parseResponse<DocumentRequest>(response)
+}
+
+export async function cancelDocumentRequest(
+  accessToken: string,
+  applicationId: string,
+  requestId: string
+): Promise<DocumentRequest> {
+  const response = await fetch(
+    `${apiBaseUrl}/api/applications/${applicationId}/document-requests/${requestId}/cancel`,
+    { method: 'POST', headers: authHeaders(accessToken) }
+  )
+  return parseResponse<DocumentRequest>(response)
 }

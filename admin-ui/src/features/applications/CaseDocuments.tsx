@@ -4,17 +4,29 @@ import { createDocumentsUseCases } from '../../logic/usecases/documents'
 import { useActiveLoanProduct, useDocumentRequirements } from '../../lib/loanProduct'
 import { DOCUMENT_LABELS } from '../../lib/requirements'
 import { EmptyState } from '../../components/shared/EmptyState'
+import { RequestDocumentModal } from './RequestDocumentModal'
 import { StatusBadge } from '../../components/shared/StatusBadge'
 import { useToast } from '../../components/shared/ToastProvider'
 import { formatDateTime } from '../../lib/format'
-import type { ApplicationDocument } from '../../lib/api'
+import type { ApplicationDocument, CreateDocumentRequestInput, DocumentRequest } from '../../lib/api'
 
 type CaseDocumentsProps = {
   applicationId: string
   accessToken: string
 }
 
-type ChecklistEntry = { type: string; label: string; doc?: ApplicationDocument }
+/**
+ * One chip. `key` is what identifies it, not `type`: a request for an "Other"
+ * document has no checklist type to key on, and two of them on one case would
+ * collapse into a single chip if they did.
+ */
+type ChecklistEntry = {
+  key: string
+  type: string
+  label: string
+  doc?: ApplicationDocument
+  request?: DocumentRequest
+}
 
 function previewKind(storagePath: string): 'pdf' | 'image' | 'other' {
   const lower = storagePath.toLowerCase()
@@ -53,37 +65,78 @@ export function CaseDocuments({ applicationId, accessToken }: CaseDocumentsProps
   const { data: activeLoanProduct } = useActiveLoanProduct()
   const { data: docRequirements = [] } = useDocumentRequirements(activeLoanProduct?.id, accessToken)
 
-  const [selectedType, setSelectedType] = useState<string | null>(null)
+  const requestsQuery = useQuery({
+    queryKey: ['case-doc-requests', applicationId],
+    queryFn: () => documentsUseCases.getDocumentRequests(applicationId)
+  })
+  const requests = requestsQuery.data ?? []
+  const openRequests = requests.filter((request) => request.status === 'Pending')
+
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [fullscreen, setFullscreen] = useState(false)
+  const [requestOpen, setRequestOpen] = useState(false)
 
   const entries = useMemo<ChecklistEntry[]>(() => {
     const docs = docsQuery.data ?? []
+    const liveRequests = requests.filter((request) => request.status !== 'Cancelled')
+
+    // A document that answered a request belongs to that request's chip, not to
+    // the generic checklist chip for its type — otherwise it shows twice, once
+    // under each.
+    const claimed = new Set(
+      liveRequests.map((request) => request.fulfilledDocumentId).filter((id): id is string => Boolean(id))
+    )
+    const byId = new Map(docs.map((doc) => [doc.id, doc]))
     const byType = new Map<string, ApplicationDocument>()
-    for (const doc of docs) byType.set(doc.docType, doc)
+    for (const doc of docs) {
+      if (claimed.has(doc.id)) continue
+      if (!byType.has(doc.docType)) byType.set(doc.docType, doc)
+    }
+
+    const result: ChecklistEntry[] = []
+
+    // Requests first: they are what this case is currently waiting on.
+    for (const request of liveRequests) {
+      result.push({
+        key: `req:${request.id}`,
+        type: request.docType,
+        label: request.customName ?? DOCUMENT_LABELS[request.docType] ?? request.docType,
+        doc: request.fulfilledDocumentId ? byId.get(request.fulfilledDocumentId) : undefined,
+        request
+      })
+    }
 
     // A doc type is listed in document_requirements once per status it's
     // required at, so the same type can appear several times — collapse to one
     // checklist entry per type (unique keys, no duplicate chips), requirements
     // first, then any uploaded types that aren't required.
     const seen = new Set<string>()
-    const result: ChecklistEntry[] = []
-
     for (const req of docRequirements) {
       if (seen.has(req.docType)) continue
       seen.add(req.docType)
-      result.push({ type: req.docType, label: DOCUMENT_LABELS[req.docType] ?? req.docType, doc: byType.get(req.docType) })
+      result.push({
+        key: `type:${req.docType}`,
+        type: req.docType,
+        label: DOCUMENT_LABELS[req.docType] ?? req.docType,
+        doc: byType.get(req.docType)
+      })
     }
     for (const doc of docs) {
-      if (seen.has(doc.docType)) continue
+      if (claimed.has(doc.id) || seen.has(doc.docType)) continue
       seen.add(doc.docType)
-      result.push({ type: doc.docType, label: DOCUMENT_LABELS[doc.docType] ?? doc.docType, doc })
+      result.push({
+        key: `type:${doc.docType}`,
+        type: doc.docType,
+        label: DOCUMENT_LABELS[doc.docType] ?? doc.docType,
+        doc
+      })
     }
 
     return result
-  }, [docsQuery.data, docRequirements])
+  }, [docsQuery.data, docRequirements, requests])
 
-  const selected = entries.find((entry) => entry.type === selectedType)
+  const selected = entries.find((entry) => entry.key === selectedKey)
     ?? entries.find((entry) => entry.doc)
     ?? entries[0]
   const selectedDoc = selected?.doc
@@ -116,6 +169,27 @@ export function CaseDocuments({ applicationId, accessToken }: CaseDocumentsProps
     onError: (error) => toast.push(error instanceof Error ? error.message : 'Upload failed.', 'error')
   })
 
+  const requestMutation = useMutation({
+    mutationFn: (input: CreateDocumentRequestInput) => documentsUseCases.requestDocument(applicationId, input),
+    onSuccess: async (created) => {
+      toast.push('Document requested. The applicant has been notified.', 'success')
+      setRequestOpen(false)
+      setSelectedKey(`req:${created.id}`)
+      await queryClient.invalidateQueries({ queryKey: ['case-doc-requests', applicationId] })
+    },
+    onError: (error) => toast.push(error instanceof Error ? error.message : 'Could not request the document.', 'error')
+  })
+
+  const cancelRequestMutation = useMutation({
+    mutationFn: (requestId: string) => documentsUseCases.cancelDocumentRequest(applicationId, requestId),
+    onSuccess: async () => {
+      toast.push('Document request withdrawn.', 'success')
+      setSelectedKey(null)
+      await queryClient.invalidateQueries({ queryKey: ['case-doc-requests', applicationId] })
+    },
+    onError: (error) => toast.push(error instanceof Error ? error.message : 'Could not withdraw the request.', 'error')
+  })
+
   const kind = selectedDoc ? previewKind(selectedDoc.storagePath) : 'other'
   const canPreview = Boolean(urlQuery.data) && (kind === 'pdf' || kind === 'image')
 
@@ -139,7 +213,6 @@ export function CaseDocuments({ applicationId, accessToken }: CaseDocumentsProps
   }, [fullscreen, canPreview])
 
   if (docsQuery.isLoading) return <p>Loading documents…</p>
-  if (!entries.length) return <EmptyState title="No document requirements" message="No documents are required for this case yet." />
 
   const renderPreview = (variant: 'inline' | 'full') => {
     const frameClass = variant === 'full' ? 'doc-frame doc-frame--full' : 'doc-frame'
@@ -199,18 +272,42 @@ export function CaseDocuments({ applicationId, accessToken }: CaseDocumentsProps
 
   return (
     <div className="doc-stack">
+      <div className="doc-head">
+        <p className="helper-text" style={{ margin: 0 }}>
+          {openRequests.length
+            ? `Waiting on the applicant for ${openRequests.length} requested document${openRequests.length === 1 ? '' : 's'}.`
+            : 'Ask the applicant for anything missing — they get an upload slot for it on their status page.'}
+        </p>
+        <button className="btn" type="button" onClick={() => setRequestOpen(true)}>
+          Request document
+        </button>
+      </div>
+
+      {!entries.length ? (
+        <EmptyState
+          title="No documents yet"
+          message="No documents are required for this case and none have been requested."
+        />
+      ) : null}
+
+      {/* The picker and the preview frame are chrome around a selection. With
+          nothing to select they are an empty bordered box, so the empty state
+          above stands alone instead. */}
+      {entries.length ? (
+      <>
       <div className="doc-chips" role="listbox" aria-label="Documents">
         {entries.map((entry) => (
           <button
-            key={entry.type}
+            key={entry.key}
             type="button"
             role="option"
-            aria-selected={selected?.type === entry.type}
-            className={selected?.type === entry.type ? 'doc-chip is-active' : 'doc-chip'}
-            onClick={() => setSelectedType(entry.type)}
+            aria-selected={selected?.key === entry.key}
+            className={selected?.key === entry.key ? 'doc-chip is-active' : 'doc-chip'}
+            onClick={() => setSelectedKey(entry.key)}
           >
             <span className={`dot ${dotClass(entry.doc?.status)}`} />
             <span className="doc-chip__label">{entry.label}</span>
+            {entry.request?.status === 'Pending' ? <span className="doc-chip__tag">Requested</span> : null}
           </button>
         ))}
       </div>
@@ -230,6 +327,25 @@ export function CaseDocuments({ applicationId, accessToken }: CaseDocumentsProps
 
             <div className="doc-bar">{actionButtons}</div>
           </>
+        ) : selected.request?.status === 'Pending' ? (
+          <div className="doc-upload">
+            <p className="list-title" style={{ fontSize: '0.9rem' }}>{selected.label}</p>
+            <p className="helper-text">
+              Requested {formatDateTime(selected.request.requestedAt)} — waiting on the applicant.
+            </p>
+            {selected.request.details ? <p className="doc-request__details">{selected.request.details}</p> : null}
+            <p className="helper-text">
+              Asked for as {selected.request.fileType === 'any' ? 'any accepted file type' : `a .${selected.request.fileType} file`}.
+            </p>
+            <button
+              className="btn btn-secondary"
+              type="button"
+              onClick={() => cancelRequestMutation.mutate(selected.request!.id)}
+              disabled={cancelRequestMutation.isPending}
+            >
+              {cancelRequestMutation.isPending ? 'Withdrawing…' : 'Withdraw request'}
+            </button>
+          </div>
         ) : (
           <div className="doc-upload">
             <p className="list-title" style={{ fontSize: '0.9rem' }}>{selected.label}</p>
@@ -246,6 +362,8 @@ export function CaseDocuments({ applicationId, accessToken }: CaseDocumentsProps
           </div>
         )}
       </div>
+      </>
+      ) : null}
 
       {fullscreen && selectedDoc ? (
         <div
@@ -269,6 +387,14 @@ export function CaseDocuments({ applicationId, accessToken }: CaseDocumentsProps
           </div>
         </div>
       ) : null}
+
+      <RequestDocumentModal
+        open={requestOpen}
+        outstandingTypes={openRequests.map((request) => request.docType)}
+        busy={requestMutation.isPending}
+        onSubmit={(input) => requestMutation.mutate(input)}
+        onCancel={() => setRequestOpen(false)}
+      />
     </div>
   )
 }

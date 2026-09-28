@@ -6,7 +6,7 @@ import type { ArrearsItem } from '../lib/api'
 import { EmptyState } from '../components/shared/EmptyState'
 import { PageHeader } from '../components/shared/PageHeader'
 import { PaginationControls } from '../components/shared/PaginationControls'
-import { formatCurrency } from '../lib/format'
+import { formatCurrency, formatDate } from '../lib/format'
 import { paginateItems, parsePageParam } from '../lib/pagination'
 import { createReportsUseCases } from '../logic/usecases/reports'
 
@@ -98,7 +98,7 @@ export function PortfolioPage({ session }: PortfolioPageProps) {
                       </Link>
                     </td>
                     <td>{row.installmentNo}</td>
-                    <td>{row.dueDate}</td>
+                    <td>{formatDate(row.dueDate)}</td>
                     <td>{formatCurrency(row.dueTotal)}</td>
                     <td>{formatCurrency(row.paidAmount)}</td>
                     <td>{formatCurrency(row.outstandingAmount)}</td>

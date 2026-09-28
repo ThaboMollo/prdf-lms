@@ -1,4 +1,10 @@
-import type { ApplicationDocument, DocumentVerificationStatus, PresignUploadResponse } from '../../api'
+import type {
+  ApplicationDocument,
+  CreateDocumentRequestInput,
+  DocumentRequest,
+  DocumentVerificationStatus,
+  PresignUploadResponse
+} from '../../api'
 import { createApiDocumentsAdapter } from '../adapters/api/documents.api'
 
 export type DocumentsRepository = {
@@ -23,6 +29,10 @@ export type DocumentsRepository = {
     status: DocumentVerificationStatus,
     note?: string
   ) => Promise<void>
+  // Documents this case's reviewer has asked the applicant for.
+  getDocumentRequests: (applicationId: string) => Promise<DocumentRequest[]>
+  createDocumentRequest: (applicationId: string, input: CreateDocumentRequestInput) => Promise<DocumentRequest>
+  cancelDocumentRequest: (applicationId: string, requestId: string) => Promise<DocumentRequest>
 }
 
 export function createDocumentsRepository(accessToken: string): DocumentsRepository {

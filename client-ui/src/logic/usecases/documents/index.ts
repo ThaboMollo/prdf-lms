@@ -22,6 +22,14 @@ export function createDocumentsUseCases(accessToken: string) {
     rejectDocument: (applicationId: string, documentId: string, note?: string) =>
       repository.verifyDocument(applicationId, documentId, 'Rejected', note),
     deleteDocument: (applicationId: string, documentId: string) => repository.deleteDocument(applicationId, documentId),
-    createSignedUrl: (applicationId: string, documentId: string) => repository.createSignedUrl(applicationId, documentId)
+    createSignedUrl: (applicationId: string, documentId: string) => repository.createSignedUrl(applicationId, documentId),
+    getDocumentRequests: (applicationId: string) => repository.getDocumentRequests(applicationId),
+    uploadForRequest: (
+      applicationId: string,
+      requestId: string,
+      docType: string,
+      file: File,
+      onProgress?: UploadProgressHandler
+    ) => repository.uploadForRequest(applicationId, requestId, docType, file, onProgress)
   }
 }

@@ -38,12 +38,12 @@ export class ReportsService {
     const roles = await fetchUserRoles(this.db, actor.userId);
     if (isStaff(roles)) {
       return this.db.query(
-        `select rs.loan_id as "loanId", l.application_id as "applicationId", rs.installment_no as "installmentNo", rs.due_date as "dueDate", rs.due_total::float8 as "dueTotal", rs.paid_amount::float8 as "paidAmount", cast(greatest(rs.due_total-rs.paid_amount,0) as double precision) as "outstandingAmount", cast(greatest((current_date-rs.due_date),0) as int) as "daysOverdue" from public.repayment_schedule rs join public.loans l on l.id=rs.loan_id where rs.due_date<current_date and rs.due_total>rs.paid_amount and l.status<>'Closed' order by rs.due_date asc`,
+        `select rs.loan_id as "loanId", l.application_id as "applicationId", rs.installment_no as "installmentNo", rs.due_date::text as "dueDate", rs.due_total::float8 as "dueTotal", rs.paid_amount::float8 as "paidAmount", cast(greatest(rs.due_total-rs.paid_amount,0) as double precision) as "outstandingAmount", cast(greatest((current_date-rs.due_date),0) as int) as "daysOverdue" from public.repayment_schedule rs join public.loans l on l.id=rs.loan_id where rs.due_date<current_date and rs.due_total>rs.paid_amount and l.status<>'Closed' order by rs.due_date asc`,
       );
     }
     if (!hasRole(roles, 'Client')) throw new ForbiddenException('Only staff or the applicant can view arrears data.');
     return this.db.query(
-      `select rs.loan_id as "loanId", l.application_id as "applicationId", rs.installment_no as "installmentNo", rs.due_date as "dueDate", rs.due_total::float8 as "dueTotal", rs.paid_amount::float8 as "paidAmount", cast(greatest(rs.due_total-rs.paid_amount,0) as double precision) as "outstandingAmount", cast(greatest((current_date-rs.due_date),0) as int) as "daysOverdue"
+      `select rs.loan_id as "loanId", l.application_id as "applicationId", rs.installment_no as "installmentNo", rs.due_date::text as "dueDate", rs.due_total::float8 as "dueTotal", rs.paid_amount::float8 as "paidAmount", cast(greatest(rs.due_total-rs.paid_amount,0) as double precision) as "outstandingAmount", cast(greatest((current_date-rs.due_date),0) as int) as "daysOverdue"
        from public.repayment_schedule rs
        join public.loans l on l.id = rs.loan_id
        join public.loan_applications la on la.id = l.application_id

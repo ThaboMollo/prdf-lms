@@ -18,7 +18,7 @@ import { createApplicationsUseCases } from '../logic/usecases/applications'
 import { createLoansUseCases } from '../logic/usecases/loans'
 import { useFormErrors, FieldError, fieldErrorAttrs, fieldDomId, type FieldErrorMap } from '../hooks/useFormErrors'
 import { NumericInput } from '../components/shared/NumericInput'
-import { formatCurrency, formatDateTime } from '../lib/format'
+import { formatCurrency, formatDate, formatDateTime } from '../lib/format'
 import { buildLoanName } from '../../../packages/domain/loanName'
 import { listAssignableUsers } from '../lib/api'
 import type {
@@ -613,7 +613,7 @@ function MoneyTab({
               {loan.schedule.map((item) => (
                 <tr key={item.id}>
                   <td>{item.installmentNo}</td>
-                  <td>{item.dueDate}</td>
+                  <td>{formatDate(item.dueDate)}</td>
                   <td>{formatCurrency(item.dueTotal)}</td>
                   <td>{formatCurrency(item.paidAmount)}</td>
                   <td>{item.status}</td>

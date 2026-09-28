@@ -8,6 +8,21 @@ import { ConflictError, NotFoundError, PermissionError, ValidationError } from '
 
 const BUCKET = 'loan-documents';
 
+/** Single projection for document_requests — every read below returns this shape. */
+const DOCUMENT_REQUEST_COLUMNS = `select id,
+         application_id as "applicationId",
+         doc_type as "docType",
+         custom_name as "customName",
+         details,
+         file_type as "fileType",
+         status,
+         requested_by as "requestedBy",
+         requested_at as "requestedAt",
+         fulfilled_document_id as "fulfilledDocumentId",
+         fulfilled_at as "fulfilledAt",
+         cancelled_at as "cancelledAt"
+    from public.document_requests`;
+
 @Injectable()
 export class DocumentsService {
   private readonly logger = new Logger(DocumentsService.name);
@@ -43,6 +58,160 @@ export class DocumentsService {
     return this.db.queryOne(
       `select id, loan_product_id as "loanProductId", required_at_status as "requiredAtStatus", doc_type as "docType", is_required as "isRequired", allows_multiple as "allowsMultiple", created_at as "createdAt" from public.document_requirements where id=$1`,
       [id],
+    );
+  }
+
+  /**
+   * Per-application asks raised by a reviewer, newest first.
+   *
+   * Readable by anyone who can see the application, applicant included — the
+   * client portal renders the outstanding ones as upload slots.
+   */
+  async listRequests(actor: CurrentUser, applicationId: string) {
+    await this.ensureCanAccessApplication(actor, applicationId);
+    return this.db.query(
+      `${DOCUMENT_REQUEST_COLUMNS} where application_id = $1 order by requested_at desc`,
+      [applicationId],
+    );
+  }
+
+  /**
+   * Raise a request for a document the applicant has not supplied.
+   *
+   * Open to the same roles that review documents (screening and due diligence),
+   * plus management — asking for a missing payslip is part of reviewing a case,
+   * not a configuration change.
+   */
+  async createRequest(
+    actor: CurrentUser,
+    applicationId: string,
+    body: { docType: string; customName?: string; details?: string; fileType?: string },
+  ) {
+    const roles = await fetchUserRoles(this.db, actor.userId);
+    if (!isStaff(roles) && !hasAnyRole(roles, ...ASSIGNED_ROLES)) {
+      throw new PermissionError('Only a reviewer or management can request a document.')
+    }
+    const proj = await this.ensureCanAccessApplication(actor, applicationId);
+
+    const docType = body.docType.trim();
+    if (!docType) throw new ValidationError('A document type is required.')
+
+    // 'Other' carries its name in custom_name; a named type takes its label
+    // from DOCUMENT_LABELS, so a second name there would be a second source of
+    // truth. The DB constraint says the same thing — this is the friendly path.
+    const customName = docType === 'Other' ? (body.customName ?? '').trim() : null;
+    if (docType === 'Other' && !customName) {
+      throw new ValidationError('Give the requested document a name.')
+    }
+    if (docType !== 'Other' && body.customName?.trim()) {
+      throw new ValidationError('A name can only be given for an "Other" document.')
+    }
+
+    const details = body.details?.trim() || null;
+    const fileType = body.fileType?.trim() || 'pdf';
+
+    // A document already on file needs re-requesting sometimes (it was rejected,
+    // or it expired), so an existing upload is not a bar. A second OPEN ask for
+    // the same type is — the applicant would see the same slot twice. The
+    // partial unique index enforces it; this turns 23505 into a usable message.
+    if (docType !== 'Other') {
+      const open = await this.db.queryOne<{ id: string }>(
+        `select id from public.document_requests where application_id = $1 and doc_type = $2 and status = 'Pending'`,
+        [applicationId, docType],
+      );
+      if (open) throw new ConflictError('That document has already been requested and is still outstanding.')
+    }
+
+    const id = randomUUID();
+    await this.db.execute(
+      `insert into public.document_requests (id, application_id, doc_type, custom_name, details, file_type, status, requested_by, requested_at)
+       values ($1,$2,$3,$4,$5,$6,'Pending',$7,now())`,
+      [id, applicationId, docType, customName, details, fileType, actor.userId],
+    );
+
+    await this.notifyApplicantOfRequest(applicationId, proj.clientOwnerUserId, actor.userId, {
+      requestId: id,
+      docType,
+      customName,
+      details,
+      fileType,
+    });
+
+    await this.db.execute(
+      `insert into public.audit_log (id, entity, entity_id, action, actor_user_id, at, metadata) values ($1,'document_requests',$2,'CreateDocumentRequest',$3,now(),$4::jsonb)`,
+      [randomUUID(), id, actor.userId, JSON.stringify({ applicationId, docType, customName, fileType })],
+    );
+
+    return this.db.queryOne(`${DOCUMENT_REQUEST_COLUMNS} where id = $1`, [id]);
+  }
+
+  /** Withdraw an outstanding request. Cancelled, never deleted — it is case history. */
+  async cancelRequest(actor: CurrentUser, applicationId: string, requestId: string) {
+    const roles = await fetchUserRoles(this.db, actor.userId);
+    if (!isStaff(roles) && !hasAnyRole(roles, ...ASSIGNED_ROLES)) {
+      throw new PermissionError('Only a reviewer or management can withdraw a document request.')
+    }
+    await this.ensureCanAccessApplication(actor, applicationId);
+
+    const affected = await this.db.execute(
+      `update public.document_requests set status='Cancelled', cancelled_at=now()
+       where id=$1 and application_id=$2 and status='Pending'`,
+      [requestId, applicationId],
+    );
+    if (affected === 0) throw new NotFoundError('No outstanding document request to withdraw.')
+
+    await this.db.execute(
+      `insert into public.audit_log (id, entity, entity_id, action, actor_user_id, at, metadata) values ($1,'document_requests',$2,'CancelDocumentRequest',$3,now(),$4::jsonb)`,
+      [randomUUID(), requestId, actor.userId, JSON.stringify({ applicationId })],
+    );
+
+    return this.db.queryOne(`${DOCUMENT_REQUEST_COLUMNS} where id = $1`, [requestId]);
+  }
+
+  /**
+   * Link an upload to the request that asked for it.
+   *
+   * Called from ApplicationsService.confirmUpload, inside the same request (and
+   * therefore the same RLS transaction) as the loan_documents insert — so a
+   * failure here rolls the document row back with it rather than leaving a
+   * request that is quietly still outstanding.
+   *
+   * Silently does nothing if the request is not outstanding: the applicant may
+   * have uploaded twice, or the reviewer withdrawn the ask mid-upload. Neither
+   * should fail the upload the applicant just made.
+   */
+  async fulfilRequest(applicationId: string, requestId: string, documentId: string): Promise<boolean> {
+    const affected = await this.db.execute(
+      `update public.document_requests
+          set status='Fulfilled', fulfilled_document_id=$1, fulfilled_at=now()
+        where id=$2 and application_id=$3 and status='Pending'`,
+      [documentId, requestId, applicationId],
+    );
+    return affected > 0;
+  }
+
+  /**
+   * In-app notification to the applicant. Best-effort by design: an unroutable
+   * request (assisted onboarding, where the client has no auth user yet) must
+   * not stop the reviewer raising it — the admin case screen still shows it.
+   */
+  private async notifyApplicantOfRequest(
+    applicationId: string,
+    clientOwnerUserId: string | null,
+    actorUserId: string,
+    payload: { requestId: string; docType: string; customName: string | null; details: string | null; fileType: string },
+  ) {
+    if (!clientOwnerUserId || clientOwnerUserId === actorUserId) return;
+
+    const name = payload.customName ?? payload.docType;
+    const message = payload.details
+      ? `${name} is needed to continue reviewing your application. ${payload.details}`
+      : `${name} is needed to continue reviewing your application.`;
+
+    await this.db.execute(
+      `insert into public.notifications (id, user_id, channel, type, title, message, status, payload, created_at, sent_at)
+       values ($1,$2,'InApp','DocumentRequested','Document requested',$3,'Sent',$4::jsonb,now(),now())`,
+      [randomUUID(), clientOwnerUserId, message, JSON.stringify({ applicationId, ...payload })],
     );
   }
 

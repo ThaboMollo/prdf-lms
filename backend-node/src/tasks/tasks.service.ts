@@ -10,7 +10,7 @@ export class TasksService {
 
   async list(actor: CurrentUser, applicationId?: string, assignedToMe?: boolean) {
     const roles = await fetchUserRoles(this.db, actor.userId);
-    let sql = `select t.id, t.application_id as "applicationId", t.title, t.status, t.assigned_to as "assignedTo", t.due_date as "dueDate" from public.tasks t join public.loan_applications la on la.id=t.application_id join public.clients c on c.id=la.client_id where 1=1`;
+    let sql = `select t.id, t.application_id as "applicationId", t.title, t.status, t.assigned_to as "assignedTo", t.due_date::text as "dueDate" from public.tasks t join public.loan_applications la on la.id=t.application_id join public.clients c on c.id=la.client_id where 1=1`;
     const params: any[] = [];
     let idx = 1;
 
@@ -42,7 +42,7 @@ export class TasksService {
     const taskId = randomUUID();
     await this.db.execute(
       `insert into public.tasks (id, application_id, title, status, assigned_to, due_date) values ($1,$2,$3,'Open',$4,$5)`,
-      [taskId, body.applicationId, body.title, body.assignedTo ?? null, body.dueDate ? new Date(body.dueDate) : null],
+      [taskId, body.applicationId, body.title, body.assignedTo ?? null, body.dueDate ?? null],
     );
 
     if (body.assignedTo && body.assignedTo !== actor.userId) {
@@ -53,7 +53,7 @@ export class TasksService {
     }
 
     return this.db.queryOne(
-      `select id, application_id as "applicationId", title, status, assigned_to as "assignedTo", due_date as "dueDate" from public.tasks where id=$1`,
+      `select id, application_id as "applicationId", title, status, assigned_to as "assignedTo", due_date::text as "dueDate" from public.tasks where id=$1`,
       [taskId],
     );
   }
@@ -74,9 +74,9 @@ export class TasksService {
     }
     await this.db.execute(
       `update public.tasks set title=coalesce($1, title), assigned_to=$2, due_date=$3 where id=$4`,
-      [body.title ?? null, body.assignedTo ?? null, body.dueDate ? new Date(body.dueDate) : null, taskId],
+      [body.title ?? null, body.assignedTo ?? null, body.dueDate ?? null, taskId],
     );
-    return this.db.queryOne(`select id, application_id as "applicationId", title, status, assigned_to as "assignedTo", due_date as "dueDate" from public.tasks where id=$1`, [taskId]);
+    return this.db.queryOne(`select id, application_id as "applicationId", title, status, assigned_to as "assignedTo", due_date::text as "dueDate" from public.tasks where id=$1`, [taskId]);
   }
 
   async complete(actor: CurrentUser, taskId: string, note?: string) {
@@ -91,6 +91,6 @@ export class TasksService {
         [randomUUID(), task.application_id, note, actor.userId],
       );
     }
-    return this.db.queryOne(`select id, application_id as "applicationId", title, status, assigned_to as "assignedTo", due_date as "dueDate" from public.tasks where id=$1`, [taskId]);
+    return this.db.queryOne(`select id, application_id as "applicationId", title, status, assigned_to as "assignedTo", due_date::text as "dueDate" from public.tasks where id=$1`, [taskId]);
   }
 }
