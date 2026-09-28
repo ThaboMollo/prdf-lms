@@ -274,7 +274,14 @@ export function CaseDocuments({ applicationId, accessToken }: CaseDocumentsProps
     <div className="doc-stack">
       <div className="doc-head">
         <p className="helper-text" style={{ margin: 0 }}>
-          {openRequests.length
+          {/* `data ?? []` makes a failed fetch indistinguishable from an empty
+              one, and the empty copy actively reassures ("ask for anything
+              missing") a reviewer who may in fact have asks outstanding. It
+              also empties outstandingTypes below, so the modal stops
+              suppressing a type that is already pending. Say the fetch failed. */}
+          {requestsQuery.isError
+            ? 'Could not load requested documents — this case may have outstanding asks that are not shown.'
+            : openRequests.length
             ? `Waiting on the applicant for ${openRequests.length} requested document${openRequests.length === 1 ? '' : 's'}.`
             : 'Ask the applicant for anything missing — they get an upload slot for it on their status page.'}
         </p>

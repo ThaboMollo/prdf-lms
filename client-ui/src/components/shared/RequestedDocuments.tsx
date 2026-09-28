@@ -68,6 +68,37 @@ export function RequestedDocuments({ applicationId, accessToken }: RequestedDocu
 
   const outstanding = (requestsQuery.data ?? []).filter((request) => request.status === 'Pending')
 
+  // A failed fetch is not the same as nothing outstanding, and `data ?? []`
+  // collapses the two. Rendering null on an error hides the one thing the
+  // panel exists to say — the applicant sees a normal status card and waits
+  // for a document nobody told them about, while the reviewer sees the ask
+  // sitting unanswered. Say so instead, and offer the retry.
+  if (requestsQuery.isError) {
+    return (
+      <div className="doc-request-panel">
+        <div className="doc-request-panel__head">
+          <i className="fa-solid fa-triangle-exclamation" aria-hidden="true" />
+          <div>
+            <h3>We could not check for requested documents</h3>
+            <p className="muted-text">
+              There may be a document waiting for you. Try again, or refresh the page.
+            </p>
+          </div>
+        </div>
+        <div>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => requestsQuery.refetch()}
+            disabled={requestsQuery.isFetching}
+          >
+            {requestsQuery.isFetching ? 'Checking…' : 'Try again'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   // Silence is the right output here: an applicant with nothing outstanding
   // should not see an empty "requested documents" panel implying otherwise.
   if (!outstanding.length) return null
