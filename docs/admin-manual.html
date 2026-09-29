@@ -86,8 +86,8 @@
   <p class="sub">Every screen, role and control in the PRDF Loan Management System</p>
   <dl>
     <dt>Document</dt><dd>Admin Console — SuperAdmin Manual</dd>
-    <dt>Version</dt><dd>1.0</dd>
-    <dt>Date</dt><dd>26 September 2026</dd>
+    <dt>Version</dt><dd>1.1</dd>
+    <dt>Date</dt><dd>29 September 2026</dd>
     <dt>Audience</dt><dd>SuperAdmin and Admin users</dd>
     <dt>Console</dt><dd>https://prdf-admin.vercel.app</dd>
     <dt>Companion</dt><dd>PRDF Client Portal — User Manual v1.0</dd>
@@ -124,17 +124,48 @@
   <div><span class="n">18</span> User Access</div>
   <div><span class="n">19</span> My Profile and notifications</div>
   <div><span class="n">20</span> What the client sees</div>
-  <div><span class="n">21</span> Configuration without a release</div>
-  <div><span class="n">22</span> Environments and operations</div>
-  <div><span class="n">23</span> Known limitations</div>
-  <div><span class="n">24</span> Acceptance and sign-off</div>
+  <div><span class="n">21</span> Your action, their screen</div>
+  <div><span class="n">22</span> After approval — the client's loan</div>
+  <div><span class="n">23</span> Configuration without a release</div>
+  <div><span class="n">24</span> Environments and operations</div>
+  <div><span class="n">25</span> Known limitations</div>
+  <div><span class="n">26</span> Acceptance and sign-off</div>
 </div>
 
 <h3 style="margin-top:2em">How to use this manual</h3>
-<p>Sections 2–5 explain how the system is put together — read these once. Sections 6–19 follow the console screen by screen and are the day-to-day reference. Sections 20–23 are for whoever owns and operates the system. Section 24 is the acceptance record.</p>
+<p>Sections 2–5 explain how the system is put together — read these once. Sections 6–19 follow the console screen by screen and are the day-to-day reference. Sections 20–22 show the applicant's side of what you do. Sections 23–25 are for whoever owns and operates the system. Section 26 is the acceptance record.</p>
 
 <div class="note">
   <strong>A worked example runs through the whole manual.</strong> Application <code>#b3bfeeaa</code> — Blue Harvest Aquaculture (Pty) Ltd, R750 000 over 12 months — was taken from submission to disbursement to produce these screenshots. You can follow the same case from Section 7 to Section 14 and see every figure reconcile.
+</div>
+
+<h3 style="margin-top:1.6em">What is new in version 1.1</h3>
+<table>
+  <tr><th style="width:52mm">Change</th><th>Where</th></tr>
+  <tr>
+    <td><strong>Requesting a document</strong> — you can now ask an applicant for a named document and they get an upload slot for it, instead of a free-text note they have to interpret</td>
+    <td>New Section 9.4; the applicant's side in 21.1</td>
+  </tr>
+  <tr>
+    <td><strong>Cases and loans are named</strong> <code>{business} {first name} {date}</code> rather than by whatever the applicant typed into "how you'll use the funds"</td>
+    <td>Sections 7, 8 and 16; every figure</td>
+  </tr>
+  <tr>
+    <td><strong>Dates read as "24 October 2026"</strong> throughout both the console and the portal</td>
+    <td>Every figure</td>
+  </tr>
+  <tr>
+    <td><strong>The applicant can now list and re-read their submitted applications</strong> without being pushed back into the wizard</td>
+    <td>Section 20</td>
+  </tr>
+  <tr>
+    <td><strong>Two new sections</strong> showing what the applicant sees when you act, and what their loan looks like after approval</td>
+    <td>Sections 21 and 22</td>
+  </tr>
+</table>
+
+<div class="note">
+  <strong>Every figure in this version was recaptured.</strong> The naming and date changes above altered what appears on every screen, so a mixed set would have shown two conventions in one document. Figures now come from a single scripted run at one window size — see <code>demo/scripts/capture-admin-manual.mjs</code>.
 </div>
 </section>
 
@@ -257,7 +288,7 @@
   <tr><th style="width:62mm">Symptom</th><th>Cause and fix</th></tr>
   <tr><td>"Access restricted" after signing in</td><td>The account has no internal role — only <code>Client</code>. Grant them a role in User Access (Section 18)</td></tr>
   <tr><td>Sign-in rejected</td><td>Wrong password, or the account does not exist. Staff accounts are created by an administrator</td></tr>
-  <tr><td>Signed in but every page fails to load</td><td>The console cannot reach the API. See Section 22</td></tr>
+  <tr><td>Signed in but every page fails to load</td><td>The console cannot reach the API. See Section 24</td></tr>
   <tr><td>Locked out of a second factor</td><td>Use <strong>Reset MFA</strong> in User Access so they can enrol a new device</td></tr>
 </table>
 
@@ -348,6 +379,12 @@
 
 <p>Pipeline is the full case list. The filter chips are <strong>All open, Screening, Due Diligence, Evaluation, Info Requested, Approved, Contracting</strong> and <strong>SLA Breached</strong>. Cases past their service standard carry a red <em>SLA breached · n days</em> badge.</p>
 
+<div class="note">
+  <strong>How a case is named.</strong> Every case reads <em>{business name} {applicant's first name} {application date}</em> — "Blue Harvest Aquaculture (Pty) Ltd Test 4 Sep 2026". The name is derived from the record, never stored, so it cannot drift from the client it describes, and the loan inherits it when the application is booked. Pipeline, the case file, My Loans and the applicant's own list therefore all call the same deal the same thing.
+  <br><br>
+  Before this, a case was labelled with whatever free text the applicant typed into <em>"tell us more about how you'll use the funds"</em>. Older screenshots and any notes written before 28 September 2026 may still refer to cases that way.
+</div>
+
 <h3>7.1 The preview drawer</h3>
 
 <figure>
@@ -434,12 +471,61 @@
   <strong>Approval is blocked until every required document is Verified.</strong> Uploaded is not enough — a database trigger checks for at least one <em>Verified</em> document of each required type when a case moves to Approved, and refuses the transition otherwise. If an approval is rejected and the reason is not obvious, this is almost always why.
 </div>
 
-<h3>9.3 Rejecting and requesting more</h3>
-<p><strong>Reject</strong> marks a document as not accepted; the applicant sees the rejected badge in their portal and can upload a replacement. To ask for something the applicant has not provided at all, use <strong>Request info</strong> in the left rail — type what is missing and click <strong>Request more info</strong>. The case moves to Info Requested and the applicant is notified.</p>
+<h3>9.3 Rejecting a document</h3>
+<p><strong>Reject</strong> marks a document as not accepted. The applicant sees the rejected badge against that document in their portal and can upload a replacement in its place — the slot stays open until they do. Rejecting does not change the case status and does not, on its own, notify them; see 21.2 for what they actually see.</p>
+
+<h3>9.4 Requesting a document</h3>
+<p>Rejecting handles a document that arrived and was not good enough. <strong>Request document</strong> handles the other case — something that never arrived at all, or something that is on no checklist.</p>
+
+<figure>
+  <img src="screenshots/admin-manual/28-request-document-modal.jpg" alt="The Request a document dialog">
+  <figcaption>Figure 8 — <strong>Request document</strong> sits at the top of the Documents tab. The dialog names the document, says where to find it, and fixes the file type the applicant may upload.</figcaption>
+</figure>
+
+<p>The dialog has four fields:</p>
+<table>
+  <tr><th style="width:32mm">Field</th><th>What it does</th></tr>
+  <tr>
+    <td><strong>Document type</strong></td>
+    <td>One of the ten checklist types, or <strong>Other (not on this list)</strong>. A type with a request already open is shown as <em>"— already requested"</em> so you do not stack two asks for the same thing.</td>
+  </tr>
+  <tr>
+    <td><strong>Document name</strong></td>
+    <td>Appears only for <strong>Other</strong>, and is required there. This is the name the applicant sees, so write it as they would recognise it — "Signed lease agreement", not "lease".</td>
+  </tr>
+  <tr>
+    <td><strong>Details</strong></td>
+    <td>Optional, shown to the applicant verbatim underneath the document name. Where to find it, or what it has to show.</td>
+  </tr>
+  <tr>
+    <td><strong>File type</strong></td>
+    <td>PDF, Word (.doc or .docx), or any accepted type. This sets what their upload box will accept, so choosing PDF for something only issued as a Word file will block them.</td>
+  </tr>
+</table>
 
 <div class="note warn">
-  <strong>Be specific in the request.</strong> "Bank statements unclear — please upload the full three months including August" gets a useful answer. "More info needed" produces another round trip and another week.
+  <strong>Be specific, in the Details field.</strong> "Bank statements unclear — please upload the full three months including August" gets a useful answer. "More info needed" produces another round trip and another week. The Details field is the one the applicant actually reads.
 </div>
+
+<h4>What happens next</h4>
+<ul>
+  <li>The applicant gets an in-app notification and an upload slot on their status page — this is the whole point of the feature, and 21.1 shows it from their side.</li>
+  <li>The Documents tab tells you what you are waiting for: <em>"Waiting on the applicant for 1 requested document."</em></li>
+  <li>When they upload against the request it closes itself and links to the document they sent, which then goes through the normal Verify / Reject flow in 9.2 and 9.3.</li>
+  <li>If they later delete that document — which they can only do while the application is still a draft — the request reopens rather than sitting there claiming to be satisfied.</li>
+</ul>
+
+<figure>
+  <img src="screenshots/admin-manual/29-request-pending.jpg" alt="Documents tab waiting on the applicant">
+  <figcaption>Figure 9 — An open request. The banner names what is outstanding; the request stays visible until it is fulfilled or withdrawn.</figcaption>
+</figure>
+
+<div class="note">
+  <strong>Requesting a document does not move the case.</strong> It stays in whatever stage it was in. This is deliberate — a reviewer can ask for a payslip without parking the whole application in Info Requested, and an ask the applicant cannot see never gets answered. Use <strong>Request info</strong> in the left rail when you do want the case to stop and the status to say so.
+</div>
+
+<h4>Withdrawing a request</h4>
+<p>A request you raised in error is <strong>cancelled</strong>, not deleted. It stays on the case as part of its history, and the audit trail records both <code>CreateDocumentRequest</code> and <code>CancelDocumentRequest</code> against your name. There is no way to erase one, by design.</p>
 </section>
 
 <!-- ======================= 10 ======================= -->
@@ -448,7 +534,7 @@
 
 <figure>
   <img src="screenshots/admin-manual/08-assign-and-advance.jpg" alt="Assigning and changing status">
-  <figcaption>Figure 8 — Assign the case, choose the next status, add a note, then <strong>Update status</strong>.</figcaption>
+  <figcaption>Figure 10 — Assign the case, choose the next status, add a note, then <strong>Update status</strong>.</figcaption>
 </figure>
 
 <h3>10.1 The sequence</h3>
@@ -467,34 +553,34 @@
 
 <figure>
   <img src="screenshots/admin-manual/09-stage-screening.jpg" alt="A case at Screening">
-  <figcaption>Figure 9 — Screening. The guidance reads "Check mandatory documents, then advance to Due Diligence." Assigned to the Program Officer.</figcaption>
+  <figcaption>Figure 11 — Screening. The guidance reads "Check mandatory documents, then advance to Due Diligence." Assigned to the Program Officer.</figcaption>
 </figure>
 
 <figure>
   <img src="screenshots/admin-manual/10-stage-due-diligence.jpg" alt="A case at Due Diligence">
-  <figcaption>Figure 10 — Due Diligence, assigned to the Risk Analyst. This is where the risk grade is set (Section 11).</figcaption>
+  <figcaption>Figure 12 — Due Diligence, assigned to the Risk Analyst. This is where the risk grade is set (Section 11).</figcaption>
 </figure>
 
 <figure>
   <img src="screenshots/admin-manual/11-stage-evaluation.jpg" alt="A case at Evaluation">
-  <figcaption>Figure 11 — Evaluation: "Assess viability and alignment, then approve or decline."</figcaption>
+  <figcaption>Figure 13 — Evaluation: "Assess viability and alignment, then approve or decline."</figcaption>
 </figure>
 
 <h3>10.3 Approval, the Board, and contracting</h3>
 
 <figure>
   <img src="screenshots/admin-manual/14-stage-approved.jpg" alt="A case at Approved">
-  <figcaption>Figure 12 — Approved. The guidance changes to "Board sign-off — awaiting the Board to authorise funding." The document verification gate was satisfied to get here.</figcaption>
+  <figcaption>Figure 14 — Approved. The guidance changes to "Board sign-off — awaiting the Board to authorise funding." The document verification gate was satisfied to get here.</figcaption>
 </figure>
 
 <figure>
   <img src="screenshots/admin-manual/15-stage-board-approved.jpg" alt="A case at Board Approved">
-  <figcaption>Figure 13 — Board Approved. The loan record is created at this moment, in PendingDisbursement, priced at the saved risk grade. Legal now generates the agreement.</figcaption>
+  <figcaption>Figure 15 — Board Approved. The loan record is created at this moment, in PendingDisbursement, priced at the saved risk grade. Legal now generates the agreement.</figcaption>
 </figure>
 
 <figure>
   <img src="screenshots/admin-manual/16-stage-contracting.jpg" alt="A case at Contracting">
-  <figcaption>Figure 14 — Contracting. "Ready for payout" — the left rail now offers a direct link to the Money tab, where Finance pays out.</figcaption>
+  <figcaption>Figure 16 — Contracting. "Ready for payout" — the left rail now offers a direct link to the Money tab, where Finance pays out.</figcaption>
 </figure>
 </section>
 
@@ -510,7 +596,7 @@
 
 <figure>
   <img src="screenshots/admin-manual/12-pricing-ungraded.jpg" alt="Pricing tab before grading">
-  <figcaption>Figure 15 — An ungraded case. Note the warning: "Not graded yet. Save a grade before approving, or the loan falls back to the legacy product rate."</figcaption>
+  <figcaption>Figure 17 — An ungraded case. Note the warning: "Not graded yet. Save a grade before approving, or the loan falls back to the legacy product rate."</figcaption>
 </figure>
 
 <h3>11.1 The inputs</h3>
@@ -526,7 +612,7 @@
 
 <figure>
   <img src="screenshots/admin-manual/13-pricing-graded-quote.jpg" alt="Pricing tab after grading, with the full quote">
-  <figcaption>Figure 16 — Graded Moderate and quoted. The panel confirms "Saved as Moderate. The loan will be booked at this grade when the case is approved."</figcaption>
+  <figcaption>Figure 18 — Graded Moderate and quoted. The panel confirms "Saved as Moderate. The loan will be booked at this grade when the case is approved."</figcaption>
 </figure>
 
 <p>Choose the grade, click <strong>Calculate quote</strong> to check the numbers, then <strong>Save grade as …</strong>. The grade is stored against the application and audit-logged.</p>
@@ -607,7 +693,7 @@
 
 <figure>
   <img src="screenshots/admin-manual/17-money-before-disbursement.jpg" alt="Money tab before disbursement">
-  <figcaption>Figure 17 — The Money tab before paying out. Note the rate with its grade, the days financed, both fees, and the net advance.</figcaption>
+  <figcaption>Figure 19 — The Money tab before paying out. Note the rate with its grade, the days financed, both fees, and the net advance.</figcaption>
 </figure>
 
 <table>
@@ -635,10 +721,10 @@
 
 <figure>
   <img src="screenshots/admin-manual/18-money-disbursed-bullet.jpg" alt="Money tab after disbursement showing the bullet schedule">
-  <figcaption>Figure 18 — After disbursing. Status <code>Disbursed</code>, Scheduled Due R877 500, and a single bullet instalment due at maturity.</figcaption>
+  <figcaption>Figure 20 — After disbursing. Status <code>Disbursed</code>, Scheduled Due R877 500, and a single bullet instalment due at maturity.</figcaption>
 </figure>
 
-<p>Disbursing does four things at once: records the payment, sets the loan to <code>Disbursed</code>, moves the application to Disbursed, and generates the repayment schedule. The applicant sees all of it immediately in their portal.</p>
+<p>Disbursing does four things at once: records the payment, sets the loan to <code>Disbursed</code>, moves the application to Disbursed, and generates the repayment schedule. The applicant sees all of it immediately in their portal — <strong>Section 22.2 shows exactly what appears on their side</strong>, including the balance question this reliably produces.</p>
 
 <div class="note warn">
   <strong>Disbursement is not reversible from the console.</strong> There is no undo. Check the amount and the reference before clicking.
@@ -661,7 +747,7 @@
 <p>The payment is applied to the oldest unpaid instalment first, split into principal and interest components, and the outstanding balance reduces. Partial payments are allowed — the instalment stays <code>Pending</code> until fully covered.</p>
 
 <div class="note warn">
-  <strong>Repayments have not been exercised end to end.</strong> The repayment path against a bullet schedule was not tested during handover. Record the first live repayment with care and confirm the resulting balance before relying on it. This is item 5 in Section 23.
+  <strong>Repayments have not been exercised end to end.</strong> The repayment path against a bullet schedule was not tested during handover. Record the first live repayment with care and confirm the resulting balance before relying on it. This is item 5 in Section 25.
 </div>
 
 <h3>14.3 Moving a loan through repayment and closure</h3>
@@ -680,16 +766,26 @@
 
 <figure>
   <img src="screenshots/admin-manual/19-history-audit-trail.jpg" alt="History tab showing the full audit trail">
-  <figcaption>Figure 19 — Every transition, timestamped, with the note written at the time. This is the case's permanent record.</figcaption>
+  <figcaption>Figure 21 — Every transition, timestamped, with the note written at the time. This is the case's permanent record.</figcaption>
 </figure>
 
 <p>History is appended to automatically and cannot be edited. It is what you produce when a decision is queried — which is the argument for writing a real note on every transition.</p>
+
+<p>Alongside status changes, the trail records document decisions and document requests, each against the name of whoever made them:</p>
+<table>
+  <tr><th style="width:56mm">Entry</th><th>Written when</th></tr>
+  <tr><td><code>CreateDocumentRequest</code></td><td>You ask the applicant for a document (9.4)</td></tr>
+  <tr><td><code>CancelDocumentRequest</code></td><td>You withdraw that request</td></tr>
+  <tr><td>Status transitions</td><td>Every stage change, with your note</td></tr>
+</table>
+
+<p>A withdrawn request stays in the trail rather than disappearing, so "we never asked for that" is always checkable.</p>
 
 <h3>15.2 Tasks</h3>
 
 <figure>
   <img src="screenshots/admin-manual/20-tasks.jpg" alt="Tasks tab">
-  <figcaption>Figure 20 — Create a task with a title, an assignee and a due date.</figcaption>
+  <figcaption>Figure 22 — Create a task with a title, an assignee and a due date.</figcaption>
 </figure>
 
 <p>Tasks track action items against a case. Assigned tasks appear on the assignee's dashboard under <strong>Tasks Due Today</strong>, and overdue ones generate reminders.</p>
@@ -698,7 +794,7 @@
 
 <figure>
   <img src="screenshots/admin-manual/21-notes.jpg" alt="Notes tab">
-  <figcaption>Figure 21 — Internal notes. Visible to staff only; the applicant never sees these.</figcaption>
+  <figcaption>Figure 23 — Internal notes. Visible to staff only; the applicant never sees these.</figcaption>
 </figure>
 
 <p>Use notes for context that is not a decision — a phone call, a concern, something to watch. Use a <em>status note</em> for the decision itself, so it lands in History.</p>
@@ -707,7 +803,7 @@
 
 <figure>
   <img src="screenshots/admin-manual/22-advisory-nfs.jpg" alt="Advisory non-financial support tab">
-  <figcaption>Figure 22 — Logging a non-financial support session: type, duration, date and notes.</figcaption>
+  <figcaption>Figure 24 — Logging a non-financial support session: type, duration, date and notes.</figcaption>
 </figure>
 
 <p>PRDF's mandate includes non-financial support — mentorship, compliance help, training. Logging sessions here is what makes that reportable as development impact rather than an untracked favour.</p>
@@ -721,7 +817,7 @@
 
 <figure>
   <img src="screenshots/admin-manual/23-loans.jpg" alt="Loans list">
-  <figcaption>Figure 23 — Every loan on the book, with principal, outstanding, disbursement date and status.</figcaption>
+  <figcaption>Figure 25 — Every loan on the book, with principal, outstanding, disbursement date and status.</figcaption>
 </figure>
 
 <p>Click a loan reference to open its account. This is the book-wide view; the Money tab is the same loan seen from its case.</p>
@@ -730,7 +826,7 @@
 
 <figure>
   <img src="screenshots/admin-manual/24-portfolio.jpg" alt="Portfolio dashboard with arrears">
-  <figcaption>Figure 24 — Portfolio health: total loans, active loans, total outstanding, and arrears.</figcaption>
+  <figcaption>Figure 26 — Portfolio health: total loans, active loans, total outstanding, and arrears.</figcaption>
 </figure>
 
 <p><strong>Arrears</strong> lists every overdue instalment across the book. An empty arrears panel is the goal; anything in it needs collections attention.</p>
@@ -747,7 +843,7 @@
 
 <figure>
   <img src="screenshots/admin-manual/25-reports.jpg" alt="Reports and analytics">
-  <figcaption>Figure 25 — Reports. Five report groups, a period selector, and export.</figcaption>
+  <figcaption>Figure 27 — Reports. Five report groups, a period selector, and export.</figcaption>
 </figure>
 
 <table>
@@ -780,7 +876,7 @@
 
 <figure>
   <img src="screenshots/admin-manual/26-user-access-masked.jpg" alt="User access management">
-  <figcaption>Figure 26 — User Access. <em>Email addresses and names in this screenshot have been masked; the live screen shows real user details.</em></figcaption>
+  <figcaption>Figure 28 — User Access. <em>Email addresses and names in this screenshot have been masked; the live screen shows real user details.</em></figcaption>
 </figure>
 
 <p>Four counters summarise the account base: visible users, internal users, clients, and admins. Search by name or email, and filter by user type or role.</p>
@@ -815,7 +911,7 @@
 
 <figure>
   <img src="screenshots/admin-manual/27-my-profile.jpg" alt="My profile">
-  <figcaption>Figure 27 — Your profile. Name and phone are editable; email and roles are not.</figcaption>
+  <figcaption>Figure 29 — Your profile. Name and phone are editable; email and roles are not.</figcaption>
 </figure>
 
 <p>Your <strong>full name</strong> is what colleagues see on assignments, notes and reports, so keep it accurate. <strong>Phone</strong> is optional. <strong>Email</strong> is managed by your sign-in and can only be changed by an administrator. <strong>Roles</strong> are shown for reference.</p>
@@ -824,7 +920,7 @@
 <p>The bell in the top bar carries a count of unread items. Notifications are raised on status changes, and by scheduled scans for arrears, due tasks and stale cases.</p>
 
 <div class="note">
-  <strong>Notifications are in-app only.</strong> Nothing is emailed or texted, to staff or to applicants. If a case is waiting on someone, the system will not chase them — the dashboard SLA counter and the arrears panel are your early warning. Adding email delivery is item 3 in Section 23.
+  <strong>Notifications are in-app only.</strong> Nothing is emailed or texted, to staff or to applicants. If a case is waiting on someone, the system will not chase them — the dashboard SLA counter and the arrears panel are your early warning. Adding email delivery is item 3 in Section 25.
 </div>
 </section>
 
@@ -832,7 +928,7 @@
 <section class="sheet">
 <h2>20. What the client sees</h2>
 
-<p>Understanding the applicant's view makes support calls much shorter. The Client Portal is documented in full in its own manual; this is the summary.</p>
+<p>Understanding the applicant's view makes support calls much shorter. The Client Portal is documented in full in its own manual; this is the summary. <strong>Sections 21 and 22 then show the screens you personally cause to change.</strong></p>
 
 <table>
   <tr><th style="width:34mm">Their screen</th><th>What it shows</th></tr>
@@ -841,27 +937,224 @@
   <tr><td>Apply</td><td>Five steps: business profile, financials, loan details, documents, review</td></tr>
   <tr><td>Consent declaration</td><td>Twelve POPIA, policy and terms statements, all must be YES</td></tr>
   <tr><td>Home</td><td>Current application, three figures, recent activity</td></tr>
+  <tr><td>Applications</td><td>Every application they have made. A submitted one opens read-only; a draft resumes in the wizard</td></tr>
   <tr><td>Documents</td><td>Their checklist, with your Verified/Rejected badges</td></tr>
-  <tr><td>Status</td><td>Six milestones, plus a repayment summary once funded</td></tr>
+  <tr><td>Status</td><td>Six milestones, any documents you have requested, plus a repayment summary once funded</td></tr>
   <tr><td>My Loans</td><td>Loan account, schedule and repayment history</td></tr>
 </table>
 
+<figure>
+  <img src="screenshots/admin-manual/36-client-applications-list.jpg" alt="The applicant's applications list">
+  <figcaption>Figure 30 — The applicant's Applications list. Until recently this redirected them into the apply wizard, so they had no way to see what they had already sent you.</figcaption>
+</figure>
+
+<p>Opening a submitted application shows them a <strong>read-only</strong> copy of what they sent — the same five sections, with no edit controls. The restriction is enforced by the API and by row-level security, not just by hiding buttons, so a submitted application cannot be altered from the portal at all.</p>
+
+<figure>
+  <img src="screenshots/admin-manual/37-client-application-readonly.jpg" alt="A submitted application, read-only">
+  <figcaption>Figure 31 — A submitted application as the applicant sees it. What is shown is a snapshot taken at submission, so a later application cannot retroactively change what an earlier one says.</figcaption>
+</figure>
+
 <h3>20.1 Where their view differs from yours</h3>
 <ul>
-  <li>They see <strong>six milestones</strong>; you see <strong>eleven stages</strong>. Their timeline is a simplification.</li>
+  <li>They see <strong>six milestones</strong>; you see <strong>eleven stages</strong>. This is not a tidy simplification — six of your statuses map to no milestone at all and blank their whole timeline. The mapping is set out in 21.3 and it is worth knowing before you take a call about it.</li>
   <li>They see the rate as "from 15.50%" until the loan is booked; you see the actual grade.</li>
   <li>They cannot edit anything after submitting.</li>
   <li>They cannot pay through the portal.</li>
 </ul>
 
 <div class="note warn">
-  <strong>Expect this support call.</strong> "The tracker says nothing has happened." While a case sits in Screening, Due Diligence, Evaluation, Board Approved or Contracting, the client's timeline shows every milestone greyed out — including "Application Submitted". Their status badge is correct; the circles are not. Reassure them and quote the status label. This is item 1 in Section 23.
+  <strong>Expect this support call.</strong> "The tracker says nothing has happened." While a case sits in Screening, Due Diligence, Evaluation, Board Approved or Contracting, the client's timeline shows every milestone greyed out — including "Application Submitted". Their status badge is correct; the circles are not. Reassure them and quote the status label. This is item 1 in Section 25.
 </div>
 </section>
 
 <!-- ======================= 21 ======================= -->
 <section class="sheet">
-<h2>21. Configuration without a release</h2>
+<h2>21. Your action, their screen</h2>
+
+<p>This section pairs the things you do with what the applicant sees when you do them. It exists because two questions come up constantly and neither is answered by looking at the console alone: <em>if I click this, what happens on their side?</em> and <em>they are phoning about something — what are they looking at?</em></p>
+
+<p>Only screens you cause are shown here. The landing page, the calculator, the eligibility check and the five wizard steps happen before you are involved and live in the Client Portal manual instead.</p>
+
+<h3>21.1 You request a document</h3>
+<p>You raise the request in 9.4. On their side it arrives as a panel at the top of the status card for that application, with an upload box attached to each outstanding item.</p>
+
+<figure>
+  <img src="screenshots/admin-manual/31-client-status-requested.jpg" alt="Requested document on the applicant's status page">
+  <figcaption>Figure 32 — The applicant's status page with one document outstanding. The name, your Details text and the file type you chose all come straight from the dialog in Figure 8.</figcaption>
+</figure>
+
+<p>Three things are worth knowing when this comes up on a call:</p>
+<ul>
+  <li><strong>They get an in-app notification</strong> as well as the panel. It is one of only two notifications the portal sends them — see the table in 21.5.</li>
+  <li><strong>The upload box only accepts the file type you picked.</strong> If they say "it won't let me attach it", check what you chose in the File type field before anything else.</li>
+  <li><strong>The panel is not tied to Info Requested.</strong> It shows on any status, so an applicant can be asked for a document while their case is still progressing normally.</li>
+</ul>
+
+<p>When they upload, the ask closes itself and the document appears on your Documents tab for verification.</p>
+
+<figure>
+  <img src="screenshots/admin-manual/30-request-fulfilled.jpg" alt="The request after the applicant uploads">
+  <figcaption>Figure 33 — The same case once the applicant has answered. The request is satisfied and the document is now waiting on your Verify / Reject decision.</figcaption>
+</figure>
+
+<h3>21.2 You verify or reject a document</h3>
+<p>Your decision in 9.2 and 9.3 shows against that document on their Documents page, as a badge.</p>
+
+<figure>
+  <img src="screenshots/admin-manual/32-client-doc-badges.jpg" alt="Verified and rejected badges in the applicant's portal">
+  <figcaption>Figure 34 — The applicant's Documents page. Your decisions appear as badges against each document; a rejected one keeps its <strong>Replace</strong> link so they can send a new copy.</figcaption>
+</figure>
+
+<p>Note the <strong>Select application</strong> picker at the top. An applicant with more than one application sees the documents for whichever is selected, which is not necessarily the case you are discussing — worth confirming at the start of a call.</p>
+
+<div class="note warn">
+  <strong>Neither one notifies them.</strong> Verifying and rejecting change the badge silently. An applicant who is not already looking at the page will not know you rejected something — so if a rejection is blocking the case, raise a document request or a Request info alongside it, or telephone them.
+</div>
+
+<h3>21.3 You move the case forward</h3>
+<p>Your eleven stages do <em>not</em> collapse neatly into their six milestones. Six of your statuses are not in the tracker's vocabulary at all, and when a case is in one of them <strong>the applicant's entire timeline goes blank</strong> — every milestone grey, including the "Application Submitted" they have already passed. Only their status badge stays correct.</p>
+
+<table>
+  <tr><th style="width:38mm">Your stage</th><th style="width:44mm">Their timeline shows</th><th>What they are told</th></tr>
+  <tr><td>Draft</td><td>No timeline</td><td>A draft card inviting them to resume</td></tr>
+  <tr><td>Submitted</td><td><strong>Application Submitted</strong>, active</td><td>Received, awaiting review</td></tr>
+  <tr><td class="num">Screening</td><td rowspan="3" style="color:var(--danger)"><strong>Nothing — all six grey</strong></td><td rowspan="3">No visible progress at all for the whole of your review. This is the complaint in 21.6</td></tr>
+  <tr><td>Due Diligence</td></tr>
+  <tr><td>Evaluation</td></tr>
+  <tr><td>Info Requested</td><td><strong>Under Review</strong>, active</td><td>"Action required", with your note. Paradoxically the clearest their timeline looks during review</td></tr>
+  <tr><td>Approved</td><td><strong>Approved</strong>, active</td><td>Approved — but see 21.4, this is not money</td></tr>
+  <tr><td>Board Approved</td><td rowspan="2" style="color:var(--danger)"><strong>Nothing — all six grey</strong></td><td rowspan="2">Approval appears to be <em>withdrawn</em>: the timeline they saw a moment ago goes blank again</td></tr>
+  <tr><td>Contracting</td></tr>
+  <tr><td>Disbursed</td><td><strong>Funds Disbursed</strong>, active</td><td>Funds released; My Loans becomes populated</td></tr>
+  <tr><td>In Repayment</td><td><strong>In Repayment</strong>, active</td><td>Balance and schedule visible</td></tr>
+  <tr><td>Closed</td><td><strong>Loan Closed</strong>, active</td><td>Fully repaid</td></tr>
+  <tr><td>Rejected</td><td style="color:var(--danger)"><strong>Nothing — all six grey</strong></td><td>They are <em>not</em> told they were declined. The timeline simply blanks</td></tr>
+</table>
+
+<div class="note danger">
+  <strong>Read the Board Approved and Rejected rows twice.</strong> An applicant watching their tracker sees "Approved" light up, and then — when you move the case to Board Approved, which is <em>forward</em> progress — watches it go blank again. A declined applicant is never told they were declined by the timeline at all. Neither is a display quirk you can leave to explain itself on a call: if you decline a case, telephone them, and if you are moving an approved case onward, warn them their tracker will appear to reset.
+</div>
+
+<p>The cause is mechanical: the tracker orders statuses against a fixed list that never had the review and post-approval stages added to it, so an unlisted status matches no milestone and every circle falls through to "pending". It is item 1 in Section 25 and the highest-value fix in this manual.</p>
+
+<figure>
+  <img src="screenshots/admin-manual/34-client-status-inforequested.jpg" alt="Action required on the applicant's status page">
+  <figcaption>Figure 35 — Info Requested is the one review stage that looks different to them: an "Action required" block appears above the timeline.</figcaption>
+</figure>
+
+<p>The figure below is the whole effect in one screen — the same applicant's status page with seven applications on it, at seven different stages.</p>
+
+<figure>
+  <img src="screenshots/admin-manual/35-client-status-approved.jpg" alt="One applicant's status page showing seven applications at different stages">
+  <figcaption>Figure 36 — Evidence for the table above. Reading down: <strong>Disbursed</strong> and <strong>In Repayment</strong> render correctly; <strong>Board Approved</strong> is entirely blank; <strong>Approved</strong> renders correctly; <strong>Due Diligence</strong>, <strong>Screening</strong> and <strong>Evaluation</strong> are all blank. Four of the seven tell the applicant nothing at all, and the blank one sits directly below a correct one from the same business.</figcaption>
+</figure>
+
+<h3>21.4 You approve, or decline</h3>
+
+<p>Approval renders properly — the Naledi Construction card in the figure above shows Submitted and Under Review ticked with Approved active. It is the step <em>after</em> approval that causes trouble, because moving the case to Board Approved blanks that same timeline (21.3).</p>
+
+<p>Approving also does not release funds and does not create anything they can act on. Between your Approved and their money there is still Board Approved, Contracting and disbursement. Applicants routinely read "Approved" as "paid", so it is worth saying explicitly on the call — and worth warning them that their tracker is about to go blank.</p>
+
+<div class="note danger">
+  <strong>A declined applicant is not told.</strong> Rejected is not in the tracker's vocabulary either, so declining a case blanks their timeline exactly as Screening does. There is no "not approved" state on their side and no notification that says it in plain words. <strong>Telephone anyone you decline.</strong>
+</div>
+
+<h3>21.5 Which of your actions actually notify them</h3>
+<p>The portal sends the applicant only two kinds of in-app notification. Everything else changes quietly and is only noticed if they happen to look.</p>
+
+<table>
+  <tr><th style="width:52mm">Your action</th><th style="width:26mm">Notifies?</th><th>What they see</th></tr>
+  <tr><td>Request a document (9.4)</td><td><strong>Yes</strong></td><td>Notification plus the upload panel in 21.1</td></tr>
+  <tr><td>Change the case status (10)</td><td><strong>Yes</strong></td><td>Notification; milestones redraw per 21.3</td></tr>
+  <tr><td>Request info (left rail)</td><td>Yes, as a status change</td><td>"Action required" block</td></tr>
+  <tr><td>Verify a document</td><td>No</td><td>Badge changes silently</td></tr>
+  <tr><td>Reject a document</td><td>No</td><td>Badge changes silently, slot reopens</td></tr>
+  <tr><td>Assign the case to a colleague</td><td>No</td><td>Nothing — internal only</td></tr>
+  <tr><td>Add a note, task or advisory entry</td><td>No</td><td>Nothing — internal only</td></tr>
+  <tr><td>Set or change the risk grade</td><td>No</td><td>Nothing until the loan is booked</td></tr>
+  <tr><td>Record a repayment (14.2)</td><td>No</td><td>Balance and history update silently</td></tr>
+</table>
+
+<h3>21.6 The support calls this produces</h3>
+<table>
+  <tr><th style="width:48mm">They say</th><th style="width:44mm">They are looking at</th><th>Check</th></tr>
+  <tr><td>"Nothing has happened for weeks"</td><td>Status page, all milestones grey</td><td>The known display fault in 25.1 — quote them the status badge instead</td></tr>
+  <tr><td>"I was approved, where is my money?"</td><td>Status page, Approved</td><td>Whether the case has reached Disbursed — see 21.4 and Section 22</td></tr>
+  <tr><td>"It won't let me upload the file"</td><td>The panel in 21.1</td><td>The File type you chose on the request</td></tr>
+  <tr><td>"I don't know what you want from me"</td><td>An empty or vague request</td><td>The Details text on the request — reissue it with specifics</td></tr>
+  <tr><td>"You rejected it but didn't tell me"</td><td>Documents page</td><td>Correct — rejection is silent. See the warning in 21.2</td></tr>
+  <tr><td>"I can't fix a mistake on my application"</td><td>Read-only submitted application</td><td>Correct and enforced server-side. They cannot edit; you amend it for them</td></tr>
+  <tr><td>"How do I pay?"</td><td>My Loans</td><td>There is no payment function in the portal. Collection is by debit order and you record the receipt — see 22.4</td></tr>
+</table>
+</section>
+
+<!-- ======================= 22 ======================= -->
+<section class="sheet">
+<h2>22. After approval — the client's loan</h2>
+
+<p>Everything to this point has been an application. From disbursement onward the applicant has a loan account, and their portal changes shape. This section follows that from their side, in the order they experience it.</p>
+
+<h3>22.1 Approved, but nothing has moved</h3>
+<p>Covered in 21.4 and repeated here because it generates more calls than anything else: <strong>Approved is not funded</strong>. Their status reads Approved through your Approved, Board Approved and Contracting stages. My Loans is still empty. There is nothing for them to do and nothing for them to see beyond the milestone.</p>
+
+<h3>22.2 You disburse — their loan appears</h3>
+<p>The moment you record disbursement in 13.1, three things change for them at once: the Disbursed milestone lights up, Home starts showing an outstanding balance, and My Loans stops being empty.</p>
+
+<figure>
+  <img src="screenshots/admin-manual/38-client-home-funded.jpg" alt="The applicant's home page after disbursement">
+  <figcaption>Figure 37 — Home after disbursement. The outstanding figure is the full amount owing, not the amount advanced — fees were deducted from the advance but are owed in full.</figcaption>
+</figure>
+
+<figure>
+  <img src="screenshots/admin-manual/39-client-my-loans.jpg" alt="The applicant's My Loans list">
+  <figcaption>Figure 38 — My Loans. The loan carries the same derived name as the application it came from, so the two reconcile.</figcaption>
+</figure>
+
+<div class="note warn">
+  <strong>Expect a question about the amount.</strong> A client who asked for R500 000 receives less than that in their bank account — the initiation fee and the management fee are deducted from the advance, as Section 12.3 explains — but the balance shown here is what they owe, which is the full principal plus interest. The two numbers are both correct and they will not look it. Section 12.4 has the worked example to read out.
+</div>
+
+<h3>22.3 What they can see about the loan</h3>
+<p>Opening the loan shows the account and its repayment schedule: what is due, when, and what has been paid.</p>
+
+<figure>
+  <img src="screenshots/admin-manual/40-client-loan-account.jpg" alt="The applicant's loan account and schedule">
+  <figcaption>Figure 39 — The loan account. For a bullet loan this is a single instalment; for a term loan it is one row per month.</figcaption>
+</figure>
+
+<h3>22.4 The first payment</h3>
+<p>Repayment is collected by <strong>direct debit order</strong>, which is what the applicant agreed to in their consent declaration. Collection happens outside the system, and <strong>the portal has no payment function</strong> — there is no card capture, no way to set up or amend the debit order, and no "pay now" button anywhere in it. The loan only reflects a collection once you record it on the Money tab.</p>
+
+<figure>
+  <img src="screenshots/admin-manual/41-admin-record-repayment.jpg" alt="Recording a repayment on the Money tab">
+  <figcaption>Figure 40 — Your side: recording the receipt against the instalment in 14.2.</figcaption>
+</figure>
+
+<figure>
+  <img src="screenshots/admin-manual/42-client-loan-after-payment.jpg" alt="The applicant's loan after the first payment">
+  <figcaption>Figure 41 — Their side, immediately afterwards. The instalment is settled, the history has a row, and the outstanding balance has come down.</figcaption>
+</figure>
+
+<div class="note warn">
+  <strong>Until you record it, they see nothing.</strong> An applicant who paid on Friday and checks on Monday will see an unchanged balance and an instalment still outstanding, and will reasonably conclude the payment was lost. This is the single most avoidable complaint in the system: record receipts promptly, because the portal has no other way of knowing.
+</div>
+
+<h3>22.5 Through repayment to closure</h3>
+<ul>
+  <li><strong>In repayment.</strong> Each receipt you record reduces the balance and adds a history row. Nothing notifies them.</li>
+  <li><strong>Falling behind.</strong> Overdue instalments appear on your Portfolio ageing report (16.2). Penalties accrue daily with no grace period, per Section 12.5. The applicant sees the increased balance but gets no warning before it happens.</li>
+  <li><strong>Settled.</strong> When the loan closes, their milestone moves to Closed and the loan stays visible in My Loans as a record.</li>
+</ul>
+
+<div class="note">
+  <strong>What the applicant can never do.</strong> Pay through the portal, edit a submitted application, change their banking details, upload a document nobody asked for once the application has left Draft, or see your internal notes, tasks, assignments, risk grade or advisory entries. If they need any of those, they need you.
+</div>
+</section>
+
+<!-- ======================= 23 ======================= -->
+<section class="sheet">
+<h2>23. Configuration without a release</h2>
 
 <p>The values PRDF revisits most are configuration, not code. Four of the six below need no developer and no deployment.</p>
 
@@ -875,33 +1168,33 @@
   <tr><td>Consent wording</td><td><code>packages/domain/consent.ts</code></td><td>Yes</td></tr>
 </table>
 
-<h3>21.1 Changing the loan band</h3>
+<h3>23.1 Changing the loan band</h3>
 <p>Update the amount and term columns on the active product. Sliders, validation and the API all follow within about thirty minutes.</p>
 <div class="note warn">
   <strong>Narrowing a band has a delayed effect.</strong> A trigger validates applications against product limits on every write, so an already-submitted case outside a new band fails on its <em>next</em> update, not immediately. After narrowing, check for non-draft cases outside the new limits and re-quote them deliberately.
 </div>
 
-<h3>21.2 Changing pricing</h3>
+<h3>23.2 Changing pricing</h3>
 <p><code>pricing_config</code> holds one row: prime rate, initiation fee, management fee percentage, penalty rate, penalty period and days per year. <strong>When Prime moves, update it here</strong> — the client-facing disclosure is expressed as a margin over Prime precisely so it stays true.</p>
 <div class="note">
   <strong>Existing loans are unaffected.</strong> Rate, fees and days financed are snapshotted onto each loan when it is booked, so changing config never re-prices a loan already sold.
 </div>
 
-<h3>21.3 Changing required documents</h3>
+<h3>23.3 Changing required documents</h3>
 <p>Add or remove rows in <code>document_requirements</code>. A brand-new document type also needs a label added in code, or the raw type name is displayed.</p>
 
-<h3>21.4 Changing consent wording</h3>
+<h3>23.4 Changing consent wording</h3>
 <p>Edit the consent items and <strong>bump the version stamp</strong>, so stored consent records stay traceable to what was actually agreed.</p>
 <div class="note danger">
-  <strong>The current consent wording is marked draft, pending PRDF legal review.</strong> It is captured and versioned correctly, but has not been signed off by legal. Item 2 in Section 23.
+  <strong>The current consent wording is marked draft, pending PRDF legal review.</strong> It is captured and versioned correctly, but has not been signed off by legal. Item 2 in Section 25.
 </div>
 </section>
 
-<!-- ======================= 22 ======================= -->
+<!-- ======================= 24 ======================= -->
 <section class="sheet">
-<h2>22. Environments and operations</h2>
+<h2>24. Environments and operations</h2>
 
-<h3>22.1 Where things run</h3>
+<h3>24.1 Where things run</h3>
 <table>
   <tr><th style="width:34mm">Component</th><th>Location</th></tr>
   <tr><td>Admin Console</td><td>Vercel — <code>prdf-admin.vercel.app</code></td></tr>
@@ -910,7 +1203,7 @@
   <tr><td>Database, auth, storage</td><td>Supabase project <code>prdf</code></td></tr>
 </table>
 
-<h3>22.2 Health checks</h3>
+<h3>24.2 Health checks</h3>
 <table>
   <tr><th style="width:52mm">Check</th><th>Where</th></tr>
   <tr><td>API alive</td><td><code>/health</code></td></tr>
@@ -919,13 +1212,13 @@
   <tr><td>Database, auth and storage</td><td>Supabase dashboard</td></tr>
 </table>
 
-<h3>22.3 Two checks after any deployment</h3>
+<h3>24.3 Two checks after any deployment</h3>
 <ul>
   <li>Open the client portal signed out. If the calculator is blank, the portal cannot reach the API — almost always the API base URL setting.</li>
   <li>Sign in to the console and open any case. If it fails to load, the problem is the API or the token, not the console.</li>
 </ul>
 
-<h3>22.4 When something breaks</h3>
+<h3>24.4 When something breaks</h3>
 <ol>
   <li>Capture the API logs around the time of the failure.</li>
   <li>Capture the request ID and the failing endpoint.</li>
@@ -938,15 +1231,15 @@
 </div>
 </section>
 
-<!-- ======================= 23 ======================= -->
+<!-- ======================= 25 ======================= -->
 <section class="sheet">
-<h2>23. Known limitations</h2>
+<h2>25. Known limitations</h2>
 
 <p>Stated plainly so that what is being signed for is clear. None of these stops an application being assessed or funded.</p>
 
 <table>
   <tr><th style="width:8mm">#</th><th style="width:52mm">Item</th><th>Effect and recommendation</th></tr>
-  <tr><td>1</td><td><strong>Client timeline goes blank mid-assessment</strong></td><td>The portal's six milestones do not cover the internal stages, so a case in Screening through Contracting shows no progress to the applicant. Their status badge remains correct. Map the missing stages onto the milestones. <em>Highest priority — it generates support calls.</em></td></tr>
+  <tr><td>1</td><td><strong>Client timeline goes blank for six of eleven statuses</strong></td><td>The tracker orders statuses against a fixed list that never had Screening, Due Diligence, Evaluation, Board Approved, Contracting or Rejected added to it. An unlisted status matches no milestone, so <em>every</em> circle greys out — including ones the applicant has already passed. Worst effects: approval appears to be withdrawn when you move an Approved case to Board Approved, and a declined applicant is never told. Their status badge stays correct throughout. Add the missing statuses to the tracker's order and milestone lists. <em>Highest priority — see the mapping and the resulting support calls in 21.3 and 21.6.</em></td></tr>
   <tr><td>2</td><td><strong>Consent wording is draft</strong></td><td>Captured and versioned, but not legally signed off. Have legal review it and bump the version.</td></tr>
   <tr><td>3</td><td><strong>Notifications are in-app only</strong></td><td>Neither staff nor applicants are told anything outside the system. Add email or SMS on status change.</td></tr>
   <tr><td>4</td><td><strong>No password-reset page in the client portal</strong></td><td>The reset email links to a page that does not exist. Applicants must ask PRDF to reset for them.</td></tr>
@@ -957,17 +1250,21 @@
   <tr><td>9</td><td><strong>Loans booked before the pricing fix</strong></td><td>Any loan booked before 26 September 2026 carries the legacy flat rate, an amortising schedule and no fees. These must be re-quoted or re-booked deliberately; the migration reports how many exist rather than rewriting them.</td></tr>
   <tr><td>10</td><td><strong>No multi-factor authentication requirement</strong></td><td>MFA can be reset but is not enforced for staff. Consider requiring it for roles that move money.</td></tr>
   <tr><td>11</td><td><strong>No automated test suite</strong></td><td>Regressions are caught by manual QA. Add end-to-end cover for the lifecycle and money paths.</td></tr>
-  <tr><td>12</td><td><strong>Schedule dates display as raw timestamps</strong></td><td>Cosmetic. Due dates render unformatted in both portals' schedule tables.</td></tr>
+  <tr><td>12</td><td><strong>Document rejection is silent</strong></td><td>Rejecting a document changes the badge in the applicant's portal but sends no notification, so an applicant who is not watching the page will not know. Raise a document request alongside it, or telephone. See 21.2.</td></tr>
 </table>
+
+<div class="note">
+  <strong>Resolved since version 1.0.</strong> "Schedule dates display as raw timestamps" was item 12 in the previous edition. Dates now render as <em>24 October 2026</em> throughout both the console and the portal, and the underlying date columns no longer shift by a day between the API and the browser.
+</div>
 </section>
 
-<!-- ======================= 24 ======================= -->
+<!-- ======================= 26 ======================= -->
 <section class="sheet">
-<h2>24. Acceptance and sign-off</h2>
+<h2>26. Acceptance and sign-off</h2>
 
 <p>This section records PRDF's acceptance of the Admin Console as delivered and documented in this manual.</p>
 
-<h3>24.1 Acceptance checklist</h3>
+<h3>26.1 Acceptance checklist</h3>
 <table class="checklist">
   <tr><th style="width:8mm">✓</th><th>Item</th><th style="width:18mm">Section</th></tr>
   <tr><td>☐</td><td>Staff can sign in; a Client-only account is correctly refused</td><td>4</td></tr>
@@ -987,21 +1284,23 @@
   <tr><td>☐</td><td>Loans, Portfolio and arrears reflect the book</td><td>16</td></tr>
   <tr><td>☐</td><td>Reports render and are hidden from stage workers</td><td>17</td></tr>
   <tr><td>☐</td><td>Roles can be granted and removed; Client is absent from the dropdown</td><td>18</td></tr>
-  <tr><td>☐</td><td>Configuration changes take effect without a release</td><td>21</td></tr>
-  <tr><td>☐</td><td>The limitations in Section 23 have been read and accepted</td><td>23</td></tr>
+  <tr><td>☐</td><td>A requested document reaches the applicant as an upload slot and closes when they answer</td><td>9.4, 21.1</td></tr>
+  <tr><td>☐</td><td>Cases and loans are named consistently across the console and the portal</td><td>7, 16, 22.2</td></tr>
+  <tr><td>☐</td><td>Configuration changes take effect without a release</td><td>23</td></tr>
+  <tr><td>☐</td><td>The limitations in Section 25 have been read and accepted</td><td>25</td></tr>
 </table>
 
-<h3>24.2 Declaration</h3>
+<h3>26.2 Declaration</h3>
 <p>By signing below, PRDF confirms that:</p>
 <ol>
   <li>The Admin Console described in this manual has been delivered and demonstrated.</li>
-  <li>The acceptance criteria in 24.1 have been verified.</li>
-  <li>The known limitations in Section 23 have been disclosed, read and accepted.</li>
+  <li>The acceptance criteria in 26.1 have been verified.</li>
+  <li>The known limitations in Section 25 have been disclosed, read and accepted.</li>
   <li>This manual, with the Client Portal User Manual, constitutes the system documentation.</li>
   <li>The work is complete and accepted.</li>
 </ol>
 
-<h3>24.3 Signatures</h3>
+<h3>26.3 Signatures</h3>
 
 <div class="sigbox">
   <h4>Accepted on behalf of PRDF</h4>
