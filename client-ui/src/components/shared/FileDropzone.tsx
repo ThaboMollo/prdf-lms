@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { DOCUMENT_MAX_SIZE_BYTES, DOCUMENT_MAX_SIZE_LABEL } from '../../../../packages/domain/constraints'
 
 type FileDropzoneProps = {
   label: string
@@ -22,6 +23,7 @@ export function FileDropzone({
   const inputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [typeError, setTypeError] = useState<string | null>(null)
+  const [sizeError, setSizeError] = useState<string | null>(null)
 
   // The accept attribute only filters the picker dialog — drag-and-drop (and
   // "All Files" in the dialog) can still hand us anything, so re-check here.
@@ -37,17 +39,38 @@ export function FileDropzone({
     return ok
   }
 
+  /**
+   * Reject oversized files before the upload starts.
+   *
+   * This is a courtesy, not the control: the real limit is the storage
+   * bucket's `file_size_limit`, because the browser uploads directly to
+   * Supabase through a signed URL and the API never sees the bytes. Without
+   * this check the bucket still refuses the file, but the applicant gets an
+   * opaque storage error partway through instead of being told which file is
+   * too big and by how much.
+   */
+  function filterWithinSizeLimit(candidates: File[]): File[] {
+    const ok = candidates.filter((f) => f.size <= DOCUMENT_MAX_SIZE_BYTES)
+    const tooBig = candidates.filter((f) => f.size > DOCUMENT_MAX_SIZE_BYTES)
+    setSizeError(
+      tooBig.length
+        ? `${tooBig.map((f) => f.name).join(', ')} ${tooBig.length === 1 ? 'is' : 'are'} larger than ${DOCUMENT_MAX_SIZE_LABEL}. Compress the file or split it, then try again.`
+        : null
+    )
+    return ok
+  }
+
   function handleDrop(event: React.DragEvent) {
     event.preventDefault()
     setIsDragging(false)
-    const dropped = filterAccepted(Array.from(event.dataTransfer.files))
+    const dropped = filterWithinSizeLimit(filterAccepted(Array.from(event.dataTransfer.files)))
     if (!dropped.length) return
     const next = multiple ? [...files, ...dropped] : dropped.slice(0, 1)
     onFilesChange(next)
   }
 
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const selected = filterAccepted(Array.from(event.target.files ?? []))
+    const selected = filterWithinSizeLimit(filterAccepted(Array.from(event.target.files ?? [])))
     event.target.value = ''
     if (!selected.length) return
     const next = multiple ? [...files, ...selected] : selected.slice(0, 1)
@@ -109,6 +132,7 @@ export function FileDropzone({
         </ul>
       )}
       {typeError && <p className="field-error" role="alert">{typeError}</p>}
+      {sizeError && <p className="field-error" role="alert">{sizeError}</p>}
       {error && <p className="field-error" role="alert">{error}</p>}
     </div>
   )

@@ -49,3 +49,66 @@
   - pending due tasks
   - stale applications
 - Whether this job has actually been executing in production is unconfirmed — see `platform-architecture-design.md` §10, open decision 5.
+
+## Environments and Operations
+
+Moved out of the Administrator's Manual (2026-10-01): that document is written
+for non-technical PRDF staff, and this material is for whoever owns and
+operates the platform. Section 23 of the manual still tells administrators
+*which* settings are changeable without a release; the mechanics live here.
+
+### Where things run
+
+| Component | Location |
+|---|---|
+| Admin Console | Vercel — `prdf-admin.vercel.app` |
+| Client Portal | Vercel — `prdf-lms.vercel.app` |
+| API | Vercel — `prdf-api.vercel.app` |
+| Database, auth, storage | Supabase project `prdf` |
+
+### Health checks
+
+| Check | Where |
+|---|---|
+| API alive | `/health` |
+| Audit trail | `/api/reports/audit` |
+| Deployment status and build logs | Vercel project |
+| Database, auth and storage | Supabase dashboard |
+
+### Two checks after any deployment
+
+- Open the client portal signed out. If the calculator is blank, the portal
+  cannot reach the API — almost always the API base URL setting.
+- Sign in to the console and open any case. If it fails to load, the problem is
+  the API or the token, not the console.
+
+### When something breaks
+
+1. Capture the API logs around the time of the failure.
+2. Capture the request ID and the failing endpoint.
+3. Confirm row-level-security behaviour in the Supabase SQL editor.
+4. Roll back to the previous deployment if production impact is high.
+
+> **One production setting to verify.** The API's JWT audience setting must be
+> `authenticated`. During handover it was found holding a secret value instead,
+> which causes *every* authenticated request to fail with 401 while
+> unauthenticated pages keep working — a confusing failure that looks like a
+> login problem. It has been corrected locally; confirm the production
+> environment matches.
+
+### Configuration tables behind manual Section 23
+
+| Setting | Where | Needs a release? |
+|---|---|---|
+| Loan amount and term band | `loan_products` table | No |
+| Which documents are required | `document_requirements` table | No |
+| Prime rate and fees | `pricing_config` table | No |
+| Risk-grade margins | `risk_grades` table | No |
+| Eligibility criteria wording | Tenant config | Yes |
+| Consent wording | `packages/domain/consent.ts` | Yes |
+
+A trigger validates applications against product limits on every write, so
+narrowing a band makes an already-submitted case outside it fail on its *next*
+update, not immediately. A brand-new document type also needs a label added in
+code, or the raw type name is displayed. Changing consent wording requires
+bumping `CONSENT_VERSION`.

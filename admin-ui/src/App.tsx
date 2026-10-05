@@ -8,6 +8,7 @@ import { RequireRole } from './components/RequireRole'
 import { CardSkeleton } from './components/shared/Skeletons'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
+import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { LoanRedirect } from './pages/LoanRedirect'
 import { PortfolioPage } from './pages/PortfolioPage'
 import { ReportsPage } from './pages/ReportsPage'
@@ -108,6 +109,11 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      {/* Public on purpose: the password-recovery email lands here carrying
+          its own token, and the visitor is by definition unable to sign in.
+          It stays below the MFA gates above, so a staff member with a
+          verified factor still answers the challenge before the form. */}
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route element={<RequireAuth session={session} />}>
         {protectedReady ? (
           <Route

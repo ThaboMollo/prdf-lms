@@ -87,11 +87,10 @@
   <p class="sub">A step-by-step guide to applying for and managing a PRDF business loan</p>
   <dl>
     <dt>Document</dt><dd>Client Portal User Manual</dd>
-    <dt>Version</dt><dd>1.0</dd>
-    <dt>Date</dt><dd>26 September 2026</dd>
+    <dt>Date</dt><dd>1 October 2026</dd>
     <dt>Audience</dt><dd>Loan applicants, and PRDF staff supporting them</dd>
-    <dt>Portal</dt><dd>https://prdf-lms.vercel.app</dd>
-    <dt>Purpose</dt><dd>User guide and handover record</dd>
+    <dt>Web address</dt><dd>https://prdf-lms.vercel.app</dd>
+    <dt>Purpose</dt><dd>User guide and acceptance record</dd>
   </dl>
   <p style="margin-top:2.4em;font-size:9pt;color:var(--muted)">
     Every screenshot in this manual was captured from the working portal, not mocked up.
@@ -118,7 +117,7 @@
   <strong>A note on the figures.</strong> The amounts in the screenshots come from a test application for R750 000 over 12 months. Your own figures will differ. Everything the portal quotes you before approval is <em>indicative</em> — Section 14 explains why, and what can change.
 </div>
 
-<h3>Who to contact</h3>
+<h3>Troubleshooting</h3>
 <p>If you get stuck, contact your PRDF loan officer. If you have not been assigned one yet, use the contact details on the PRDF website. Section 15 covers the problems people hit most often, and many can be solved without waiting for help.</p>
 </section>
 
@@ -144,7 +143,7 @@
 </table>
 
 <div class="note warn">
-  <strong>File formats.</strong> Only <strong>PDF, DOC and DOCX</strong> files are accepted. Photographs and scans saved as JPG or PNG will be refused. If you only have a paper copy, scan or photograph it and save it as a PDF before uploading.
+  <strong>File formats and size.</strong> Only <strong>PDF, DOC and DOCX</strong> files are accepted, and each file must be <strong>5 MB or smaller</strong>. Photographs and scans saved as JPG or PNG will be refused. If you only have a paper copy, scan or photograph it and save it as a PDF before uploading — if the scan comes out larger than 5 MB, scan it again in black and white or at a lower resolution.
 </div>
 
 <h3>2.2 Also have ready</h3>
@@ -158,7 +157,7 @@
 
 <h3>2.3 Practical points</h3>
 <p><strong>Browser.</strong> Any current version of Chrome, Edge, Safari or Firefox. The portal works on a phone, but uploading is far easier on a computer where your files already are.</p>
-<p><strong>Time.</strong> About 10 minutes with your documents to hand. You can save and come back at any point, so you do not have to finish in one sitting.</p>
+<p><strong>Time.</strong> As a guide, allow around 10 minutes once every document on the checklist is to hand — it will take longer if you are still gathering them. This is an estimate, not a limit: you can save and come back at any point, so you do not have to finish in one sitting.</p>
 </section>
 
 <!-- ============================ 3 ============================ -->
@@ -170,10 +169,14 @@
 <h3>3.1 The loan calculator</h3>
 <p>The calculator gives you an indicative price before you register anything. Drag the sliders, or click the figure and type directly into it.</p>
 <ul>
-  <li><strong>How much do you need?</strong> — R250 000 to R1 000 000</li>
+  <li><strong>How much do you need?</strong> — R250 000 to R3 000 000</li>
   <li><strong>Over how many months?</strong> — 1 to 36 months</li>
 </ul>
 <p>It then shows your indicative monthly instalment, total repayment, and estimated interest.</p>
+
+<div class="note warn">
+  <strong>These figures are indicative only.</strong> They are a guide to help you plan, not a quotation and not an offer of credit. Your actual rate is set after assessment, and your approved amount and term may differ from what you ask for. Section 14 explains what can change and why.
+</div>
 
 <figure>
   <img src="screenshots/client-manual/01-landing-and-calculator.jpg" alt="PRDF landing page with the loan calculator">
@@ -209,7 +212,7 @@
 
 <figure>
   <img src="screenshots/client-manual/04-eligibility-not-qualified.jpg" alt="You do not currently qualify">
-  <figcaption>Figure 4 — If you left any criterion unticked. You are shown what to fix and referred to Phahla Consultants for compliance and funding-readiness help. You can retake the check at any time.</figcaption>
+  <figcaption>Figure 4 — If you left any criterion unticked. You are shown what to fix and referred to Phahla Consulting for compliance and funding-readiness help. You can retake the check at any time.</figcaption>
 </figure>
 
 <div class="note">
@@ -234,6 +237,10 @@
 </figure>
 
 <p>If anything is wrong, the message appears directly beneath that field and the cursor jumps to it. Clicking <strong>Create Account &amp; Apply</strong> takes you straight into the application — there is no separate confirmation email to wait for.</p>
+
+<div class="note warn">
+  <strong>Use an email address you can actually open.</strong> It is the address you sign in with, the only way to reset a forgotten password, and where PRDF writes to you about your application. An address belonging to someone else, or one you no longer have access to, will lock you out of your own account.
+</div>
 </section>
 
 <!-- ============================ 5 ============================ -->
@@ -248,12 +255,14 @@
 <h3>5.1 If you forget your password</h3>
 <p>Type your email address into the <strong>Email address</strong> field first, then click <strong>Forgot your password?</strong> If you click it with the field empty you will be asked to fill it in.</p>
 
-<div class="note warn">
-  <strong>Known limitation.</strong> The password-reset email currently links to a page that does not yet exist, so the link will not let you set a new password. Until that page is built, <strong>contact PRDF and ask an administrator to reset your password for you.</strong> This is a known item on the handover list.
+<p>PRDF emails you a reset link. Open it, choose a new password, enter it a second time to confirm, and the portal confirms the change. The link works once and expires after a short time — if it has lapsed, request another from the sign-in page.</p>
+
+<div class="note">
+  <strong>You are signed out everywhere after a reset.</strong> That is deliberate: if someone else had your old password, changing it ends their access too. Sign in again with the new password on each device you use.
 </div>
 
 <h3>5.2 Staying signed in</h3>
-<p>Your session survives closing the browser, and expires after a period of inactivity — just sign in again. <strong>Logout</strong> is at the top right of every page.</p>
+<p>You stay signed in if you close the tab or the browser and come back later, so you will not lose a draft that way. Behind the scenes your sign-in is renewed about once an hour while you use the portal; you will not notice this. If a renewal cannot be completed — most often because the connection dropped — you are returned to the sign-in page, and nothing you have saved is lost. <strong>Logout</strong>, at the top right of every page, is the reliable way to end your session, and the one to use on a shared computer.</p>
 
 <h3>5.3 Where you land</h3>
 <ul>
@@ -341,7 +350,7 @@
   <tr><td>Average monthly revenue (R)</td><td>Must be greater than zero. Enter a plain number — <code>620000</code>, not <code>R620 000</code></td></tr>
   <tr><td>Years in operation</td><td>Zero or more. Trading less than a year? Enter <code>0</code></td></tr>
   <tr><td>Number of employees</td><td>At least 1 — count yourself if you are the owner-operator</td></tr>
-  <tr><td>Business bank</td><td>Choose from the list</td></tr>
+  <tr><td>Banking institution</td><td>Choose from the list</td></tr>
 </table>
 
 <p><strong>← Back</strong> returns to Step 1 with everything you entered still there.</p>
@@ -361,7 +370,7 @@
 <h3>8.1 Amount and term</h3>
 <table>
   <tr><th style="width:52mm">Control</th><th>Range</th></tr>
-  <tr><td>How much do you need?</td><td>R250 000 – R1 000 000</td></tr>
+  <tr><td>How much do you need?</td><td>R250 000 – R3 000 000</td></tr>
   <tr><td>Over how many months?</td><td>1 – 36 months</td></tr>
 </table>
 <p>If you go outside these limits the step is refused and the limit is quoted back to you.</p>
@@ -370,7 +379,7 @@
 <table>
   <tr><th style="width:52mm">Field</th><th>Notes</th></tr>
   <tr><td>How do we fund you?</td><td>Required. Choose the category that best fits — purchase order, transport, equipment, working capital, and so on</td></tr>
-  <tr><td>Tell us more about how you'll use the funds</td><td>Required, at least 5 characters</td></tr>
+  <tr><td>Tell us more about how you'll use the funds</td><td>Required, at least 30 characters — a few words will be refused</td></tr>
 </table>
 
 <div class="note">
@@ -491,7 +500,7 @@
 
 <table>
   <tr><th style="width:42mm">Milestone</th><th>What it means</th></tr>
-  <tr><td>Application Submitted</td><td>We have it, and it is waiting to be assigned</td></tr>
+  <tr><td>Application Submitted</td><td>Received, and waiting to be assigned</td></tr>
   <tr><td>Under Review</td><td>Being assessed, along with your documents</td></tr>
   <tr><td>Approved</td><td>Your loan has been approved</td></tr>
   <tr><td>Funds Disbursed</td><td>Money has been transferred to your business account</td></tr>
@@ -500,7 +509,7 @@
 </table>
 
 <div class="note warn">
-  <strong>If the timeline looks empty, nothing is wrong.</strong> While your application is being assessed it passes through several internal stages that the timeline does not yet show, and it can appear as though no progress has been made. <strong>Trust the status label at the top right of the card</strong>, not the circles. This is a known item on the handover list and is being fixed.
+  <strong>If the timeline looks empty, nothing is wrong.</strong> While your application is being assessed it passes through several internal stages that the timeline does not yet show, and it can appear as though no progress has been made. <strong>Trust the status label at the top right of the card</strong>, not the circles. This is known and is being fixed.
 </div>
 
 <div class="note">
@@ -592,7 +601,7 @@
 
 <!-- ============================ 15 ============================ -->
 <section class="sheet">
-<h2>15. If something goes wrong</h2>
+<h2>15. Troubleshooting</h2>
 
 <table>
   <tr><th style="width:56mm">What you see</th><th>What to do</th></tr>
@@ -600,19 +609,19 @@
   <tr><td><strong>Submit Application</strong> is greyed out</td><td>A document is still missing. Check the Documents panel on the review screen for <strong>Missing</strong></td></tr>
   <tr><td><strong>Continue</strong> does nothing</td><td>Something on the step is invalid. Look for red text — the cursor jumps to the first problem</td></tr>
   <tr><td>"Add a few details before saving"</td><td>There is nothing to save yet. Fill in a field or two first</td></tr>
-  <tr><td>Your draft did not save</td><td>Check your internet connection, edit any field to trigger another save, and wait for <strong>✓ All changes saved</strong></td></tr>
+  <tr><td>Your draft did not save</td><td>Check your internet connection, edit any field to start another save, and wait for <strong>✓ All changes saved</strong></td></tr>
   <tr><td>Home and Status will not open</td><td>Expected if you have not applied yet. They open once you have an application</td></tr>
-  <tr><td>The password reset link does not work</td><td>Known limitation — contact PRDF to have your password reset (Section 5.1)</td></tr>
+  <tr><td>The password reset link does not work</td><td>Links expire and work only once. Request a new one from the sign-in page (Section 5.1)</td></tr>
   <tr><td>"Could not load your profile"</td><td>Refresh the page. If it persists, sign out and back in</td></tr>
   <tr><td>Pages load but tables are empty</td><td>A connection problem. Use <strong>Retry</strong> on the panel</td></tr>
-  <tr><td>Your amount or term is rejected</td><td>It is outside R250 000–R1 000 000 or 1–36 months</td></tr>
+  <tr><td>Your amount or term is rejected</td><td>It is outside R250 000–R3 000 000 or 1–36 months</td></tr>
   <tr><td>You cannot start a second application</td><td>You already have an unfinished one. Finish or discard it first</td></tr>
   <tr><td>A document shows <strong>Rejected</strong></td><td>It was not accepted. Upload a corrected copy from the Documents page</td></tr>
   <tr><td>You were signed out unexpectedly</td><td>Your session expired. Sign in again — your saved work is safe</td></tr>
   <tr><td>The progress timeline looks empty</td><td>Known display issue. Trust the status label on the card (Section 12)</td></tr>
 </table>
 
-<h3>Common questions</h3>
+<h3>Frequently Asked Questions (FAQ)</h3>
 <ul>
   <li><strong>Can I change my application after submitting?</strong> No. Contact your loan officer.</li>
   <li><strong>How long does a decision take?</strong> The site indicates five working days, depending on assessment.</li>
@@ -646,7 +655,7 @@
   <tr><td>☐</td><td>A funded loan shows its account, schedule and repayment history</td><td>13</td></tr>
   <tr><td>☐</td><td>Loans are booked at the assessed risk grade, with fees recorded</td><td>14</td></tr>
   <tr><td>☐</td><td>The portal is usable on a mobile phone</td><td>5.4</td></tr>
-  <tr><td>☐</td><td>The known limitations noted in Sections 5.1 and 12 have been read and accepted</td><td>5.1, 12</td></tr>
+  <tr><td>☐</td><td>The points noted in Sections 5.1 and 12 have been read and accepted</td><td>5.1, 12</td></tr>
 </table>
 
 <h3>16.2 Declaration</h3>
@@ -654,7 +663,7 @@
 <ol>
   <li>The Client Portal described in this manual has been delivered and demonstrated.</li>
   <li>The acceptance criteria in 16.1 have been verified.</li>
-  <li>The known limitations disclosed in this manual have been read and accepted.</li>
+  <li>The points disclosed in this manual have been read and accepted.</li>
   <li>This manual constitutes the user documentation for the Client Portal.</li>
   <li>The work is complete and accepted.</li>
 </ol>
@@ -686,7 +695,7 @@
 </div>
 
 <p style="margin-top:1.4em;font-size:8.6pt;color:var(--muted);font-style:italic">
-  PRDF Client Portal — User Manual, version 1.0, 26 September 2026.
+  PRDF Client Portal — User Manual, 1 October 2026.
 </p>
 </section>
 

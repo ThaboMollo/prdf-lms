@@ -14,6 +14,7 @@ import { EligibilityResultPage } from './pages/EligibilityResultPage'
 import { NotEligiblePage } from './pages/NotEligiblePage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
+import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { HomePage } from './pages/HomePage'
 import { ApplyPage } from './pages/ApplyPage'
 import { ApplicationsPage } from './pages/ApplicationsPage'
@@ -85,6 +86,9 @@ export function App() {
         <Route path="/eligibility/not-eligible" element={<NotEligiblePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        {/* Public on purpose: the password-recovery email lands here carrying
+            its own token, and the visitor is by definition unable to sign in. */}
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* Protected routes */}
         <Route element={<RequireAuth session={session} />}>

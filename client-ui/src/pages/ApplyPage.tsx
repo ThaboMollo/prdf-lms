@@ -1030,7 +1030,7 @@ function Step2({
         </div>
 
         <div className="form-field">
-          <label htmlFor="bankName">Business bank</label>
+          <label htmlFor="bankName">Banking institution</label>
           <select id="bankName" {...fieldErrorAttrs('bankName', errors.bankName)} value={form.bankName} onChange={set('bankName')}>
             <option value="">Select your bank…</option>
             {SA_BANKS.map((b) => <option key={b} value={b}>{b}</option>)}

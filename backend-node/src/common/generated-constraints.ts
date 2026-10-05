@@ -95,7 +95,7 @@ export type Industry = (typeof INDUSTRIES)[number]
 export const LIMITS = {
   businessName: { minLength: 2, maxLength: 200 },
   registrationNo: { minLength: 4, maxLength: 50 },
-  purpose: { minLength: 5, maxLength: 1000 },
+  purpose: { minLength: 30, maxLength: 1000 },
   sarsTaxPin: { minLength: 5, maxLength: 20 },
   bankName: { minLength: 2, maxLength: 100 },
 
@@ -109,3 +109,18 @@ export const LIMITS = {
 } as const
 
 export type LimitKey = keyof typeof LIMITS
+
+/**
+ * Largest document an applicant may upload, confirmed by PRDF on 2026-10-05.
+ *
+ * This constant is the *client-side* half only. The browser uploads straight
+ * to Supabase Storage through a signed URL, so the API never sees the bytes
+ * and cannot check a size it is told — the authoritative control is the
+ * `loan-documents` bucket's own `file_size_limit`, which must be kept equal to
+ * this number. Checking here as well is what turns a silent storage rejection
+ * into a message naming the file and the limit.
+ */
+export const DOCUMENT_MAX_SIZE_BYTES = 5 * 1024 * 1024
+
+/** The same limit, for user-facing copy. */
+export const DOCUMENT_MAX_SIZE_LABEL = '5 MB'

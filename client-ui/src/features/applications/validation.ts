@@ -89,7 +89,7 @@ export function createStep3Schema(limits: {
     purpose: z
       .string()
       .trim()
-      .min(LIMITS.purpose.minLength, 'Please describe the loan purpose (at least 5 characters)'),
+      .min(LIMITS.purpose.minLength, `Please describe the loan purpose (at least ${LIMITS.purpose.minLength} characters)`),
     loanPurposeCategory: z.string().min(1, 'Please select a purpose category'),
   })
 }

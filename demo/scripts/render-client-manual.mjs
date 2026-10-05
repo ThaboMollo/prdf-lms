@@ -1,18 +1,17 @@
 /**
- * Renders docs/admin-manual.html to docs/PRDF-Admin-Console-Administrator-Manual.pdf.
+ * Renders docs/client-manual.html to docs/PRDF-Client-Portal-User-Manual.pdf.
  *
- * There was no script for this before: version 1.0 of the PDF was produced by
- * hand and committed once, which is how it came to describe a console two
- * features out of date while the HTML beside it stayed editable. The PDF is a
- * build artefact of the HTML, so it gets a build.
+ * There was no script for this before: the PDF was produced by hand and
+ * committed once, so the HTML beside it could be edited with no way to reissue
+ * the document. The PDF is a build artefact of the HTML, so it gets a build.
  *
  * Figure numbering is renumbered here rather than maintained by hand. Captions
  * in the HTML may be written as "Figure ##" and this pass rewrites every
  * caption in document order, so inserting a figure into an early section does
  * not mean renumbering the forty after it.
  *
- *   node scripts/render-admin-manual.mjs           # renumber + render
- *   node scripts/render-admin-manual.mjs --check   # renumber + verify only
+ *   node scripts/render-client-manual.mjs           # renumber + render
+ *   node scripts/render-client-manual.mjs --check   # renumber + verify only
  */
 import { chromium } from 'playwright'
 import { fileURLToPath } from 'node:url'
@@ -20,9 +19,9 @@ import path from 'node:path'
 import fs from 'node:fs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
-const htmlPath = path.join(ROOT, 'docs', 'admin-manual.html')
-const pdfPath = path.join(ROOT, 'docs', 'PRDF-Admin-Console-Administrator-Manual.pdf')
-const shotsDir = path.join(ROOT, 'docs', 'screenshots', 'admin-manual')
+const htmlPath = path.join(ROOT, 'docs', 'client-manual.html')
+const pdfPath = path.join(ROOT, 'docs', 'PRDF-Client-Portal-User-Manual.pdf')
+const shotsDir = path.join(ROOT, 'docs', 'screenshots', 'client-manual')
 
 // ---------------------------------------------------------------------------
 // 1. Renumber figures in document order
@@ -46,12 +45,12 @@ fs.writeFileSync(htmlPath, html, 'utf8')
 // 2. Every referenced image must exist, or the PDF renders a broken-image box
 //    that nobody notices until it is printed.
 // ---------------------------------------------------------------------------
-const referenced = [...html.matchAll(/src="screenshots\/admin-manual\/([^"]+)"/g)].map((m) => m[1])
+const referenced = [...html.matchAll(/src="screenshots\/client-manual\/([^"]+)"/g)].map((m) => m[1])
 const missing = referenced.filter((f) => !fs.existsSync(path.join(shotsDir, f)))
 if (missing.length) {
   console.error(`\n${missing.length} referenced figure(s) are missing from ${path.relative(ROOT, shotsDir)}:`)
   missing.forEach((f) => console.error('  ' + f))
-  console.error('\nRun: node scripts/capture-admin-manual.mjs')
+  console.error('\nRun: node scripts/capture-client-manual.mjs')
   process.exit(1)
 }
 console.log(`All ${referenced.length} referenced figures present`)
@@ -80,7 +79,7 @@ await page.pdf({
   headerTemplate: '<span></span>',
   footerTemplate: `
     <div style="width:100%;font-size:8px;color:#6b7280;padding:0 12mm;display:flex;justify-content:space-between;font-family:Arial,sans-serif;">
-      <span>PRDF Admin Console — Administrator’s Manual</span>
+      <span>PRDF Client Portal — User Manual</span>
       <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
     </div>`,
   margin: { top: '14mm', bottom: '16mm', left: '14mm', right: '14mm' },

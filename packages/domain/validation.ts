@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { LIMITS } from './constraints'
 
 // Authoritative copy — matches admin-ui's live-enforced staff-assisted-creation
 // flow (businessName required). client-ui's dead ApplicationsPage.tsx had a
@@ -10,7 +11,10 @@ export const createApplicationSchema = z.object({
   address: z.string().trim().optional(),
   requestedAmount: z.coerce.number().positive('Requested amount must be greater than 0.'),
   termMonths: z.coerce.number().int().positive('Term must be greater than 0 months.'),
-  purpose: z.string().trim().min(5, 'Purpose must be at least 5 characters long.'),
+  purpose: z
+    .string()
+    .trim()
+    .min(LIMITS.purpose.minLength, `Purpose must be at least ${LIMITS.purpose.minLength} characters long.`),
 })
 
 export const uploadSchema = z.object({

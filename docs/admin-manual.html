@@ -2,7 +2,7 @@
 <html lang="en-ZA">
 <head>
 <meta charset="utf-8">
-<title>PRDF Admin Console — SuperAdmin Manual</title>
+<title>PRDF Admin Console — Administrator&rsquo;s Manual</title>
 <style>
   @page { size: A4; margin: 15mm 14mm 17mm; }
 
@@ -82,16 +82,15 @@
 <!-- ======================= COVER ======================= -->
 <div class="cover">
   <p class="eyebrow">People's Republic Development Fund</p>
-  <h1>Admin Console<br>SuperAdmin Manual</h1>
-  <p class="sub">Every screen, role and control in the PRDF Loan Management System</p>
+  <h1>Admin Console<br>Administrator&rsquo;s Manual</h1>
+  <p class="sub">A complete guide to running the PRDF Loan Management System</p>
   <dl>
-    <dt>Document</dt><dd>Admin Console — SuperAdmin Manual</dd>
-    <dt>Version</dt><dd>1.1</dd>
-    <dt>Date</dt><dd>29 September 2026</dd>
+    <dt>Document</dt><dd>Admin Console — Administrator&rsquo;s Manual</dd>
+    <dt>Date</dt><dd>1 October 2026</dd>
     <dt>Audience</dt><dd>SuperAdmin and Admin users</dd>
-    <dt>Console</dt><dd>https://prdf-admin.vercel.app</dd>
-    <dt>Companion</dt><dd>PRDF Client Portal — User Manual v1.0</dd>
-    <dt>Purpose</dt><dd>Operating manual and handover record</dd>
+    <dt>Web address</dt><dd>https://prdf-admin.vercel.app</dd>
+    <dt>Companion</dt><dd>PRDF Client Portal — User Manual</dd>
+    <dt>Purpose</dt><dd>Operating manual and acceptance record</dd>
   </dl>
   <p style="margin-top:2.2em;font-size:9pt;color:var(--muted)">
     Every screenshot was captured from the working system by walking a real application
@@ -126,77 +125,72 @@
   <div><span class="n">20</span> What the client sees</div>
   <div><span class="n">21</span> Your action, their screen</div>
   <div><span class="n">22</span> After approval — the client's loan</div>
-  <div><span class="n">23</span> Configuration without a release</div>
-  <div><span class="n">24</span> Environments and operations</div>
-  <div><span class="n">25</span> Known limitations</div>
-  <div><span class="n">26</span> Acceptance and sign-off</div>
+  <div><span class="n">23</span> What you can change yourself</div>
+  <div><span class="n">24</span> Things to be aware of</div>
+  <div><span class="n">25</span> Acceptance and sign-off</div>
 </div>
 
 <h3 style="margin-top:2em">How to use this manual</h3>
-<p>Sections 2–5 explain how the system is put together — read these once. Sections 6–19 follow the console screen by screen and are the day-to-day reference. Sections 20–22 show the applicant's side of what you do. Sections 23–25 are for whoever owns and operates the system. Section 26 is the acceptance record.</p>
+<p><strong>Read Sections 2–5 once</strong> before you start. They explain how the system is put together and who is allowed to do what. <strong>Sections 6–19 are your day-to-day reference</strong>, following the console screen by screen in the order you will meet them. <strong>Sections 20–22 show the applicant’s side</strong> of everything you do, so you can help a client who is looking at a different screen from yours. <strong>Section 23</strong> covers the settings PRDF can change without a developer. <strong>Section 24</strong> is what to be aware of, and <strong>Section 25</strong> is the acceptance record.</p>
+<p>You need no technical knowledge to use this manual or the console. Where something is handled by PRDF’s technical contact rather than by you, it says so.</p>
 
 <div class="note">
-  <strong>A worked example runs through the whole manual.</strong> Application <code>#b3bfeeaa</code> — Blue Harvest Aquaculture (Pty) Ltd, R750 000 over 12 months — was taken from submission to disbursement to produce these screenshots. You can follow the same case from Section 7 to Section 14 and see every figure reconcile.
+  <strong>One application runs through the whole manual.</strong> Blue Harvest Aquaculture (Pty) Ltd — R750 000 over 12 months — was taken all the way from submission to payout to produce these screenshots. You can follow that same case from Section 7 through to Section 14 and watch the numbers agree at every step.
 </div>
 
-<h3 style="margin-top:1.6em">What is new in version 1.1</h3>
-<table>
-  <tr><th style="width:52mm">Change</th><th>Where</th></tr>
-  <tr>
-    <td><strong>Requesting a document</strong> — you can now ask an applicant for a named document and they get an upload slot for it, instead of a free-text note they have to interpret</td>
-    <td>New Section 9.4; the applicant's side in 21.1</td>
-  </tr>
-  <tr>
-    <td><strong>Cases and loans are named</strong> <code>{business} {first name} {date}</code> rather than by whatever the applicant typed into "how you'll use the funds"</td>
-    <td>Sections 7, 8 and 16; every figure</td>
-  </tr>
-  <tr>
-    <td><strong>Dates read as "24 October 2026"</strong> throughout both the console and the portal</td>
-    <td>Every figure</td>
-  </tr>
-  <tr>
-    <td><strong>The applicant can now list and re-read their submitted applications</strong> without being pushed back into the wizard</td>
-    <td>Section 20</td>
-  </tr>
-  <tr>
-    <td><strong>Two new sections</strong> showing what the applicant sees when you act, and what their loan looks like after approval</td>
-    <td>Sections 21 and 22</td>
-  </tr>
-</table>
-
-<div class="note">
-  <strong>Every figure in this version was recaptured.</strong> The naming and date changes above altered what appears on every screen, so a mixed set would have shown two conventions in one document. Figures now come from a single scripted run at one window size — see <code>demo/scripts/capture-admin-manual.mjs</code>.
-</div>
 </section>
 
 <!-- ======================= 1 ======================= -->
 <section class="sheet">
 <h2>1. About this manual</h2>
 
-<p>This manual documents the PRDF Admin Console as a SuperAdmin sees it — which is everything. It covers every screen, every tab, every control, and the rules behind them. Where a rule is enforced by the database rather than the interface, that is said explicitly, because those are the rules you cannot talk your way around.</p>
+<p>This manual describes the PRDF Admin Console as a SuperAdmin sees it &mdash; which is all of it. It covers every screen, every tab and every control, in the order you will meet them, together with the rules behind them.</p>
+
+<p>It assumes no technical knowledge. If you can use email and a web browser, you can use this console and you can follow this manual. Where something is genuinely out of your hands and belongs to PRDF&rsquo;s technical contact, the manual says so plainly rather than leaving you to discover it.</p>
+
+<p>Some rules in this manual are suggestions and some are absolute. Where a rule is absolute &mdash; where the system will simply refuse, no matter who you are &mdash; it is marked as such, because knowing the difference saves you from arguing with a screen that is never going to give way.</p>
 
 <h3>1.1 What a SuperAdmin can do that others cannot</h3>
 <ul>
   <li>See every case regardless of who it is assigned to</li>
-  <li>Drive any status transition, overriding the role that normally owns that stage</li>
+  <li>Move a case to any stage, stepping in for the role that normally owns that stage</li>
   <li>Grant and remove roles, including Admin</li>
-  <li>Reset a user's multi-factor authenticators</li>
-  <li>Move money — disburse and record repayments</li>
-  <li>Read every report and the audit trail</li>
+  <li>Reset someone&rsquo;s two-step sign-in, so they can set it up again on a new phone</li>
+  <li>Move money &mdash; pay out a loan and record repayments against it</li>
+  <li>Read every report, and the full history of who did what</li>
 </ul>
 
 <div class="note warn">
-  <strong>The override is the dangerous part.</strong> A SuperAdmin can advance a case past a stage its owning role has not signed off. The system will let you; the audit trail will record that you did. Use the override for genuine operational recovery, not to save a colleague a phone call.
+  <strong>Stepping in for another role is a SuperAdmin-only power, and the one to treat with respect.</strong> You can move a case forward even when the person whose job it is has not yet signed it off. The system will not stop you, and it will record permanently that it was you who did it. Use this when something genuinely has to be unblocked &mdash; somebody is away, or a case is stuck &mdash; and not simply to save a colleague a telephone call. Every stage exists because somebody is accountable for it.
 </div>
 
-<h3>1.2 Companion documents</h3>
+<h3>1.2 Other documents</h3>
+<p>Two of these are written for readers like you. The rest are technical records kept alongside the system, listed here so you know they exist and can ask for them if a question goes beyond this manual.</p>
 <table>
   <tr><th style="width:62mm">Document</th><th>Covers</th></tr>
-  <tr><td>PRDF Client Portal — User Manual</td><td>The applicant's side in full. Section 20 summarises it</td></tr>
-  <tr><td><code>docs/qa-test-manual.md</code></td><td>QA walkthroughs and test accounts</td></tr>
-  <tr><td><code>docs/credit-model-phase1-plan.md</code></td><td>The money model, its rules and its history</td></tr>
-  <tr><td><code>docs/roles-and-access.md</code></td><td>Role definitions</td></tr>
-  <tr><td><code>docs/runbook.md</code>, <code>docs/support.md</code></td><td>Operations and common failures</td></tr>
+  <tr><td><strong>PRDF Client Portal — User Manual</strong></td><td>The applicant's side in full. Sections 20&ndash;22 of this manual summarise it</td></tr>
+  <tr><td><strong>The credit model</strong></td><td>How interest, fees and penalties are worked out, and why</td></tr>
+  <tr><td>Role definitions</td><td>The formal list of roles and what each may do</td></tr>
+  <tr><td>Testing guide</td><td>Step-by-step walkthroughs and the test accounts to use</td></tr>
+  <tr><td>Operations and support notes</td><td>For PRDF's technical contact: how the system is run and what to do when it misbehaves</td></tr>
+</table>
+
+<h3 style="margin-top:1.6em">1.3 Short forms used in this manual</h3>
+<p>These appear on screen as well as in this document, so they are worth knowing. Everything else is written out in full.</p>
+<table>
+  <tr><th style="width:26mm">Short form</th><th style="width:52mm">Stands for</th><th>What it means here</th></tr>
+  <tr><td><strong>PRDF</strong></td><td>People&rsquo;s Republic Development Fund</td><td>The lender &mdash; you</td></tr>
+  <tr><td><strong>SLA</strong></td><td>Service Level Agreement</td><td>The time standard a case is expected to be dealt with in. A case past it is flagged as <em>SLA Breached</em></td></tr>
+  <tr><td><strong>NFS</strong></td><td>Non-Financial Support</td><td>Mentorship, training and compliance help given to a client alongside the loan</td></tr>
+  <tr><td><strong>MFA</strong></td><td>Multi-Factor Authentication</td><td>Two-step sign-in &mdash; a password plus a code from a phone</td></tr>
+  <tr><td><strong>POPIA</strong></td><td>Protection of Personal Information Act</td><td>South African law governing how personal information is handled</td></tr>
+  <tr><td><strong>CIPC</strong></td><td>Companies and Intellectual Property Commission</td><td>Where a business is registered; the source of a registration certificate</td></tr>
+  <tr><td><strong>CSD</strong></td><td>Central Supplier Database</td><td>The government supplier register; applicants upload their report from it</td></tr>
+  <tr><td><strong>SARS</strong></td><td>South African Revenue Service</td><td>The tax authority; the source of a tax clearance certificate</td></tr>
+  <tr><td><strong>PO</strong></td><td>Purchase Order</td><td>A confirmed order from a buyer, used as the basis for purchase-order funding</td></tr>
+  <tr><td><strong>CSV</strong></td><td>Comma-Separated Values</td><td>A plain spreadsheet file. <em>Export CSV</em> downloads data you can open in Excel</td></tr>
+  <tr><td><strong>PDF</strong></td><td>Portable Document Format</td><td>The standard document format applicants upload in</td></tr>
+  <tr><td><strong>SMS</strong></td><td>Short Message Service</td><td>A text message</td></tr>
 </table>
 </section>
 
@@ -204,33 +198,30 @@
 <section class="sheet">
 <h2>2. The system at a glance</h2>
 
-<p>PRDF runs two web applications against one API and one database.</p>
+<p>There are two websites. <strong>You use one of them; your applicants use the other.</strong> They show different things to different people, but they are both looking at the same single set of records &mdash; so the moment you change something, the applicant sees the result, and the moment they upload something, it is waiting for you.</p>
 
 <table>
-  <tr><th style="width:34mm">Part</th><th>Address</th><th>Who uses it</th></tr>
-  <tr><td>Admin Console</td><td><code>https://prdf-admin.vercel.app</code></td><td>Internal and workflow staff</td></tr>
-  <tr><td>Client Portal</td><td><code>https://prdf-lms.vercel.app</code></td><td>Applicants holding the <code>Client</code> role</td></tr>
-  <tr><td>API</td><td><code>https://prdf-api.vercel.app</code></td><td>Both front ends</td></tr>
-  <tr><td>Database, auth, storage</td><td>Supabase project <code>prdf</code></td><td>The API</td></tr>
+  <tr><th style="width:34mm">Website</th><th>Address</th><th>Who signs in</th></tr>
+  <tr><td><strong>Admin Console</strong></td><td>prdf-admin.vercel.app</td><td>PRDF staff. This manual is about this one.</td></tr>
+  <tr><td><strong>Client Portal</strong></td><td>prdf-lms.vercel.app</td><td>Applicants and borrowers. Covered in Sections 20&ndash;22, and in its own manual.</td></tr>
 </table>
 
-<h3>2.1 How a request is authorised</h3>
-<ol>
-  <li>You sign in against <strong>Supabase Auth</strong>, which issues a signed token.</li>
-  <li>The console sends that token with every API call.</li>
-  <li>The API verifies it, loads your roles from the database, and checks them against the action.</li>
-  <li><strong>Row-level security</strong> in the database checks again, independently.</li>
-</ol>
-
 <div class="note">
-  <strong>Two gates, deliberately.</strong> The interface hides what you may not do, but the interface is not the control — the API is directly callable. Anything enforced only in the browser is advisory. This is why some rules below say "enforced by a database trigger": those hold even if someone calls the API directly.
+  <strong>Staff and applicants can never cross over.</strong> A member of staff cannot sign in to the client portal, and an applicant cannot sign in to the console &mdash; not even by typing in the other address. The two are kept separate on purpose.
 </div>
 
-<h3>2.2 Where documents live</h3>
-<p>Uploaded files go straight from the applicant's browser to a private storage bucket using a short-lived signed URL. The API never handles the file itself; it records that the document exists and validates its type and name. Files are only ever served back through signed links that expire.</p>
+<h3>2.1 How the system decides what you are allowed to do</h3>
+<p>What you can see and do is decided by the <strong>roles</strong> on your account, which Section 3 explains. When you sign in, the system looks up your roles and shapes the console around them: screens you have no business seeing are not in your menu, and buttons you are not entitled to press are not on your screen.</p>
 
-<h3>2.3 Multi-tenancy</h3>
-<p>The platform is built to serve more than one lender. Branding, eligibility copy and domains come from a tenant configuration resolved from the hostname at page load. There is deliberately <strong>no default tenant</strong> — an unrecognised hostname shows an error rather than serving the wrong brand.</p>
+<div class="note">
+  <strong>Hiding a button is not the same as preventing an action, and the system knows that.</strong> Every rule in this manual is checked a second time by the records themselves, underneath the screens. So a rule such as &ldquo;only Finance may pay out&rdquo; is not merely a button that has been hidden from you &mdash; the payment would be refused even if the button were somehow pressed. When this manual says something is refused or blocked, it means genuinely refused, not just discouraged.</p>
+</div>
+
+<h3>2.2 Where uploaded documents are kept</h3>
+<p>Documents an applicant uploads are held in private storage, separate from the records that describe them. Nobody can reach a file by guessing its address. Each time you click <strong>View</strong>, the system creates a fresh, private link that works for a few minutes and then stops working, which is why a link you copied earlier will not open later &mdash; open the document from the case again instead.</p>
+
+<h3>2.3 The system can serve more than one lender</h3>
+<p>The platform was built so that other lenders could run on it alongside PRDF, each with its own branding, its own eligibility wording and its own web address. For PRDF this changes nothing day to day. It is worth knowing only because it explains why the branding and some of the public wording are treated as settings rather than as part of the pages themselves.</p>
 </section>
 
 <!-- ======================= 3 ======================= -->
@@ -264,7 +255,7 @@
 
 <h3>3.3 The rules that matter</h3>
 <ul>
-  <li><strong>Only Finance Officer, Admin and SuperAdmin may move money.</strong> Anyone else attempting to disburse or record a repayment is refused by the API.</li>
+  <li><strong>Only Finance Officer, Admin and SuperAdmin may move money.</strong> Anyone else who attempts to pay out or record a repayment is refused.</li>
   <li><strong>Only a SuperAdmin may grant Admin.</strong></li>
   <li><strong>The Client role cannot be assigned from the console at all</strong> — it is granted when someone registers in the portal. This is deliberate: a staff member must not be able to turn a colleague into a borrower.</li>
   <li><strong>A Client-only user is blocked from the console</strong>, and a user with no Client role is blocked from the portal.</li>
@@ -286,9 +277,9 @@
 <h3>4.1 If someone cannot get in</h3>
 <table>
   <tr><th style="width:62mm">Symptom</th><th>Cause and fix</th></tr>
-  <tr><td>"Access restricted" after signing in</td><td>The account has no internal role — only <code>Client</code>. Grant them a role in User Access (Section 18)</td></tr>
+  <tr><td>"Access restricted" after signing in</td><td>The account has no internal role — only <strong>Client</strong>. Grant them a role in User Access (Section 18)</td></tr>
   <tr><td>Sign-in rejected</td><td>Wrong password, or the account does not exist. Staff accounts are created by an administrator</td></tr>
-  <tr><td>Signed in but every page fails to load</td><td>The console cannot reach the API. See Section 24</td></tr>
+  <tr><td>Signed in but every page fails to load</td><td>The console cannot reach the system behind it. This is one for PRDF&rsquo;s technical contact, not something you can fix from the console</td></tr>
   <tr><td>Locked out of a second factor</td><td>Use <strong>Reset MFA</strong> in User Access so they can enrol a new device</td></tr>
 </table>
 
@@ -331,17 +322,17 @@
 </table>
 
 <div class="note danger">
-  <strong>Illegal jumps are refused by the database, not just the interface.</strong> You cannot move a case from Submitted straight to Approved even by calling the API directly — a trigger rejects the write. The dropdown only ever offers the transitions that are actually legal from the current stage.
+  <strong>Skipping a stage is genuinely impossible, not merely hidden.</strong> You cannot move a case from Submitted straight to Approved by any route at all — the records themselves refuse it. The dropdown only ever offers the moves that are permitted from the stage the case is in now.
 </div>
 
 <h3>5.2 Two gates worth knowing</h3>
 <ul>
-  <li><strong>Submission</strong> requires every required document type to be present. Enforced by trigger.</li>
-  <li><strong>Approval</strong> requires every required document to be <em>Verified</em>, not merely uploaded. Enforced by trigger. This is the single most common reason an approval is refused — see Section 9.</li>
+  <li><strong>Submission</strong> requires every required document type to be present. This is genuinely enforced, not just discouraged.</li>
+  <li><strong>Approval</strong> requires every required document to be <em>Verified</em>, not merely uploaded. This is the single most common reason an approval is refused — see Section 9.</li>
 </ul>
 
 <h3>5.3 When the loan record is created</h3>
-<p>The loan is created when the case reaches <strong>Board Approved</strong>, in <code>PendingDisbursement</code> status. That is the moment the rate, days financed and fees are fixed — see Section 11.</p>
+<p>The loan is created when the case reaches <strong>Board Approved</strong>, in <strong>Pending Disbursement</strong> status. That is the moment the rate, days financed and fees are fixed — see Section 11.</p>
 </section>
 
 <!-- ======================= 6 ======================= -->
@@ -468,7 +459,7 @@
 </figure>
 
 <div class="note danger">
-  <strong>Approval is blocked until every required document is Verified.</strong> Uploaded is not enough — a database trigger checks for at least one <em>Verified</em> document of each required type when a case moves to Approved, and refuses the transition otherwise. If an approval is rejected and the reason is not obvious, this is almost always why.
+  <strong>Approval is blocked until every required document is Verified.</strong> Uploaded is not enough. When you try to move a case to Approved, the system checks that every required document has at least one <em>Verified</em> copy, and refuses the move if any is missing. If an approval is rejected and the reason is not obvious, this is almost always why.
 </div>
 
 <h3>9.3 Rejecting a document</h3>
@@ -525,7 +516,7 @@
 </div>
 
 <h4>Withdrawing a request</h4>
-<p>A request you raised in error is <strong>cancelled</strong>, not deleted. It stays on the case as part of its history, and the audit trail records both <code>CreateDocumentRequest</code> and <code>CancelDocumentRequest</code> against your name. There is no way to erase one, by design.</p>
+<p>A request you raised in error is <strong>cancelled</strong>, not deleted. It stays on the case as part of its history, and the audit trail records both <strong>CreateDocumentRequest</strong> and <strong>CancelDocumentRequest</strong> against your name. There is no way to erase one, by design.</p>
 </section>
 
 <!-- ======================= 10 ======================= -->
@@ -703,7 +694,7 @@
   <tr><td>Scheduled Due</td><td>Total of the schedule — capital plus interest</td></tr>
   <tr><td>Interest Rate</td><td>The booked annual rate, with the grade beneath it</td></tr>
   <tr><td>Term</td><td>Months, with days financed beneath</td></tr>
-  <tr><td>Status</td><td><code>PendingDisbursement</code>, <code>Disbursed</code>, <code>InRepayment</code> or <code>Closed</code></td></tr>
+  <tr><td>Status</td><td><strong>Pending Disbursement</strong>, <strong>Disbursed</strong>, <strong>In Repayment</strong> or <strong>Closed</strong></td></tr>
   <tr><td>Initiation / Management fee</td><td>The once-off fees, snapshotted at booking</td></tr>
   <tr><td><strong>Net advance</strong></td><td><strong>What to actually pay out</strong> — principal less the fees</td></tr>
 </table>
@@ -721,10 +712,10 @@
 
 <figure>
   <img src="screenshots/admin-manual/18-money-disbursed-bullet.jpg" alt="Money tab after disbursement showing the bullet schedule">
-  <figcaption>Figure 20 — After disbursing. Status <code>Disbursed</code>, Scheduled Due R877 500, and a single bullet instalment due at maturity.</figcaption>
+  <figcaption>Figure 20 — After disbursing. Status <strong>Disbursed</strong>, Scheduled Due R877 500, and a single bullet instalment due at maturity.</figcaption>
 </figure>
 
-<p>Disbursing does four things at once: records the payment, sets the loan to <code>Disbursed</code>, moves the application to Disbursed, and generates the repayment schedule. The applicant sees all of it immediately in their portal — <strong>Section 22.2 shows exactly what appears on their side</strong>, including the balance question this reliably produces.</p>
+<p>Disbursing does four things at once: records the payment, sets the loan to <strong>Disbursed</strong>, moves the application to Disbursed, and generates the repayment schedule. The applicant sees all of it immediately in their portal — <strong>Section 22.2 shows exactly what appears on their side</strong>, including the balance question this reliably produces.</p>
 
 <div class="note warn">
   <strong>Disbursement is not reversible from the console.</strong> There is no undo. Check the amount and the reference before clicking.
@@ -736,7 +727,7 @@
 <h2>14. Money tab — repayments</h2>
 
 <h3>14.1 The repayment schedule</h3>
-<p>For a credit-model loan the schedule is a single row: the full principal plus interest, due on the maturity date. Each row shows its number, due date, amount due, amount paid, and status (<code>Pending</code>, <code>Paid</code> or <code>Overdue</code>).</p>
+<p>For a credit-model loan the schedule is a single row: the full principal plus interest, due on the maturity date. Each row shows its number, due date, amount due, amount paid, and status (<strong>Pending</strong>, <strong>Paid</strong> or <strong>Overdue</strong>).</p>
 
 <h3>14.2 Recording a repayment</h3>
 <ol>
@@ -744,10 +735,10 @@
   <li>Enter the <strong>Payment reference</strong> from the bank statement.</li>
   <li>Click <strong>Record</strong>.</li>
 </ol>
-<p>The payment is applied to the oldest unpaid instalment first, split into principal and interest components, and the outstanding balance reduces. Partial payments are allowed — the instalment stays <code>Pending</code> until fully covered.</p>
+<p>The payment is applied to the oldest unpaid instalment first, split into principal and interest components, and the outstanding balance reduces. Partial payments are allowed — the instalment stays <strong>Pending</strong> until fully covered.</p>
 
 <div class="note warn">
-  <strong>Repayments have not been exercised end to end.</strong> The repayment path against a bullet schedule was not tested during handover. Record the first live repayment with care and confirm the resulting balance before relying on it. This is item 5 in Section 25.
+  <strong>Repayments have not been exercised end to end.</strong> Recording a repayment against the single-payment schedule PRDF uses was never tested before the system was handed over. Record the first live repayment with care and confirm the resulting balance before relying on it. This is listed in Section 24.
 </div>
 
 <h3>14.3 Moving a loan through repayment and closure</h3>
@@ -774,8 +765,8 @@
 <p>Alongside status changes, the trail records document decisions and document requests, each against the name of whoever made them:</p>
 <table>
   <tr><th style="width:56mm">Entry</th><th>Written when</th></tr>
-  <tr><td><code>CreateDocumentRequest</code></td><td>You ask the applicant for a document (9.4)</td></tr>
-  <tr><td><code>CancelDocumentRequest</code></td><td>You withdraw that request</td></tr>
+  <tr><td><strong>CreateDocumentRequest</strong></td><td>You ask the applicant for a document (9.4)</td></tr>
+  <tr><td><strong>CancelDocumentRequest</strong></td><td>You withdraw that request</td></tr>
   <tr><td>Status transitions</td><td>Every stage change, with your note</td></tr>
 </table>
 
@@ -876,7 +867,7 @@
 
 <figure>
   <img src="screenshots/admin-manual/26-user-access-masked.jpg" alt="User access management">
-  <figcaption>Figure 28 — User Access. <em>Email addresses and names in this screenshot have been masked; the live screen shows real user details.</em></figcaption>
+  <figcaption>Figure 28 — User Access, showing the first four accounts. <em>Names and email addresses have been withheld from this screenshot; on the live screen you see each person's real name and address.</em></figcaption>
 </figure>
 
 <p>Four counters summarise the account base: visible users, internal users, clients, and admins. Search by name or email, and filter by user type or role.</p>
@@ -891,8 +882,8 @@
 <h3>18.2 The rules</h3>
 <table>
   <tr><th style="width:52mm">Rule</th><th>Why</th></tr>
-  <tr><td>The <code>Client</code> role cannot be assigned here</td><td>It is granted by registering in the portal. Staff must not be able to make a colleague a borrower</td></tr>
-  <tr><td>Only a SuperAdmin may grant <code>Admin</code></td><td>Administrative access is the keys to the system</td></tr>
+  <tr><td>The <strong>Client</strong> role cannot be assigned here</td><td>It is granted by registering in the portal. Staff must not be able to make a colleague a borrower</td></tr>
+  <tr><td>Only a SuperAdmin may grant <strong>Admin</strong></td><td>Administrative access is the keys to the system</td></tr>
   <tr><td>Platform ownership is managed outside the app</td><td>Noted on the screen itself</td></tr>
 </table>
 
@@ -920,7 +911,7 @@
 <p>The bell in the top bar carries a count of unread items. Notifications are raised on status changes, and by scheduled scans for arrears, due tasks and stale cases.</p>
 
 <div class="note">
-  <strong>Notifications are in-app only.</strong> Nothing is emailed or texted, to staff or to applicants. If a case is waiting on someone, the system will not chase them — the dashboard SLA counter and the arrears panel are your early warning. Adding email delivery is item 3 in Section 25.
+  <strong>Notifications are in-app only.</strong> Nothing is emailed or texted, to staff or to applicants. If a case is waiting on someone, the system will not chase them — the dashboard SLA counter and the arrears panel are your early warning. Adding email delivery is listed in Section 24.
 </div>
 </section>
 
@@ -948,7 +939,7 @@
   <figcaption>Figure 30 — The applicant's Applications list. Until recently this redirected them into the apply wizard, so they had no way to see what they had already sent you.</figcaption>
 </figure>
 
-<p>Opening a submitted application shows them a <strong>read-only</strong> copy of what they sent — the same five sections, with no edit controls. The restriction is enforced by the API and by row-level security, not just by hiding buttons, so a submitted application cannot be altered from the portal at all.</p>
+<p>Opening a submitted application shows them a <strong>read-only</strong> copy of what they sent — the same five sections, with no edit controls. This is a real restriction rather than hidden buttons, so a submitted application cannot be altered from the portal at all.</p>
 
 <figure>
   <img src="screenshots/admin-manual/37-client-application-readonly.jpg" alt="A submitted application, read-only">
@@ -964,7 +955,7 @@
 </ul>
 
 <div class="note warn">
-  <strong>Expect this support call.</strong> "The tracker says nothing has happened." While a case sits in Screening, Due Diligence, Evaluation, Board Approved or Contracting, the client's timeline shows every milestone greyed out — including "Application Submitted". Their status badge is correct; the circles are not. Reassure them and quote the status label. This is item 1 in Section 25.
+  <strong>Expect this support call.</strong> "The tracker says nothing has happened." While a case sits in Screening, Due Diligence, Evaluation, Board Approved or Contracting, the client's timeline shows every milestone greyed out — including "Application Submitted". Their status badge is correct; the circles are not. Reassure them and quote the status label. This is item 1 in Section 24.
 </div>
 </section>
 
@@ -1036,7 +1027,7 @@
   <strong>Read the Board Approved and Rejected rows twice.</strong> An applicant watching their tracker sees "Approved" light up, and then — when you move the case to Board Approved, which is <em>forward</em> progress — watches it go blank again. A declined applicant is never told they were declined by the timeline at all. Neither is a display quirk you can leave to explain itself on a call: if you decline a case, telephone them, and if you are moving an approved case onward, warn them their tracker will appear to reset.
 </div>
 
-<p>The cause is mechanical: the tracker orders statuses against a fixed list that never had the review and post-approval stages added to it, so an unlisted status matches no milestone and every circle falls through to "pending". It is item 1 in Section 25 and the highest-value fix in this manual.</p>
+<p>The reason is simple enough: the tracker was only ever taught five of the eleven stages a case can be in. When a case reaches a stage it does not recognise, it cannot tell which milestones have been passed, so it greys out all of them rather than guessing. It is the first item in Section 24 and the most worthwhile thing on that list to fix.</p>
 
 <figure>
   <img src="screenshots/admin-manual/34-client-status-inforequested.jpg" alt="Action required on the applicant's status page">
@@ -1079,7 +1070,7 @@
 <h3>21.6 The support calls this produces</h3>
 <table>
   <tr><th style="width:48mm">They say</th><th style="width:44mm">They are looking at</th><th>Check</th></tr>
-  <tr><td>"Nothing has happened for weeks"</td><td>Status page, all milestones grey</td><td>The known display fault in 25.1 — quote them the status badge instead</td></tr>
+  <tr><td>"Nothing has happened for weeks"</td><td>Status page, all milestones grey</td><td>The known display fault in 24.1 — quote them the status badge instead</td></tr>
   <tr><td>"I was approved, where is my money?"</td><td>Status page, Approved</td><td>Whether the case has reached Disbursed — see 21.4 and Section 22</td></tr>
   <tr><td>"It won't let me upload the file"</td><td>The panel in 21.1</td><td>The File type you chose on the request</td></tr>
   <tr><td>"I don't know what you want from me"</td><td>An empty or vague request</td><td>The Details text on the request — reissue it with specifics</td></tr>
@@ -1154,117 +1145,84 @@
 
 <!-- ======================= 23 ======================= -->
 <section class="sheet">
-<h2>23. Configuration without a release</h2>
+<h2>23. What you can change yourself</h2>
 
-<p>The values PRDF revisits most are configuration, not code. Four of the six below need no developer and no deployment.</p>
+<p>Some of the numbers and rules in this system are <strong>settings</strong>, not part of how it is built. They can be changed without anyone rewriting the system, and the change takes effect across both the console and the client portal within about half an hour. Knowing which is which saves a great deal of time: if a value is in the first group below, you do not need to wait for a software release to change it.</p>
+
+<p>You will not change these yourself from the console &mdash; there is no settings screen for them yet. You ask PRDF&rsquo;s technical contact, who makes the change directly. The point of this section is that you know what is <em>possible</em>, and roughly what to expect when you ask.</p>
 
 <table>
-  <tr><th style="width:52mm">What</th><th>Where</th><th style="width:22mm">Release?</th></tr>
-  <tr><td>Loan amount and term band</td><td><code>loan_products</code> table</td><td>No</td></tr>
-  <tr><td>Which documents are required</td><td><code>document_requirements</code> table</td><td>No</td></tr>
-  <tr><td>Prime rate and fees</td><td><code>pricing_config</code> table</td><td>No</td></tr>
-  <tr><td>Risk-grade margins</td><td><code>risk_grades</code> table</td><td>No</td></tr>
-  <tr><td>Eligibility criteria wording</td><td>Tenant config</td><td>Yes</td></tr>
-  <tr><td>Consent wording</td><td><code>packages/domain/consent.ts</code></td><td>Yes</td></tr>
+  <tr><th style="width:62mm">What can change</th><th style="width:30mm">How quickly</th><th>What it affects</th></tr>
+  <tr><td><strong>The smallest and largest loan, and the shortest and longest term</strong></td><td>Same day</td><td>The calculator on the public website, and what the application form will accept</td></tr>
+  <tr><td><strong>Which documents an applicant must supply</strong></td><td>Same day</td><td>The applicant&rsquo;s document checklist, and what blocks approval</td></tr>
+  <tr><td><strong>The Prime rate, the initiation fee and the management fee</strong></td><td>Same day</td><td>Every new quote and every new loan from that moment on</td></tr>
+  <tr><td><strong>How much each risk grade adds to the rate</strong></td><td>Same day</td><td>Pricing on cases graded after the change</td></tr>
+  <tr><td>The wording of the eligibility criteria</td><td>Needs a software release</td><td>The public eligibility check</td></tr>
+  <tr><td>The wording of the declaration applicants sign</td><td>Needs a software release</td><td>What new applicants agree to</td></tr>
 </table>
 
-<h3>23.1 Changing the loan band</h3>
-<p>Update the amount and term columns on the active product. Sliders, validation and the API all follow within about thirty minutes.</p>
+<h3>23.1 Changing the smallest and largest loan</h3>
+<p>The calculator, the application form and the checks behind them all read the same pair of figures. Change them once and everything follows &mdash; the sliders on the public site, the amount the form will accept, and the check that runs when a case is saved.</p>
 <div class="note warn">
-  <strong>Narrowing a band has a delayed effect.</strong> A trigger validates applications against product limits on every write, so an already-submitted case outside a new band fails on its <em>next</em> update, not immediately. After narrowing, check for non-draft cases outside the new limits and re-quote them deliberately.
+  <strong>Tightening the range catches existing cases late.</strong> If you reduce the maximum, an application already in the pipeline for more than the new figure is not rejected straight away. It carries on normally until the next time someone saves a change to it, and then it fails. So after tightening a range, ask for a list of live cases that now fall outside it, and re-quote those deliberately rather than discovering them one at a time.
 </div>
 
-<h3>23.2 Changing pricing</h3>
-<p><code>pricing_config</code> holds one row: prime rate, initiation fee, management fee percentage, penalty rate, penalty period and days per year. <strong>When Prime moves, update it here</strong> — the client-facing disclosure is expressed as a margin over Prime precisely so it stays true.</p>
+<h3>23.2 Changing the Prime rate or the fees</h3>
+<p><strong>When Prime moves, this must be updated.</strong> Everything PRDF quotes publicly is expressed as &ldquo;Prime plus a margin&rdquo; rather than as a fixed percentage, precisely so that the quote stays truthful when Prime changes &mdash; but only if the stored Prime rate is kept current.</p>
+<p>The same setting holds the initiation fee, the management fee percentage, the penalty rate and the penalty period.</p>
 <div class="note">
-  <strong>Existing loans are unaffected.</strong> Rate, fees and days financed are snapshotted onto each loan when it is booked, so changing config never re-prices a loan already sold.
+  <strong>Loans already on the book are not affected.</strong> When a loan is paid out, its rate, its fees and its interest are written onto that loan and fixed there. Changing the settings afterwards never re-prices a loan that has already been sold, so you can update Prime without worrying about disturbing existing agreements.
 </div>
 
-<h3>23.3 Changing required documents</h3>
-<p>Add or remove rows in <code>document_requirements</code>. A brand-new document type also needs a label added in code, or the raw type name is displayed.</p>
+<h3>23.3 Changing which documents are required</h3>
+<p>Documents can be added to or removed from the required list at any time. A document type that has never been used before also needs a proper name added to the system, otherwise it appears on screen under an internal label that will mean nothing to the applicant. Mention it when you ask.</p>
 
-<h3>23.4 Changing consent wording</h3>
-<p>Edit the consent items and <strong>bump the version stamp</strong>, so stored consent records stay traceable to what was actually agreed.</p>
+<h3>23.4 Changing the declaration applicants sign</h3>
+<p>The declaration can be reworded, but it is not a casual edit. Every applicant&rsquo;s agreement is stored against the exact wording they were shown, so the wording carries a stamp that must be updated at the same time. That is what lets PRDF demonstrate, later, precisely what any given applicant agreed to.</p>
 <div class="note danger">
-  <strong>The current consent wording is marked draft, pending PRDF legal review.</strong> It is captured and versioned correctly, but has not been signed off by legal. Item 2 in Section 25.
+  <strong>The present wording has not been through legal review.</strong> It is recorded and stamped correctly, so nothing is lost, but it has not been signed off by a lawyer. This is listed in Section 24.
 </div>
 </section>
 
 <!-- ======================= 24 ======================= -->
 <section class="sheet">
-<h2>24. Environments and operations</h2>
+<h2>24. Things to be aware of</h2>
 
-<h3>24.1 Where things run</h3>
+<p>Every system has rough edges, and it is better to know about them than to meet them during a client call. None of the points below stops an application being assessed, approved or paid out. They are listed here so that what PRDF is accepting is clear, and so that you recognise each one if it happens to you.</p>
+
+<p>The first group affects what your applicants see, so it is the group most likely to generate a phone call.</p>
+
+<h3>24.1 Things your applicants will notice</h3>
 <table>
-  <tr><th style="width:34mm">Component</th><th>Location</th></tr>
-  <tr><td>Admin Console</td><td>Vercel — <code>prdf-admin.vercel.app</code></td></tr>
-  <tr><td>Client Portal</td><td>Vercel — <code>prdf-lms.vercel.app</code></td></tr>
-  <tr><td>API</td><td>Vercel — <code>prdf-api.vercel.app</code></td></tr>
-  <tr><td>Database, auth, storage</td><td>Supabase project <code>prdf</code></td></tr>
+  <tr><th style="width:52mm">What happens</th><th>What it means for you</th></tr>
+  <tr><td><strong>The applicant&rsquo;s progress tracker goes blank at most stages</strong></td><td>The tracker only recognises five of the eleven stages a case can be in. At any other stage &mdash; Screening, Due Diligence, Evaluation, Board Approved, Contracting, or when a case is declined &mdash; every circle turns grey, including the ones the applicant has already passed. The status wording beside it stays correct throughout. Two consequences are worth remembering: moving an approved case onward to Board Approved makes it look as though approval has been withdrawn, and a declined applicant is shown nothing that says so. This is the most important item on the list. See 21.3 and 21.6.</td></tr>
+  <tr><td><strong>A declined applicant is not told</strong></td><td>There is no screen or message that says &ldquo;not approved&rdquo;. Telephone anyone you decline, and follow up in writing.</td></tr>
+  <tr><td><strong>Rejecting a document is silent</strong></td><td>The badge changes in the applicant&rsquo;s portal, but nothing tells them to go and look. Raise a document request at the same time, or telephone. See 21.2.</td></tr>
+  <tr><td><strong>Nobody is notified outside the system</strong></td><td>There are no emails and no SMS messages &mdash; neither to applicants nor to staff. Everything is a message inside the portal or the console, which only reaches someone who signs in. Until this changes, treat the telephone as part of the process.</td></tr>
+  <tr><td><strong>An applicant cannot reset their own password</strong></td><td>The reset email links to a page that has not been built. They must ask PRDF, and an administrator resets it for them.</td></tr>
+  <tr><td><strong>The figure on the applicant&rsquo;s home screen can differ from their loan</strong></td><td>Their home screen adds up what they <em>asked</em> for, which is not the same as what they owe. Their loan account is the authoritative figure &mdash; quote that one.</td></tr>
 </table>
 
-<h3>24.2 Health checks</h3>
+<h3>24.2 Things to be careful about internally</h3>
 <table>
-  <tr><th style="width:52mm">Check</th><th>Where</th></tr>
-  <tr><td>API alive</td><td><code>/health</code></td></tr>
-  <tr><td>Audit trail</td><td><code>/api/reports/audit</code></td></tr>
-  <tr><td>Deployment status and build logs</td><td>Vercel project</td></tr>
-  <tr><td>Database, auth and storage</td><td>Supabase dashboard</td></tr>
+  <tr><th style="width:52mm">What happens</th><th>What it means for you</th></tr>
+  <tr><td><strong>Repayments have not been tested from end to end</strong></td><td>Recording a repayment against the single-payment schedule PRDF uses has never been done on a real loan. Record the first live repayment carefully and check the resulting balance before relying on it.</td></tr>
+  <tr><td><strong>The declaration wording has not been through legal review</strong></td><td>It is recorded and stamped correctly against each applicant, but a lawyer has not approved the words. See 23.4.</td></tr>
+  <tr><td><strong>There is no limit on the size of an uploaded file</strong></td><td>Files go straight to storage without passing through the system, so nothing currently checks how large they are. This is a setting that can be switched on without changing the software.</td></tr>
+  <tr><td><strong>Staff are not required to use a second security factor</strong></td><td>Two-step sign-in can be set up and reset, but nobody is obliged to use it &mdash; including the people who can move money. Worth requiring for those roles.</td></tr>
+  <tr><td><strong>Loans paid out before 26 September 2026 were priced the old way</strong></td><td>They carry a flat rate, instalments rather than a single payment, and no fees. They have deliberately been left exactly as they were rather than rewritten. Any that need the current pricing must be re-quoted on purpose.</td></tr>
+  <tr><td><strong>A term in months is charged in days</strong></td><td>Three months is charged as 91 days rather than 90, which adds about 1&nbsp;% to the interest on that quote. This is deliberate: treating every month as 30 days would under-charge a full year by five days.</td></tr>
+  <tr><td><strong>Checks before a release are done by hand</strong></td><td>There is no automatic suite that re-tests the system after a change, so a change in one place can disturb another without anyone being warned. Until that exists, test the lifecycle and the money screens after any update.</td></tr>
 </table>
-
-<h3>24.3 Two checks after any deployment</h3>
-<ul>
-  <li>Open the client portal signed out. If the calculator is blank, the portal cannot reach the API — almost always the API base URL setting.</li>
-  <li>Sign in to the console and open any case. If it fails to load, the problem is the API or the token, not the console.</li>
-</ul>
-
-<h3>24.4 When something breaks</h3>
-<ol>
-  <li>Capture the API logs around the time of the failure.</li>
-  <li>Capture the request ID and the failing endpoint.</li>
-  <li>Confirm row-level-security behaviour in the Supabase SQL editor.</li>
-  <li>Roll back to the previous deployment if production impact is high.</li>
-</ol>
-
-<div class="note danger">
-  <strong>One production setting to verify.</strong> The API's JWT audience setting must be <code>authenticated</code>. During handover it was found holding a secret value instead, which causes <em>every</em> authenticated request to fail with 401 while unauthenticated pages keep working — a confusing failure that looks like a login problem. It has been corrected locally; confirm the production environment matches.
-</div>
 </section>
 
 <!-- ======================= 25 ======================= -->
 <section class="sheet">
-<h2>25. Known limitations</h2>
-
-<p>Stated plainly so that what is being signed for is clear. None of these stops an application being assessed or funded.</p>
-
-<table>
-  <tr><th style="width:8mm">#</th><th style="width:52mm">Item</th><th>Effect and recommendation</th></tr>
-  <tr><td>1</td><td><strong>Client timeline goes blank for six of eleven statuses</strong></td><td>The tracker orders statuses against a fixed list that never had Screening, Due Diligence, Evaluation, Board Approved, Contracting or Rejected added to it. An unlisted status matches no milestone, so <em>every</em> circle greys out — including ones the applicant has already passed. Worst effects: approval appears to be withdrawn when you move an Approved case to Board Approved, and a declined applicant is never told. Their status badge stays correct throughout. Add the missing statuses to the tracker's order and milestone lists. <em>Highest priority — see the mapping and the resulting support calls in 21.3 and 21.6.</em></td></tr>
-  <tr><td>2</td><td><strong>Consent wording is draft</strong></td><td>Captured and versioned, but not legally signed off. Have legal review it and bump the version.</td></tr>
-  <tr><td>3</td><td><strong>Notifications are in-app only</strong></td><td>Neither staff nor applicants are told anything outside the system. Add email or SMS on status change.</td></tr>
-  <tr><td>4</td><td><strong>No password-reset page in the client portal</strong></td><td>The reset email links to a page that does not exist. Applicants must ask PRDF to reset for them.</td></tr>
-  <tr><td>5</td><td><strong>Repayments untested end to end</strong></td><td>The repayment path against a bullet schedule has not been exercised. Verify with the first live repayment.</td></tr>
-  <tr><td>6</td><td><strong>Upload size not enforced</strong></td><td>Files go straight to storage, so neither portal nor API sees the bytes. Set a file size limit on the storage bucket — a setting, not a code change.</td></tr>
-  <tr><td>7</td><td><strong>Client dashboard "amount outstanding" totals requested amounts</strong></td><td>Can differ from the loan account. Treat the loan account as authoritative.</td></tr>
-  <tr><td>8</td><td><strong>Term is collected in months, priced in days</strong></td><td>A stated 3 months prices as 91 days against the model's 90 — about 1% more interest on that row. Deliberate: a 30-day month would under-charge a full year.</td></tr>
-  <tr><td>9</td><td><strong>Loans booked before the pricing fix</strong></td><td>Any loan booked before 26 September 2026 carries the legacy flat rate, an amortising schedule and no fees. These must be re-quoted or re-booked deliberately; the migration reports how many exist rather than rewriting them.</td></tr>
-  <tr><td>10</td><td><strong>No multi-factor authentication requirement</strong></td><td>MFA can be reset but is not enforced for staff. Consider requiring it for roles that move money.</td></tr>
-  <tr><td>11</td><td><strong>No automated test suite</strong></td><td>Regressions are caught by manual QA. Add end-to-end cover for the lifecycle and money paths.</td></tr>
-  <tr><td>12</td><td><strong>Document rejection is silent</strong></td><td>Rejecting a document changes the badge in the applicant's portal but sends no notification, so an applicant who is not watching the page will not know. Raise a document request alongside it, or telephone. See 21.2.</td></tr>
-</table>
-
-<div class="note">
-  <strong>Resolved since version 1.0.</strong> "Schedule dates display as raw timestamps" was item 12 in the previous edition. Dates now render as <em>24 October 2026</em> throughout both the console and the portal, and the underlying date columns no longer shift by a day between the API and the browser.
-</div>
-</section>
-
-<!-- ======================= 26 ======================= -->
-<section class="sheet">
-<h2>26. Acceptance and sign-off</h2>
+<h2>25. Acceptance and sign-off</h2>
 
 <p>This section records PRDF's acceptance of the Admin Console as delivered and documented in this manual.</p>
 
-<h3>26.1 Acceptance checklist</h3>
+<h3>25.1 Acceptance checklist</h3>
 <table class="checklist">
   <tr><th style="width:8mm">✓</th><th>Item</th><th style="width:18mm">Section</th></tr>
   <tr><td>☐</td><td>Staff can sign in; a Client-only account is correctly refused</td><td>4</td></tr>
@@ -1287,20 +1245,20 @@
   <tr><td>☐</td><td>A requested document reaches the applicant as an upload slot and closes when they answer</td><td>9.4, 21.1</td></tr>
   <tr><td>☐</td><td>Cases and loans are named consistently across the console and the portal</td><td>7, 16, 22.2</td></tr>
   <tr><td>☐</td><td>Configuration changes take effect without a release</td><td>23</td></tr>
-  <tr><td>☐</td><td>The limitations in Section 25 have been read and accepted</td><td>25</td></tr>
+  <tr><td>☐</td><td>The limitations in Section 24 have been read and accepted</td><td>25</td></tr>
 </table>
 
-<h3>26.2 Declaration</h3>
+<h3>25.2 Declaration</h3>
 <p>By signing below, PRDF confirms that:</p>
 <ol>
   <li>The Admin Console described in this manual has been delivered and demonstrated.</li>
-  <li>The acceptance criteria in 26.1 have been verified.</li>
-  <li>The known limitations in Section 25 have been disclosed, read and accepted.</li>
+  <li>The acceptance criteria in 25.1 have been verified.</li>
+  <li>The known limitations in Section 24 have been disclosed, read and accepted.</li>
   <li>This manual, with the Client Portal User Manual, constitutes the system documentation.</li>
   <li>The work is complete and accepted.</li>
 </ol>
 
-<h3>26.3 Signatures</h3>
+<h3>25.3 Signatures</h3>
 
 <div class="sigbox">
   <h4>Accepted on behalf of PRDF</h4>
@@ -1327,7 +1285,7 @@
 </div>
 
 <p style="margin-top:1.3em;font-size:8.5pt;color:var(--muted);font-style:italic">
-  PRDF Admin Console — SuperAdmin Manual, version 1.0, 26 September 2026.
+  PRDF Admin Console — Administrator&rsquo;s Manual, 1 October 2026.
 </p>
 </section>
 

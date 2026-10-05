@@ -362,6 +362,22 @@ stages.console = async ({ admin, shotA }) => {
 
   await admin.goto(ADMIN + '/user-access', { waitUntil: 'networkidle' })
   await wait(2400)
+  // The User Access list is the one screen in the console that shows real
+  // people's names, email addresses and account ids. The figure name has
+  // always said "masked"; until 2026-10-01 nothing actually masked it, and a
+  // PDF went out carrying 11 live addresses. Mask in the page before the
+  // screenshot is taken, so the unredacted pixels never reach disk, and trim
+  // to four rows (PRDF review: "only 4 will suffice").
+  await admin.evaluate(() => {
+    const rows = Array.from(document.querySelectorAll('table tbody tr'))
+    rows.forEach((row, i) => {
+      if (i >= 4) { row.remove(); return }
+      const cells = row.querySelectorAll('td')
+      if (cells[0]) cells[0].textContent = '[name withheld]'
+      if (cells[1]) cells[1].textContent = '[email withheld]'
+    })
+  })
+  await wait(400)
   await shotA('26-user-access-masked', { full: true })
 
   await admin.goto(ADMIN + '/profile', { waitUntil: 'networkidle' })
