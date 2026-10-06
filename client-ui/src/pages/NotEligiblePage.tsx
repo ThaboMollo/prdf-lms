@@ -65,7 +65,7 @@ export function NotEligiblePage() {
               </svg>
             </div>
             <div className="elig-not-eligible__partner-info">
-              <strong>Phahla Consultants</strong>
+              <strong>Phahla Consulting</strong>
               <p>Expert business compliance, CIPC registration, SARS support, and funding readiness services.</p>
               <a href="https://phahlaconsulting.co.za/" target="_blank" rel="noopener noreferrer">
                 phahlaconsulting.co.za
@@ -81,7 +81,7 @@ export function NotEligiblePage() {
             rel="noopener noreferrer"
             className="btn btn-primary elig-result__btn"
           >
-            Visit Phahla Consultants
+            Visit Phahla Consulting
           </a>
           <Link to="/eligibility" className="btn btn-ghost elig-result__btn">
             Retake Assessment
