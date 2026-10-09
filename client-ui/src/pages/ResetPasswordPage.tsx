@@ -44,7 +44,7 @@ export function ResetPasswordPage() {
           <p>Choose a new password, then sign in with it to pick up where you left off.</p>
         </div>
         <ul className="auth-brand-bullets">
-          <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> Use at least 8 characters</li>
+          <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> Use at least 8 characters and a random mix of letters, numbers, and symbols</li>
           <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> Avoid a password you use elsewhere</li>
           <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> Signs you out everywhere, just in case</li>
         </ul>
@@ -94,36 +94,36 @@ export function ResetPasswordPage() {
             <form onSubmit={onSubmit} className="form-grid">
               <div className="field-block">
                 <label className="form-field" htmlFor="password">
-                New password
-                <input
-                  id="password"
-                  {...fieldErrorAttrs('password', fieldErrors.password)}
-                  type="password"
-                  value={password}
-                  onChange={(e) => { setPassword(e.target.value); clearFieldError('password') }}
-                  required
-                  autoComplete="new-password"
-                  placeholder="At least 8 characters and a random mix of letters, numbers, and symbols"
-                  minLength={8}
-                  autoFocus
-                />
+                  New password
+                  <input
+                    id="password"
+                    {...fieldErrorAttrs('password', fieldErrors.password)}
+                    type="password"
+                    value={password}
+                    onChange={(e) => { setPassword(e.target.value); clearFieldError('password') }}
+                    required
+                    autoComplete="new-password"
+                    placeholder="At least 8 characters and a random mix of letters, numbers, and symbols"
+                    minLength={8}
+                    autoFocus
+                  />
                 </label>
                 <FieldError field="password" message={fieldErrors.password} />
               </div>
               <div className="field-block">
                 <label className="form-field" htmlFor="confirmPassword">
-                Confirm new password
-                <input
-                  id="confirmPassword"
-                  {...fieldErrorAttrs('confirmPassword', fieldErrors.confirmPassword)}
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => { setConfirmPassword(e.target.value); clearFieldError('confirmPassword') }}
-                  required
-                  autoComplete="new-password"
-                  placeholder="Re-enter your new password"
-                  minLength={8}
-                />
+                  Confirm new password
+                  <input
+                    id="confirmPassword"
+                    {...fieldErrorAttrs('confirmPassword', fieldErrors.confirmPassword)}
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => { setConfirmPassword(e.target.value); clearFieldError('confirmPassword') }}
+                    required
+                    autoComplete="new-password"
+                    placeholder="Re-enter your new password"
+                    minLength={8}
+                  />
                 </label>
                 <FieldError field="confirmPassword" message={fieldErrors.confirmPassword} />
               </div>
