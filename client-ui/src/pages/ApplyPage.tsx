@@ -22,7 +22,7 @@ import { DOCUMENT_LABELS, expectedFileCount } from '../lib/requirements'
 import { activeTenant } from '../../../packages/tenant-config'
 // Offered list only — the API accepts these plus the retired ones, so a client
 // profile written before 2026-07-15 still round-trips. See constraints.ts.
-import { INDUSTRIES } from '../../../packages/domain/constraints'
+import { DOCUMENT_ACCEPT_ATTRIBUTE, DOCUMENT_MAX_SIZE_LABEL, INDUSTRIES, LIMITS, countWords } from '../../../packages/domain/constraints'
 import {
   step1Schema,
   step2Schema,
@@ -289,6 +289,7 @@ export function ApplyPage({ session }: ApplyPageProps) {
       insolventOrDebtReview: s1?.insolventOrDebtReview,
       monthlyRevenue: s2?.monthlyRevenue,
       yearsInOperation: s2?.yearsInOperation,
+      monthsInOperation: s2?.monthsInOperation ?? undefined,
       numberOfEmployees: s2?.numberOfEmployees,
       bankName: s2?.bankName,
       currentStep,
@@ -925,6 +926,7 @@ function Step2({
   const [form, setForm] = useState({
     monthlyRevenue: initial?.monthlyRevenue ?? null,
     yearsInOperation: initial?.yearsInOperation ?? null,
+    monthsInOperation: initial?.monthsInOperation ?? null,
     numberOfEmployees: initial?.numberOfEmployees ?? null,
     bankName: initial?.bankName ?? '',
   })
@@ -934,6 +936,7 @@ function Step2({
     return {
       monthlyRevenue: form.monthlyRevenue as number,
       yearsInOperation: form.yearsInOperation as number,
+      monthsInOperation: form.monthsInOperation,
       numberOfEmployees: form.numberOfEmployees as number,
       bankName: form.bankName,
     }
@@ -998,18 +1001,35 @@ function Step2({
             />
             <FieldError field="monthlyRevenue" message={errors.monthlyRevenue} />
           </div>
-          <div className="form-field">
-            <label htmlFor="yearsInOperation">Years in operation</label>
-            <NumericInput
-              field="yearsInOperation"
-              mode="integer"
-              min={0}
-              value={form.yearsInOperation}
-              error={errors.yearsInOperation}
-              onChange={setNumber('yearsInOperation')}
-              placeholder="3"
-            />
-            <FieldError field="yearsInOperation" message={errors.yearsInOperation} />
+          <div className="form-field-pair">
+            <div className="form-field">
+              <label htmlFor="yearsInOperation">Years in operation</label>
+              <NumericInput
+                field="yearsInOperation"
+                mode="integer"
+                min={0}
+                value={form.yearsInOperation}
+                error={errors.yearsInOperation}
+                onChange={setNumber('yearsInOperation')}
+                placeholder="3"
+              />
+              <FieldError field="yearsInOperation" message={errors.yearsInOperation} />
+            </div>
+            <div className="form-field">
+              <label htmlFor="monthsInOperation">Months</label>
+              <NumericInput
+                field="monthsInOperation"
+                mode="integer"
+                min={0}
+                max={LIMITS.monthsInOperation.max}
+                value={form.monthsInOperation}
+                error={errors.monthsInOperation}
+                onChange={setNumber('monthsInOperation')}
+                placeholder="6"
+              />
+              <p className="field-hint">On top of the years. Trading 8 months? Leave years 0.</p>
+              <FieldError field="monthsInOperation" message={errors.monthsInOperation} />
+            </div>
           </div>
         </div>
 
@@ -1072,6 +1092,14 @@ function Step3({
   const [purpose, setPurpose] = useState(initial?.purpose ?? '')
   const [loanPurposeCategory, setLoanPurposeCategory] = useState(initial?.loanPurposeCategory ?? '')
   const [errors, setErrors] = useState<Partial<Record<keyof Step3Data, string>>>({})
+
+  const purposeWords = countWords(purpose)
+  // fieldErrorAttrs sets aria-describedby to the error id alone, which would
+  // hide the word counter from a screen reader at exactly the moment it is most
+  // useful. Spread this after it to name both, in reading order.
+  const purposeDescribedBy = {
+    'aria-describedby': errors.purpose ? 'purpose-hint purpose-error' : 'purpose-hint',
+  }
 
   // Keep in sync with calculator context — slider changes go through context
   const { amount, term } = useCalculator()
@@ -1136,15 +1164,26 @@ function Step3({
         </div>
 
         <div className="form-field">
-          <label htmlFor="purpose">Tell us more about how you'll use the funds</label>
+          <label htmlFor="purpose">
+            Tell us more about how you'll use the funds{' '}
+            <span className="label-requirement">(minimum {LIMITS.purpose.minWords} words)</span>
+          </label>
           <textarea
             id="purpose" {...fieldErrorAttrs('purpose', errors.purpose)}
+            {...purposeDescribedBy}
             value={purpose}
             onChange={(e) => setPurpose(e.target.value)}
-            rows={3}
+            rows={6}
             placeholder="e.g. Purchase two new delivery vehicles to expand our logistics capacity…"
             style={{ resize: 'vertical', borderRadius: '12px', width: '100%' }}
           />
+          <p
+            id="purpose-hint"
+            className={purposeWords >= LIMITS.purpose.minWords ? 'field-hint field-hint--met' : 'field-hint'}
+          >
+            {purposeWords} of {LIMITS.purpose.minWords} words
+            {purposeWords >= LIMITS.purpose.minWords ? ' ✓' : ''}
+          </p>
           <FieldError field="purpose" message={errors.purpose} />
         </div>
       </div>
@@ -1216,9 +1255,18 @@ function Step4({
     <div className="wizard-body">
       <h2>Documents</h2>
       <p>
-        Upload all documents below — every document is required before you can submit. Accepted formats: PDF or Word
-        (.doc, .docx) — images are not accepted. Files are saved to your draft as you add them.
+        Upload all documents below — every document is required before you can submit. Files are saved to your draft as
+        you add them.
       </p>
+
+      <div className="screen-notice" role="note">
+        <i className="fa-solid fa-circle-info" aria-hidden="true" />
+        <span>
+          <strong>Accepted formats: PDF or Word (.doc, .docx), up to {DOCUMENT_MAX_SIZE_LABEL} per file.</strong>{' '}
+          Photos and scans saved as JPG or PNG are refused. If a scan comes out larger than {DOCUMENT_MAX_SIZE_LABEL},
+          scan it again in black and white or at a lower resolution.
+        </span>
+      </div>
 
       <div className={`doc-progress-banner${ready ? ' doc-progress-banner--ready' : ''}`}>
         <div className="doc-progress-banner__head">
@@ -1280,7 +1328,7 @@ function Step4({
               {(slot.multiple || existing.length === 0) && (
                 <FileDropzone
                   label={existing.length ? 'Add another file' : ''}
-                  accept=".pdf,.doc,.docx"
+                  accept={DOCUMENT_ACCEPT_ATTRIBUTE}
                   multiple={slot.multiple}
                   files={[]}
                   onFilesChange={(files) => files.forEach((f) => onUpload(slot.type, f))}

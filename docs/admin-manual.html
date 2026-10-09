@@ -188,7 +188,7 @@
   <tr><td><strong>CSD</strong></td><td>Central Supplier Database</td><td>The government supplier register; applicants upload their report from it</td></tr>
   <tr><td><strong>SARS</strong></td><td>South African Revenue Service</td><td>The tax authority; the source of a tax clearance certificate</td></tr>
   <tr><td><strong>PO</strong></td><td>Purchase Order</td><td>A confirmed order from a buyer, used as the basis for purchase-order funding</td></tr>
-  <tr><td><strong>CSV</strong></td><td>Comma-Separated Values</td><td>A plain spreadsheet file. <em>Export CSV</em> downloads data you can open in Excel</td></tr>
+  <tr><td><strong>XLSX</strong></td><td>Excel Workbook</td><td>A spreadsheet file. <em>Export Excel</em> downloads data that opens directly in Excel, with amounts as numbers and dates as dates</td></tr>
   <tr><td><strong>PDF</strong></td><td>Portable Document Format</td><td>The standard document format applicants upload in</td></tr>
   <tr><td><strong>SMS</strong></td><td>Short Message Service</td><td>A text message</td></tr>
 </table>
@@ -411,10 +411,20 @@
   <tr><td>Request info</td><td>Sends the case back to the applicant with a note saying what is missing</td></tr>
 </table>
 
-<h3>8.3 The eight tabs</h3>
+<h3>8.3 The applicant's financial profile</h3>
+<p>Below the loan details, the Overview tab shows what the applicant entered at Step 2 of their own application:</p>
+<table>
+  <tr><th style="width:44mm">Field</th><th>What to read into it</th></tr>
+  <tr><td>Monthly revenue</td><td>Self-reported average. Check it against the bank statements on the Documents tab rather than taking it at face value</td></tr>
+  <tr><td>Time in operation</td><td>Shown as, for example, <em>4 years 6 months</em>. <em>Less than a month</em> means they answered zero to both — a genuinely new business, not missing data. A dash means the question was never asked, which is the case for every application created before 8 October 2026</td></tr>
+  <tr><td>Employees</td><td>Includes the owner-operator</td></tr>
+  <tr><td>Bank</td><td>Chosen from a fixed list. Should match the bank statements supplied</td></tr>
+</table>
+
+<h3>8.4 The eight tabs</h3>
 <table>
   <tr><th style="width:30mm">Tab</th><th>Contents</th><th style="width:16mm">Section</th></tr>
-  <tr><td>Overview</td><td>Applicant, business, amount, term, purpose, dates</td><td>8</td></tr>
+  <tr><td>Overview</td><td>Applicant, business, amount, term, purpose, the applicant's financial profile, dates</td><td>8</td></tr>
   <tr><td>Documents</td><td>Uploaded documents, inline viewer, verify and reject</td><td>9</td></tr>
   <tr><td>Pricing</td><td>Credit-model quote and the risk grade decision</td><td>11</td></tr>
   <tr><td>Money</td><td>Disbursement, repayments, schedule</td><td>13–14</td></tr>
@@ -444,7 +454,7 @@
   <tr><td>Company Registration (CIPC)</td><td>No</td></tr>
   <tr><td>Tax Clearance</td><td>No</td></tr>
   <tr><td>Bank Statements (last 3 months)</td><td>Yes</td></tr>
-  <tr><td>Financial Statements</td><td>No</td></tr>
+  <tr><td>2 Years Annual Financial Statements and Management Accounts</td><td>No</td></tr>
   <tr><td>Vendor Quotations (3x)</td><td>Yes</td></tr>
   <tr><td>Central Supplier Database (CSD) Reports</td><td>No</td></tr>
   <tr><td>Purchase Order / Short Term Contracts</td><td>No</td></tr>
@@ -821,7 +831,7 @@
 </figure>
 
 <p><strong>Arrears</strong> lists every overdue instalment across the book. An empty arrears panel is the goal; anything in it needs collections attention.</p>
-<p><strong>Export CSV</strong> downloads the portfolio for reporting or reconciliation outside the system.</p>
+<p><strong>Export Excel</strong> downloads the arrears book as an <code>.xlsx</code> workbook for reporting or reconciliation outside the system. Amounts come through as numbers rather than text, so they total and sort correctly in Excel.</p>
 
 <div class="note">
   <strong>Check arrears before month end.</strong> Penalties accrue daily with no grace period, so a missed instalment gets more expensive for the client every day it is left. Early contact is cheaper for everyone.
@@ -855,6 +865,22 @@
   <li><strong>Pipeline Conversion</strong> — how many cases made each transition. Where the bars narrow is where applications are being lost.</li>
   <li><strong>Staff Productivity</strong> — tasks completed and applications handled, per person.</li>
 </ul>
+
+<h3>17.2 Export Center</h3>
+<p>At the bottom of the page, <strong>Export Center</strong> lists every report that can be downloaded, with a <strong>Download</strong> button beside each. All of them produce an Excel workbook (<code>.xlsx</code>).</p>
+
+<table>
+  <tr><th style="width:52mm">Report</th><th>What it contains</th></tr>
+  <tr><td>Pipeline Snapshot</td><td>Case count and total value at each status</td></tr>
+  <tr><td>Origination Trends</td><td>Loans originated and total volume, by month</td></tr>
+  <tr><td>Staff Productivity</td><td>Tasks completed and applications handled, per person</td></tr>
+  <tr><td>Audit Log</td><td>Who did what, when, to which record</td></tr>
+  <tr><td>Demographic Breakdown</td><td>Two sheets — by gender, and by designation</td></tr>
+  <tr><td>Debtors Book Age Analysis</td><td>Instalments and outstanding value per ageing bucket</td></tr>
+  <tr><td>Province Breakdown</td><td>Two sheets — by province, and by spatial type</td></tr>
+</table>
+
+<p>The download reflects the period selector, so set that first. Reports that cover two dimensions arrive as two worksheets in one workbook rather than stacked into a single flat table.</p>
 
 <div class="note">
   <strong>Reports are visible to management roles only</strong> — SuperAdmin, Admin, Program Manager and Board. Stage workers do not see this page, deliberately: it aggregates across cases they have no business seeing.

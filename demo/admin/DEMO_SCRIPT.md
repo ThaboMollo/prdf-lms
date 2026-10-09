@@ -79,7 +79,7 @@ in History.
 
 > "Once loans are disbursed, the Portfolio dashboard tracks health and exposure —
 > total and active loans, outstanding balance, and any overdue installments in
-> arrears — with a one-click CSV export."
+> arrears — with a one-click Excel export."
 
 ### Scene 9 — Reports & analytics  ·  `04-reports`
 **Action:** Open *Reports*. Slowly scroll through the charts and tables: pipeline

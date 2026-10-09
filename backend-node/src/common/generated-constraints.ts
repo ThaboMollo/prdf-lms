@@ -95,13 +95,16 @@ export type Industry = (typeof INDUSTRIES)[number]
 export const LIMITS = {
   businessName: { minLength: 2, maxLength: 200 },
   registrationNo: { minLength: 4, maxLength: 50 },
-  purpose: { minLength: 30, maxLength: 1000 },
+  purpose: { minWords: 50, maxLength: 1000 },
   sarsTaxPin: { minLength: 5, maxLength: 20 },
   bankName: { minLength: 2, maxLength: 100 },
 
   saCitizenshipPercentage: { min: 0, max: 100 },
   numberOfEmployees: { min: 1, max: 100000 },
   yearsInOperation: { min: 0, max: 100 },
+  // Months *beyond* the whole years above, so 11 is the ceiling: "2 years and
+  // 14 months" is not a thing an applicant should be able to enter.
+  monthsInOperation: { min: 0, max: 11 },
   monthlyRevenue: { min: 0.01, max: 1_000_000_000 },
 
   requestedAmount: { min: 0.01, max: 1_000_000_000 },
@@ -124,3 +127,52 @@ export const DOCUMENT_MAX_SIZE_BYTES = 5 * 1024 * 1024
 
 /** The same limit, for user-facing copy. */
 export const DOCUMENT_MAX_SIZE_LABEL = '5 MB'
+
+/**
+ * What an applicant may upload.
+ *
+ * These lived in backend-node/src/common/file-validation.ts with a comment
+ * asking whoever changed them to remember to change the dropzones' `accept`
+ * too — which was hardcoded at three call sites in client-ui and absent
+ * altogether from admin-ui's uploader. A type the UI offers but the API
+ * refuses is a dead end; a type the API takes but no UI offers is
+ * unvalidated surface. One list removes the chance of either.
+ */
+export const ALLOWED_DOCUMENT_EXTENSIONS = ['.pdf', '.doc', '.docx'] as const
+
+export const ALLOWED_DOCUMENT_MIME_TYPES = [
+  'application/pdf',
+  'application/msword', // .doc
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+] as const
+
+/** The same list as an input's `accept` attribute: ".pdf,.doc,.docx". */
+export const DOCUMENT_ACCEPT_ATTRIBUTE = ALLOWED_DOCUMENT_EXTENSIONS.join(',')
+
+/**
+ * Word count for the free-text loan purpose, which PRDF requires to be at least
+ * `LIMITS.purpose.minWords` long (confirmed in the v1.1 manual review).
+ *
+ * Defined here rather than in each validator because the client blocks Continue
+ * on this number while the server rejects a submission on it, and a counter
+ * that disagrees with the rule it is counting towards is worse than no counter.
+ * A "word" is any run of non-whitespace — crude, but it matches what someone
+ * sees when they look at the sentence they just typed, which is the only
+ * definition an applicant can act on.
+ */
+export function countWords(text: string | null | undefined): number {
+  if (!text) return 0
+  const trimmed = text.trim()
+  return trimmed === '' ? 0 : trimmed.split(/\s+/).length
+}
+
+/**
+ * The purpose arrives at the API as "<category>: <free text>" — the Step 3
+ * dropdown is folded into the same column before sending (see client-ui's
+ * buildDraftPayload). Only the applicant's own words count towards the minimum,
+ * so the prefix is stripped before counting; otherwise picking a longer
+ * category from the dropdown would quietly earn them free words.
+ */
+export function stripPurposeCategory(purpose: string): string {
+  return purpose.replace(/^[^:]*:\s*/, '')
+}

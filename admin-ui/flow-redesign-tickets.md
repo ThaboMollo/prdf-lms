@@ -147,7 +147,7 @@ Prereqs flagged **⚠ backend** must land (or be stubbed) before their consuming
 
 ### ADM-062 · Portfolio arrears link into the case — `S` · _dep: ADM-040_
 - **Files:** `src/pages/PortfolioPage.tsx`
-- Arrears table `loanId` → `EntityLink` to `/case/:id?tab=money`; keep CSV export; restyle KPIs to new tokens.
+- Arrears table `loanId` → `EntityLink` to `/case/:id?tab=money`; keep the export (now Excel, see ADM-xlsx); restyle KPIs to new tokens.
 - **AC:** arrears rows navigate to the loan in-case (closes break #5); export still works.
 
 ---
@@ -167,7 +167,7 @@ Prereqs flagged **⚠ backend** must land (or be stubbed) before their consuming
 ### ADM-072 · Report cards to categories (parity) — `M` · _dep: ADM-070_
 - **Files:** `ReportsPage.tsx`
 - Slot existing reports into categories (spec §7): pipeline/origination/conversion/turnaround; debtors-age/PAR; demographic/province/spatial; productivity/audit; Export Center. Compliance cards badged NCR/SEDFA.
-- **AC:** every live report present and categorised; Export Center downloads all existing CSVs (`handleExportCsv`).
+- **AC:** every live report present and categorised; Export Center downloads all existing reports as `.xlsx` (`handleExport`).
 
 ### ADM-073 · Proposed new reports — `M` _(optional, post-parity)_ · _dep: ADM-072_
 - Collections performance · Cohort/vintage · Officer scorecard · Concentration risk. **⚠ backend** aggregation endpoints per report.

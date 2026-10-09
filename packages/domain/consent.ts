@@ -9,7 +9,7 @@
 // compliance-relevant inconsistency this package resolves by making both
 // apps consume the same source.
 
-export const CONSENT_VERSION = '2026-07-16'
+export const CONSENT_VERSION = '2026-10-08'
 
 export type ConsentSection = 'POPIA' | 'Policy' | 'Terms'
 
@@ -60,7 +60,7 @@ export const CONSENT_ITEMS: ConsentItem[] = [
   {
     key: 'policy_outcome_letter',
     section: 'Policy',
-    prompt: 'I understand that if my application is unsuccessful, PRDF will issue a letter with the reason.',
+    prompt: 'I understand that if my application is unsuccessful, PRDF will issue a letter with the reason and recommendations.',
   },
   {
     key: 'policy_clause_meaning',

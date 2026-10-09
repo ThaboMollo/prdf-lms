@@ -5,6 +5,7 @@ import {
   LIMITS,
   SA_PROVINCES,
   SPATIAL_TYPES,
+  countWords,
 } from '../../../../packages/domain/constraints'
 
 // Rules come from packages/domain/constraints.ts, the same definition the API's
@@ -57,7 +58,18 @@ export const step2Schema = z.object({
   yearsInOperation: z
     .number({ message: 'Enter how long the business has operated' })
     .min(LIMITS.yearsInOperation.min, 'Cannot be negative')
-    .max(LIMITS.yearsInOperation.max),
+    .max(LIMITS.yearsInOperation.max, 'That is implausibly long'),
+  // Months *beyond* the whole years above, so 11 is the ceiling. Optional
+  // because a business trading an exact number of years has nothing to add
+  // here, and requiring a 0 would be busywork — but when it is answered it
+  // must be a real month count, hence z.number() rather than a coercion.
+  monthsInOperation: z
+    .number({ message: 'Enter a number of months, or leave this blank' })
+    .int()
+    .min(LIMITS.monthsInOperation.min, 'Cannot be negative')
+    .max(LIMITS.monthsInOperation.max, 'Enter 0-11. Whole years go in the years field')
+    .nullable()
+    .optional(),
   numberOfEmployees: z
     .number({ message: 'Enter the number of employees' })
     .int()
@@ -89,7 +101,14 @@ export function createStep3Schema(limits: {
     purpose: z
       .string()
       .trim()
-      .min(LIMITS.purpose.minLength, `Please describe the loan purpose (at least ${LIMITS.purpose.minLength} characters)`),
+      .refine(
+        (v) => countWords(v) >= LIMITS.purpose.minWords,
+        `Please describe how you'll use the funds in at least ${LIMITS.purpose.minWords} words`,
+      )
+      .refine(
+        (v) => v.length <= LIMITS.purpose.maxLength,
+        `Please keep this under ${LIMITS.purpose.maxLength} characters`,
+      ),
     loanPurposeCategory: z.string().min(1, 'Please select a purpose category'),
   })
 }

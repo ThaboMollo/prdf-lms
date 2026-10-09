@@ -53,7 +53,7 @@ const DOCUMENTS = [
   { title: 'Bank Statements', desc: 'Last 3 months of business bank statements' },
   { title: 'CIPC Registration', desc: 'Company registration certificate from CIPC' },
   { title: 'Tax Clearance', desc: 'Valid SARS tax clearance certificate or tax pin' },
-  { title: 'Financial Statements', desc: 'Latest annual financials or management accounts' },
+  { title: '2 Years Annual Financial Statements', desc: 'Two years of annual financial statements, plus your latest management accounts' },
 ]
 
 export function LandingPage({ session }: LandingPageProps) {
@@ -90,7 +90,7 @@ export function LandingPage({ session }: LandingPageProps) {
                   Check Eligibility
                 </button>
               </div>
-              <p className="landing-hero-note">No obligation &middot; Takes about 5 minutes</p>
+              <p className="landing-hero-note">No obligation &middot; Takes about 5 - 10 minutes</p>
             </div>
             <LoanCalculator showApplyButton={true} applyLabel="Apply Now" />
           </section>
@@ -148,7 +148,7 @@ export function LandingPage({ session }: LandingPageProps) {
                   <span><span className="sr-only">Requirement: </span>{c}</span>
                 </div>
               ))}
-              </div>
+            </div>
           ))}
         </div>
 
@@ -232,7 +232,7 @@ export function LandingPage({ session }: LandingPageProps) {
           READY TO GROW YOUR BUSINESS?
         </h2>
         <p className="landing-section__body landing-section__body--white-muted">
-          Check your eligibility, prepare your documents, and apply in under 10 minutes.
+          Check your eligibility, prepare your documents, and apply in about 5 - 10 minutes.
         </p>
         <div className="landing-cta-footer__actions">
           <button type="button" className="btn btn-primary landing-cta-footer__btn" onClick={() => navigate('/register')} style={{ background: 'var(--brand-accent)' }}>

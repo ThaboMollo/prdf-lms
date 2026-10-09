@@ -161,7 +161,7 @@ Acceptance criteria:
 |------|-------------------|
 | DashboardPage | Inter 600 greeting, 4 KPI cards (using component with trend indicators), applications table with header row, status badges (pill shape, full radius), clean row separators |
 | ApplicationsPage | Master-detail: left 380px list panel with search, filter chips (All/Pending/Approved/Rejected), application cards with left-border highlight on selection. Right detail panel: applicant header with meta dots, action buttons (Approve green, Request Info outlined, Reject red outlined), tabbed content with field grid, assignment section with avatar |
-| PortfolioPage | 3 KPI cards, arrears table with 8 columns (Loan ID, Application ID, Installment, Due Date, Due, Paid, Outstanding, Days Overdue), pagination controls, Export CSV button |
+| PortfolioPage | 3 KPI cards, arrears table with 8 columns (Loan ID, Application ID, Installment, Due Date, Due, Paid, Outstanding, Days Overdue), pagination controls, Export Excel button |
 | UserAccessPage | 3 KPI cards, filter row with search + dropdowns, user table with role pill badges, admin access status badges, action buttons |
 | LoanDetailsPage | Same design system: page header, KPI-style loan summary, repayment schedule table, disbursement details |
 | LoginPage | Centered card layout (simpler than client split-screen) |

@@ -5,6 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, L
 import { createReportsUseCases } from '../logic/usecases/reports'
 import { listAssignableUsers } from '../lib/api'
 import { formatCurrency, formatDateTime } from '../lib/format'
+import { downloadWorkbook, type Sheet } from '../lib/workbook'
 import { PageHeader } from '../components/shared/PageHeader'
 import { KPIStatCard } from '../components/shared/KPIStatCard'
 import { EmptyState } from '../components/shared/EmptyState'
@@ -158,53 +159,119 @@ export function ReportsPage({ session }: ReportsPageProps) {
     [conversionQuery.data]
   )
 
-  const handleExportCsv = (type: 'pipeline' | 'origination' | 'productivity' | 'audit' | 'demographic' | 'debtors-age' | 'province') => {
-    let csv = ''
+  const handleExport = (type: 'pipeline' | 'origination' | 'productivity' | 'audit' | 'demographic' | 'debtors-age' | 'province') => {
     let filename = ''
+    let sheets: Sheet[] = []
 
     if (type === 'province' && provinceQuery.data) {
-      csv = [
-        'Dimension,Label,Count',
-        ...provinceQuery.data.byProvince.map(i => `Province,"${i.label}",${i.count}`),
-        ...provinceQuery.data.bySpatialType.map(i => `Spatial,"${i.label}",${i.count}`)
-      ].join('\n')
-      filename = 'province_breakdown.csv'
-    } else if (type === 'demographic' && demographicQuery.data) {
-      const lines = [
-        `Total Clients,${demographicQuery.data.totalClients}`,
-        '',
-        'Category,Label,Count',
-        ...demographicQuery.data.byGender.map(i => `Gender,"${i.label}",${i.count}`),
-        ...demographicQuery.data.flags.map(i => `Designation,"${i.label}",${i.count}`)
+      // Two dimensions that were stacked into one flat file under a
+      // "Dimension" discriminator column. They are two sheets now — the
+      // discriminator only ever existed because CSV has no tabs.
+      sheets = [
+        {
+          name: 'By Province',
+          columns: [{ header: 'Province', key: 'label', width: 22 }, { header: 'Count', key: 'count', format: 'integer' }],
+          rows: provinceQuery.data.byProvince.map((i) => ({ label: i.label, count: i.count })),
+        },
+        {
+          name: 'By Spatial Type',
+          columns: [{ header: 'Spatial Type', key: 'label', width: 22 }, { header: 'Count', key: 'count', format: 'integer' }],
+          rows: provinceQuery.data.bySpatialType.map((i) => ({ label: i.label, count: i.count })),
+        },
       ]
-      csv = lines.join('\n')
-      filename = 'demographic_breakdown.csv'
+      filename = 'province_breakdown.xlsx'
+    } else if (type === 'demographic' && demographicQuery.data) {
+      sheets = [
+        {
+          name: 'By Gender',
+          caption: `Total clients: ${demographicQuery.data.totalClients}`,
+          columns: [{ header: 'Gender', key: 'label', width: 22 }, { header: 'Count', key: 'count', format: 'integer' }],
+          rows: demographicQuery.data.byGender.map((i) => ({ label: i.label, count: i.count })),
+        },
+        {
+          name: 'By Designation',
+          columns: [{ header: 'Designation', key: 'label', width: 26 }, { header: 'Count', key: 'count', format: 'integer' }],
+          rows: demographicQuery.data.flags.map((i) => ({ label: i.label, count: i.count })),
+        },
+      ]
+      filename = 'demographic_breakdown.xlsx'
     } else if (type === 'debtors-age' && debtorsAgeQuery.data) {
-      csv = 'AgeBucket,Installments,OutstandingAmount\n' + debtorsAgeQuery.data.map(i => `"${i.bucket}",${i.installments},${i.outstandingAmount.toFixed(2)}`).join('\n')
-      filename = 'debtors_age_analysis.csv'
+      sheets = [{
+        name: 'Debtors Age Analysis',
+        columns: [
+          { header: 'Age Bucket', key: 'bucket', width: 18 },
+          { header: 'Installments', key: 'installments', format: 'integer' },
+          { header: 'Outstanding Amount', key: 'outstandingAmount', format: 'currency', width: 20 },
+        ],
+        rows: debtorsAgeQuery.data.map((i) => ({ bucket: i.bucket, installments: i.installments, outstandingAmount: i.outstandingAmount })),
+      }]
+      filename = 'debtors_age_analysis.xlsx'
     } else if (type === 'pipeline' && pipelineQuery.data) {
-      csv = 'Status,Count,TotalAmount\n' + pipelineQuery.data.map(i => `${i.status},${i.count},${i.totalAmount}`).join('\n')
-      filename = 'pipeline_summary.csv'
+      sheets = [{
+        name: 'Pipeline Summary',
+        columns: [
+          { header: 'Status', key: 'status', width: 20 },
+          { header: 'Count', key: 'count', format: 'integer' },
+          { header: 'Total Amount', key: 'totalAmount', format: 'currency', width: 18 },
+        ],
+        rows: pipelineQuery.data.map((i) => ({ status: i.status, count: i.count, totalAmount: i.totalAmount })),
+      }]
+      filename = 'pipeline_summary.xlsx'
     } else if (type === 'origination' && originationQuery.data) {
-      csv = 'Month,LoansOriginated,TotalVolume\n' + originationQuery.data.map(i => `${i.month},${i.count},${i.totalAmount}`).join('\n')
-      filename = 'origination_trends.csv'
+      sheets = [{
+        name: 'Origination Trends',
+        columns: [
+          { header: 'Month', key: 'month', width: 14 },
+          { header: 'Loans Originated', key: 'count', format: 'integer', width: 18 },
+          { header: 'Total Volume', key: 'totalAmount', format: 'currency', width: 18 },
+        ],
+        rows: originationQuery.data.map((i) => ({ month: i.month, count: i.count, totalAmount: i.totalAmount })),
+      }]
+      filename = 'origination_trends.xlsx'
     } else if (type === 'productivity' && productivityQuery.data) {
-      csv = 'Name,UserId,TasksCompleted,ApplicationsHandled\n' + productivityQuery.data.map(i => `"${nameFor(i.userId)}","${i.userId}",${i.tasksCompleted},${i.applicationsHandled}`).join('\n')
-      filename = 'staff_productivity.csv'
+      sheets = [{
+        name: 'Staff Productivity',
+        columns: [
+          { header: 'Name', key: 'name', width: 26 },
+          { header: 'User ID', key: 'userId', width: 38 },
+          { header: 'Tasks Completed', key: 'tasksCompleted', format: 'integer', width: 18 },
+          { header: 'Applications Handled', key: 'applicationsHandled', format: 'integer', width: 22 },
+        ],
+        rows: productivityQuery.data.map((i) => ({
+          name: nameFor(i.userId),
+          userId: i.userId,
+          tasksCompleted: i.tasksCompleted,
+          applicationsHandled: i.applicationsHandled,
+        })),
+      }]
+      filename = 'staff_productivity.xlsx'
     } else if (type === 'audit' && auditQuery.data) {
-      csv = 'Timestamp,Actor,ActorUserId,Action,Entity,EntityId\n' + auditQuery.data.map(i => `"${i.at}","${nameFor(i.actorUserId)}","${i.actorUserId ?? ''}","${i.action}","${i.entity}","${i.entityId ?? ''}"`).join('\n')
-      filename = 'audit_log.csv'
+      sheets = [{
+        name: 'Audit Log',
+        columns: [
+          // A real date cell, so the log can be sorted and filtered by time in
+          // Excel rather than lexically as an ISO string.
+          { header: 'Timestamp', key: 'at', format: 'date', width: 20 },
+          { header: 'Actor', key: 'actor', width: 26 },
+          { header: 'Actor User ID', key: 'actorUserId', width: 38 },
+          { header: 'Action', key: 'action', width: 22 },
+          { header: 'Entity', key: 'entity', width: 20 },
+          { header: 'Entity ID', key: 'entityId', width: 38 },
+        ],
+        rows: auditQuery.data.map((i) => ({
+          at: i.at ? new Date(i.at) : null,
+          actor: nameFor(i.actorUserId),
+          actorUserId: i.actorUserId ?? '',
+          action: i.action,
+          entity: i.entity,
+          entityId: i.entityId ?? '',
+        })),
+      }]
+      filename = 'audit_log.xlsx'
     }
 
-    if (!csv) return
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    link.setAttribute('href', URL.createObjectURL(blob))
-    link.setAttribute('download', filename)
-    link.style.visibility = 'hidden'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    if (!sheets.length) return
+    void downloadWorkbook(filename, sheets)
   }
 
   return (
@@ -654,44 +721,44 @@ export function ReportsPage({ session }: ReportsPageProps) {
               <tr>
                 <td><strong>Pipeline Snapshot</strong></td>
                 <td>Current breakdown of applications by status and total requested amounts.</td>
-                <td><span className="status-badge status-neutral">CSV</span></td>
-                <td><button className="link-btn" onClick={() => handleExportCsv('pipeline')}>Download</button></td>
+                <td><span className="status-badge status-neutral">XLSX</span></td>
+                <td><button className="link-btn" onClick={() => handleExport('pipeline')}>Download</button></td>
               </tr>
               <tr>
                 <td><strong>Origination Trends</strong></td>
                 <td>Month-over-month disbursed loan volume and counts.</td>
-                <td><span className="status-badge status-neutral">CSV</span></td>
-                <td><button className="link-btn" onClick={() => handleExportCsv('origination')}>Download</button></td>
+                <td><span className="status-badge status-neutral">XLSX</span></td>
+                <td><button className="link-btn" onClick={() => handleExport('origination')}>Download</button></td>
               </tr>
               <tr>
                 <td><strong>Staff Productivity</strong></td>
                 <td>Tasks completed and applications handled per staff member.</td>
-                <td><span className="status-badge status-neutral">CSV</span></td>
-                <td><button className="link-btn" onClick={() => handleExportCsv('productivity')}>Download</button></td>
+                <td><span className="status-badge status-neutral">XLSX</span></td>
+                <td><button className="link-btn" onClick={() => handleExport('productivity')}>Download</button></td>
               </tr>
               <tr>
                 <td><strong>Audit Log</strong></td>
                 <td>System event log for the selected time range (up to 100 entries).</td>
-                <td><span className="status-badge status-neutral">CSV</span></td>
-                <td><button className="link-btn" onClick={() => handleExportCsv('audit')}>Download</button></td>
+                <td><span className="status-badge status-neutral">XLSX</span></td>
+                <td><button className="link-btn" onClick={() => handleExport('audit')}>Download</button></td>
               </tr>
               <tr>
                 <td><strong>Demographic Breakdown</strong></td>
                 <td>Client composition by gender and designation (HDP, disability, rural, black women-owned).</td>
-                <td><span className="status-badge status-neutral">CSV</span></td>
-                <td><button className="link-btn" onClick={() => handleExportCsv('demographic')}>Download</button></td>
+                <td><span className="status-badge status-neutral">XLSX</span></td>
+                <td><button className="link-btn" onClick={() => handleExport('demographic')}>Download</button></td>
               </tr>
               <tr>
                 <td><strong>Debtors Book Age Analysis</strong></td>
                 <td>Outstanding installments aged by days overdue (30/60/90/120+).</td>
-                <td><span className="status-badge status-neutral">CSV</span></td>
-                <td><button className="link-btn" onClick={() => handleExportCsv('debtors-age')}>Download</button></td>
+                <td><span className="status-badge status-neutral">XLSX</span></td>
+                <td><button className="link-btn" onClick={() => handleExport('debtors-age')}>Download</button></td>
               </tr>
               <tr>
                 <td><strong>Province Breakdown</strong></td>
                 <td>Client distribution by province and spatial classification (Rural/Township/City).</td>
-                <td><span className="status-badge status-neutral">CSV</span></td>
-                <td><button className="link-btn" onClick={() => handleExportCsv('province')}>Download</button></td>
+                <td><span className="status-badge status-neutral">XLSX</span></td>
+                <td><button className="link-btn" onClick={() => handleExport('province')}>Download</button></td>
               </tr>
             </tbody>
           </table>

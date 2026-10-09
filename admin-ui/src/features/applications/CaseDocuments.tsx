@@ -3,6 +3,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createDocumentsUseCases } from '../../logic/usecases/documents'
 import { useActiveLoanProduct, useDocumentRequirements } from '../../lib/loanProduct'
 import { DOCUMENT_LABELS } from '../../lib/requirements'
+import {
+  ALLOWED_DOCUMENT_EXTENSIONS,
+  DOCUMENT_MAX_SIZE_BYTES,
+  DOCUMENT_MAX_SIZE_LABEL,
+} from '../../../../packages/domain/constraints'
 import { EmptyState } from '../../components/shared/EmptyState'
 import { RequestDocumentModal } from './RequestDocumentModal'
 import { StatusBadge } from '../../components/shared/StatusBadge'
@@ -74,6 +79,38 @@ export function CaseDocuments({ applicationId, accessToken }: CaseDocumentsProps
 
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
+  const [fileError, setFileError] = useState<string | null>(null)
+
+  /**
+   * Same gate the applicant's FileDropzone applies, for the same reason.
+   *
+   * This input had no `accept` and no size check, so a staff member picking a
+   * 12 MB scan or a .jpg got an opaque failure from Supabase Storage after the
+   * upload had already started, while an applicant doing the identical thing
+   * got a sentence naming the problem. The API rejects the wrong type at
+   * presign and the bucket caps size at 5 MB either way — this just says so
+   * before the attempt rather than after.
+   */
+  function chooseFile(picked: File | null) {
+    if (!picked) {
+      setFile(null)
+      setFileError(null)
+      return
+    }
+    const extension = picked.name.slice(picked.name.lastIndexOf('.')).toLowerCase()
+    if (!(ALLOWED_DOCUMENT_EXTENSIONS as readonly string[]).includes(extension)) {
+      setFile(null)
+      setFileError(`Only ${ALLOWED_DOCUMENT_EXTENSIONS.join(', ')} files are accepted.`)
+      return
+    }
+    if (picked.size > DOCUMENT_MAX_SIZE_BYTES) {
+      setFile(null)
+      setFileError(`${picked.name} is larger than ${DOCUMENT_MAX_SIZE_LABEL}. Compress it or split it, then try again.`)
+      return
+    }
+    setFile(picked)
+    setFileError(null)
+  }
   const [fullscreen, setFullscreen] = useState(false)
   const [requestOpen, setRequestOpen] = useState(false)
 
@@ -164,6 +201,7 @@ export function CaseDocuments({ applicationId, accessToken }: CaseDocumentsProps
     onSuccess: async () => {
       toast.push('Document uploaded.', 'success')
       setFile(null)
+      setFileError(null)
       await queryClient.invalidateQueries({ queryKey: ['case-docs', applicationId] })
     },
     onError: (error) => toast.push(error instanceof Error ? error.message : 'Upload failed.', 'error')
@@ -357,7 +395,15 @@ export function CaseDocuments({ applicationId, accessToken }: CaseDocumentsProps
           <div className="doc-upload">
             <p className="list-title" style={{ fontSize: '0.9rem' }}>{selected.label}</p>
             <p className="helper-text">This document has not been uploaded yet.</p>
-            <input type="file" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />
+            <input
+              type="file"
+              accept={ALLOWED_DOCUMENT_EXTENSIONS.join(',')}
+              onChange={(event) => chooseFile(event.target.files?.[0] ?? null)}
+            />
+            <p className="helper-text">
+              {ALLOWED_DOCUMENT_EXTENSIONS.join(', ')} · up to {DOCUMENT_MAX_SIZE_LABEL}
+            </p>
+            {fileError ? <p className="field-error" role="alert">{fileError}</p> : null}
             <button
               className="btn"
               type="button"

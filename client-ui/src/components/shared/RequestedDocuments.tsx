@@ -4,6 +4,7 @@ import { FileDropzone } from './FileDropzone'
 import { useToast } from './ToastProvider'
 import { formatDateTime } from '../../lib/format'
 import { DOCUMENT_LABELS } from '../../lib/requirements'
+import { DOCUMENT_ACCEPT_ATTRIBUTE } from '../../../../packages/domain/constraints'
 import type { DocumentRequest } from '../../lib/api'
 import { createDocumentsUseCases } from '../../logic/usecases/documents'
 
@@ -16,7 +17,7 @@ import { createDocumentsUseCases } from '../../logic/usecases/documents'
  * only surface as a failed upload after the applicant waited for it.
  */
 function acceptFor(fileType: string): string {
-  if (fileType === 'any') return '.pdf,.doc,.docx'
+  if (fileType === 'any') return DOCUMENT_ACCEPT_ATTRIBUTE
   return `.${fileType}`
 }
 

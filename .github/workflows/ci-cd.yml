@@ -182,6 +182,14 @@ jobs:
         run: node scripts/test-file-validation.mjs
         working-directory: backend-node
 
+      # Application DTO rules: the 50-word minimum on `purpose` and the 0-11
+      # bound on `monthsInOperation`. The purpose cases guard the category-prefix
+      # strip — the API stores "<category>: <text>", so a naive word count there
+      # silently credits whichever category the applicant picked.
+      - name: Test application rules
+        run: node scripts/test-application-rules.mjs
+        working-directory: backend-node
+
       # MFA enforcement (spec §6.5). The critical assertion is that the
       # feature flag defaults to blocking nobody — a regression there would
       # lock every staff account out of the API on deploy.

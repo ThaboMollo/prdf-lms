@@ -2,6 +2,7 @@ import { formatRand } from '../../lib/loanCalc'
 import type { IndicativeQuote } from '../../lib/creditQuote'
 import type { ApplicationReviewModel, ReviewDocRow } from '../../features/applications/reviewModel'
 import type { ApplicationDocument } from '../../lib/api'
+import { formatTimeInOperation } from '../../../../packages/domain/businessAge'
 
 // Strip the "<uuid>-" prefix storage adds, to show the original filename.
 export function docFileName(storagePath: string): string {
@@ -153,7 +154,7 @@ export function ApplicationReview({
                 <dt>Monthly revenue</dt>
                 <dd>{financials.monthlyRevenue == null ? '—' : formatRand(financials.monthlyRevenue)}</dd>
               </div>
-              <div className="review-row"><dt>Years operating</dt><dd>{financials.yearsInOperation ?? '—'}</dd></div>
+              <div className="review-row"><dt>Time in operation</dt><dd>{formatTimeInOperation(financials.yearsInOperation, financials.monthsInOperation)}</dd></div>
               <div className="review-row"><dt>Employees</dt><dd>{financials.numberOfEmployees ?? '—'}</dd></div>
               <div className="review-row"><dt>Bank</dt><dd>{financials.bankName}</dd></div>
             </dl>

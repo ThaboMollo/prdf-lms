@@ -100,6 +100,10 @@ export function FileDropzone({
           <strong>Click to upload</strong> or drag and drop
         </p>
         {hint && <p style={{ fontSize: '0.78rem' }}>{hint}</p>}
+        {/* Stated on every dropzone, not just the two screens that carry a
+            banner: RequestedDocuments renders this component on the Status
+            page, where there is no surrounding copy to read it from. */}
+        <p style={{ fontSize: '0.72rem', opacity: 0.75 }}>Max {DOCUMENT_MAX_SIZE_LABEL} per file</p>
       </div>
       <input
         ref={inputRef}

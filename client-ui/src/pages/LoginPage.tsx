@@ -65,7 +65,7 @@ export function LoginPage() {
           <p>Access the capital your business needs — quickly, transparently, and entirely online.</p>
         </div>
         <ul className="auth-brand-bullets">
-          <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> Apply in under 10 minutes</li>
+          <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> Apply in about 5 - 10 minutes</li>
           <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> NCR-compliant lending process</li>
           <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> Dedicated loan officer support</li>
           <li><span className="bullet-icon"><i className="fa-solid fa-check" aria-hidden="true" /></span> Funds disbursed within 48 hours</li>

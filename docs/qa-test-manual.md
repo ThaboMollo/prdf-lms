@@ -296,11 +296,11 @@ _Log in as `programmanager@prdf.test` (or Admin)._
 
 1. Go to **Reports**.
 2. Open a few reports (pipeline, demographics, arrears/collections).
-3. Export a CSV where offered.
+3. Export an Excel workbook where offered.
 
 ![Figure 10 — Reports](screenshots/10-reports.png)
 
-**Expected:** reports render using the seeded data; CSV downloads.
+**Expected:** reports render using the seeded data; an `.xlsx` workbook downloads and opens in Excel without a repair prompt.
 _Note:_ a **workflow** role (e.g. RiskAnalyst) has **no** Reports link — verify that access difference.
 
 ---

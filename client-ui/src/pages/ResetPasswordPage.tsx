@@ -103,7 +103,7 @@ export function ResetPasswordPage() {
                   onChange={(e) => { setPassword(e.target.value); clearFieldError('password') }}
                   required
                   autoComplete="new-password"
-                  placeholder="At least 8 characters"
+                  placeholder="At least 8 characters and a random mix of letters, numbers, and symbols"
                   minLength={8}
                   autoFocus
                 />

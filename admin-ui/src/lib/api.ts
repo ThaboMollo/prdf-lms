@@ -85,6 +85,16 @@ export type ApplicationDetails = ApplicationSummary & {
   clientDetails?: ClientDetails
   /** Grade the Risk Analyst set at Due Diligence; null until graded. */
   riskGrade?: RiskGrade | null
+  // Step 2 of the applicant's wizard. GET /api/applications/:id has always
+  // returned these; admin-ui simply never typed them, so the whole financial
+  // profile an assessor is meant to be assessing was invisible here.
+  // Nullable throughout: a draft can reach this endpoint half-answered, and
+  // monthsInOperation is null on every application created before 2026-10-08.
+  monthlyRevenue?: number | null
+  yearsInOperation?: number | null
+  monthsInOperation?: number | null
+  numberOfEmployees?: number | null
+  bankName?: string | null
 }
 
 export type StatusHistoryItem = {

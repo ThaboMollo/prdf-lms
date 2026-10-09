@@ -65,6 +65,7 @@ export type ApplicationDetails = ApplicationSummary & {
   lastSavedAt?: string | null
   monthlyRevenue?: number | null
   yearsInOperation?: number | null
+  monthsInOperation?: number | null
   numberOfEmployees?: number | null
   bankName?: string | null
   clientDetails?: ApplicationClientDetails | null
@@ -168,6 +169,7 @@ export type CreateApplicationInput = {
   // Step-2 financials (persisted for resumable drafts).
   monthlyRevenue?: number
   yearsInOperation?: number
+  monthsInOperation?: number
   numberOfEmployees?: number
   bankName?: string
   // Draft resume metadata (hybrid storage).

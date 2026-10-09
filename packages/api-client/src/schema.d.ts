@@ -36,6 +36,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["MeController_updateProfile"];
+        trace?: never;
+    };
     "/api/admin/users/access": {
         parameters: {
             query?: never;
@@ -63,6 +79,22 @@ export interface paths {
         put?: never;
         post: operations["AdminController_assignRole"];
         delete: operations["AdminController_removeRole"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{userId}/mfa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["AdminController_resetMfa"];
         options?: never;
         head?: never;
         patch?: never;
@@ -196,6 +228,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}/risk-grade": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ApplicationsController_setRiskGrade"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/applications/{id}/history": {
         parameters: {
             query?: never;
@@ -284,6 +332,134 @@ export interface paths {
             cookie?: never;
         };
         get: operations["LoanProductsController_getActive"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pricing/quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PricingController_quote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pricing/public-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["PricingPublicController_publicConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/document-requirements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["DocumentsController_list"];
+        put?: never;
+        post: operations["DocumentsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{appId}/document-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["DocumentsController_listRequests"];
+        put?: never;
+        post: operations["DocumentsController_createRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{appId}/document-requests/{requestId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["DocumentsController_cancelRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{appId}/documents/{docId}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["DocumentsController_verify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{appId}/documents/{docId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["DocumentsController_deleteDocument"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{appId}/documents/{docId}/url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["DocumentsController_getSignedUrl"];
         put?: never;
         post?: never;
         delete?: never;
@@ -398,70 +574,6 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["TasksController_complete"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/document-requirements": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["DocumentsController_list"];
-        put?: never;
-        post: operations["DocumentsController_create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/applications/{appId}/documents/{docId}/verify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["DocumentsController_verify"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/applications/{appId}/documents/{docId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: operations["DocumentsController_deleteDocument"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/applications/{appId}/documents/{docId}/url": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["DocumentsController_getSignedUrl"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -676,6 +788,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/reports/collections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ReportsController_collections"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/cohort": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ReportsController_cohort"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/officer-scorecard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ReportsController_officerScorecard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/concentration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ReportsController_concentration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/clients/{clientId}/nfs": {
         parameters: {
             query?: never;
@@ -744,6 +920,10 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        UpdateProfileDto: {
+            fullName: string;
+            phone?: Record<string, never> | null;
+        };
         CreateAssistedClientDto: {
             businessName: string;
             registrationNo?: string;
@@ -769,6 +949,7 @@ export interface components {
             assignedToUserId?: string;
             monthlyRevenue?: number;
             yearsInOperation?: number;
+            monthsInOperation?: number;
             numberOfEmployees?: number;
             bankName?: string;
             currentStep?: number;
@@ -800,6 +981,7 @@ export interface components {
             assignedToUserId?: string;
             monthlyRevenue?: number;
             yearsInOperation?: number;
+            monthsInOperation?: number;
             numberOfEmployees?: number;
             bankName?: string;
             currentStep?: number;
@@ -825,15 +1007,30 @@ export interface components {
         };
         ChangeStatusDto: {
             /** @enum {string} */
-            toStatus: "Draft" | "Submitted" | "UnderReview" | "InfoRequested" | "Approved" | "Rejected" | "Disbursed" | "InRepayment" | "Closed";
+            toStatus: "Draft" | "Submitted" | "Screening" | "DueDiligence" | "Evaluation" | "InfoRequested" | "Approved" | "Rejected" | "BoardApproved" | "Contracting" | "Disbursed" | "InRepayment" | "Closed";
             note?: string;
         };
+        ConsentItemDto: {
+            /** @description Stable key for the statement, e.g. "popia_processing". */
+            key: string;
+            /** @description Grouping: POPIA, Policy or Terms. */
+            section: string;
+            /** @description The statement as it was shown to the applicant. */
+            prompt: string;
+            /** @description Always true — an applicant cannot proceed without acknowledging every item. */
+            answer: boolean;
+        };
         RecordConsentDto: {
-            /** @description Consent copy/version identifier, e.g. "2026-07-01". */
+            /** @description Consent copy/version identifier, e.g. "2026-07-16". */
             version: string;
-            items: {
-                [key: string]: unknown;
-            };
+            items: components["schemas"]["ConsentItemDto"][];
+        };
+        SetRiskGradeDto: {
+            /**
+             * @description Risk grade driving the booked annual rate (prime + margin).
+             * @enum {string}
+             */
+            riskGrade: "Low" | "Moderate" | "High" | "Worst";
         };
         CreateNoteDto: {
             body: string;
@@ -847,6 +1044,41 @@ export interface components {
             docType: string;
             storagePath: string;
             status?: string;
+            documentRequestId?: string;
+        };
+        QuoteDto: {
+            /** @description Loan principal in Rand. */
+            principal: number;
+            /** @description Days financed (maturity term in days). */
+            daysFinanced: number;
+            /**
+             * @description Risk grade set by the Risk Analyst.
+             * @enum {string}
+             */
+            riskGrade: "Low" | "Moderate" | "High" | "Worst";
+            /** @description Days past maturity. Omit or 0 for an on-time quote. */
+            daysLate?: number;
+        };
+        CreateRequirementDto: {
+            loanProductId?: string;
+            requiredAtStatus: string;
+            docType: string;
+            isRequired: boolean;
+        };
+        CreateDocumentRequestDto: {
+            docType: string;
+            customName?: string;
+            details?: string;
+            /**
+             * @default pdf
+             * @enum {string}
+             */
+            fileType: "pdf" | "doc" | "docx" | "any";
+        };
+        VerifyDocumentDto: {
+            /** @enum {string} */
+            status: "Verified" | "Rejected";
+            note?: string;
         };
         DisburseDto: {
             amount: number;
@@ -870,17 +1102,6 @@ export interface components {
             dueDate?: string;
         };
         CompleteTaskDto: {
-            note?: string;
-        };
-        CreateRequirementDto: {
-            loanProductId?: string;
-            requiredAtStatus: string;
-            docType: string;
-            isRequired: boolean;
-        };
-        VerifyDocumentDto: {
-            /** @enum {string} */
-            status: "Verified" | "Rejected";
             note?: string;
         };
         CreateNfsDto: {
@@ -924,6 +1145,27 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MeController_updateProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProfileDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -981,6 +1223,25 @@ export interface operations {
             path: {
                 userId: string;
                 roleName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminController_resetMfa: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
             };
             cookie?: never;
         };
@@ -1223,6 +1484,29 @@ export interface operations {
             };
         };
     };
+    ApplicationsController_setRiskGrade: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetRiskGradeDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     ApplicationsController_history: {
         parameters: {
             query?: never;
@@ -1354,6 +1638,210 @@ export interface operations {
             query?: never;
             header?: never;
             path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PricingController_quote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuoteDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PricingPublicController_publicConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DocumentsController_list: {
+        parameters: {
+            query: {
+                productId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DocumentsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRequirementDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DocumentsController_listRequests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DocumentsController_createRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDocumentRequestDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DocumentsController_cancelRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appId: string;
+                requestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DocumentsController_verify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appId: string;
+                docId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyDocumentDto"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DocumentsController_deleteDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appId: string;
+                docId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DocumentsController_getSignedUrl: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appId: string;
+                docId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -1528,110 +2016,6 @@ export interface operations {
         };
         responses: {
             201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DocumentsController_list: {
-        parameters: {
-            query: {
-                productId: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DocumentsController_create: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateRequirementDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DocumentsController_verify: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                appId: string;
-                docId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VerifyDocumentDto"];
-            };
-        };
-        responses: {
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DocumentsController_deleteDocument: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                appId: string;
-                docId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DocumentsController_getSignedUrl: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                appId: string;
-                docId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1858,6 +2242,74 @@ export interface operations {
         };
     };
     ReportsController_province: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReportsController_collections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReportsController_cohort: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReportsController_officerScorecard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReportsController_concentration: {
         parameters: {
             query?: never;
             header?: never;

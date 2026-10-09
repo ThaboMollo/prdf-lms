@@ -10,6 +10,7 @@ import { useToast } from '../components/shared/ToastProvider'
 import type { MeResponse } from '../lib/api'
 import { formatDateTime } from '../lib/format'
 import { DOCUMENT_LABELS, getDocumentLabel } from '../lib/requirements'
+import { DOCUMENT_ACCEPT_ATTRIBUTE, DOCUMENT_MAX_SIZE_LABEL } from '../../../packages/domain/constraints'
 import { useActiveLoanProduct, useDocumentRequirements } from '../../../packages/client-core/useLoanProduct'
 import { createApplicationsUseCases } from '../logic/usecases/applications'
 import { createDocumentsUseCases } from '../logic/usecases/documents'
@@ -119,6 +120,15 @@ export function DocumentsPage({ session }: DocumentsPageProps) {
         </div>
       ) : null}
 
+      <div className="screen-notice" role="note">
+        <i className="fa-solid fa-circle-info" aria-hidden="true" />
+        <span>
+          <strong>Accepted formats: PDF or Word (.doc, .docx), up to {DOCUMENT_MAX_SIZE_LABEL} per file.</strong>{' '}
+          Photos and scans saved as JPG or PNG are refused. If a scan comes out larger than {DOCUMENT_MAX_SIZE_LABEL},
+          scan it again in black and white or at a lower resolution.
+        </span>
+      </div>
+
       <section className="documents-grid">
         <div className="card soft-card required-documents-card">
           <div className="section-heading-row">
@@ -175,7 +185,7 @@ export function DocumentsPage({ session }: DocumentsPageProps) {
             <>
               <FileDropzone
                 label={selectedDocument?.label ?? 'Document'}
-                accept=".pdf,.doc,.docx"
+                accept={DOCUMENT_ACCEPT_ATTRIBUTE}
                 files={uploadFiles}
                 onFilesChange={setUploadFiles}
                 hint="Drop the selected document here, then upload it to your application."

@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsIn, IsInt, IsNumber, IsObject, IsOptional, IsPositive, IsString, IsUUID, Length, Max, Min } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsNumber, IsObject, IsOptional, IsPositive, IsString, IsUUID, Length, Max, MaxLength, Min } from 'class-validator';
 import {
   ACCEPTED_INDUSTRIES,
   GENDERS,
@@ -8,6 +8,7 @@ import {
   SPATIAL_TYPES,
 } from '../../common/generated-constraints';
 import { AllowBlank } from '../../common/allow-blank.decorator';
+import { MinWords } from '../../common/min-words.decorator';
 
 /**
  * Rules here are generated from packages/domain/constraints.ts — the same
@@ -44,8 +45,12 @@ export class CreateApplicationDto {
   @IsOptional()
   @AllowBlank()
   @IsString()
-  @Length(LIMITS.purpose.minLength, LIMITS.purpose.maxLength, {
-    message: `Purpose must be between ${LIMITS.purpose.minLength} and ${LIMITS.purpose.maxLength} characters.`,
+  @MaxLength(LIMITS.purpose.maxLength, {
+    message: `Purpose must be ${LIMITS.purpose.maxLength} characters or fewer.`,
+  })
+  @MinWords(LIMITS.purpose.minWords, {
+    stripCategoryPrefix: true,
+    message: `Tell us more about how you'll use the funds — at least ${LIMITS.purpose.minWords} words.`,
   })
   purpose?: string;
 
@@ -90,6 +95,13 @@ export class CreateApplicationDto {
   @Min(LIMITS.yearsInOperation.min, { message: 'Years in operation cannot be negative.' })
   @Max(LIMITS.yearsInOperation.max, { message: 'Years in operation is implausibly large.' })
   yearsInOperation?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(LIMITS.monthsInOperation.min, { message: 'Months in operation cannot be negative.' })
+  @Max(LIMITS.monthsInOperation.max, { message: 'Enter 0-11 months. Whole years belong in the years field.' })
+  monthsInOperation?: number;
 
   @ApiPropertyOptional()
   @IsOptional()

@@ -20,7 +20,34 @@
           "200": {
             "description": ""
           }
-        }
+        },
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/me/profile": {
+      "patch": {
+        "operationId": "MeController_updateProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "me"
+        ]
       }
     },
     "/api/admin/users/access": {
@@ -105,6 +132,29 @@
           },
           {
             "name": "roleName",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{userId}/mfa": {
+      "delete": {
+        "operationId": "AdminController_resetMfa",
+        "parameters": [
+          {
+            "name": "userId",
             "required": true,
             "in": "path",
             "schema": {
@@ -403,6 +453,39 @@
         ]
       }
     },
+    "/api/applications/{id}/risk-grade": {
+      "post": {
+        "operationId": "ApplicationsController_setRiskGrade",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetRiskGradeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "applications"
+        ]
+      }
+    },
     "/api/applications/{id}/history": {
       "get": {
         "operationId": "ApplicationsController_history",
@@ -580,6 +663,277 @@
         },
         "tags": [
           "loan-products"
+        ]
+      }
+    },
+    "/api/pricing/quote": {
+      "post": {
+        "operationId": "PricingController_quote",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "pricing"
+        ]
+      }
+    },
+    "/api/pricing/public-config": {
+      "get": {
+        "operationId": "PricingPublicController_publicConfig",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "pricing"
+        ]
+      }
+    },
+    "/api/document-requirements": {
+      "get": {
+        "operationId": "DocumentsController_list",
+        "parameters": [
+          {
+            "name": "productId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "documents"
+        ]
+      },
+      "post": {
+        "operationId": "DocumentsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRequirementDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/api/applications/{appId}/document-requests": {
+      "get": {
+        "operationId": "DocumentsController_listRequests",
+        "parameters": [
+          {
+            "name": "appId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "documents"
+        ]
+      },
+      "post": {
+        "operationId": "DocumentsController_createRequest",
+        "parameters": [
+          {
+            "name": "appId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDocumentRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/api/applications/{appId}/document-requests/{requestId}/cancel": {
+      "post": {
+        "operationId": "DocumentsController_cancelRequest",
+        "parameters": [
+          {
+            "name": "appId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/api/applications/{appId}/documents/{docId}/verify": {
+      "post": {
+        "operationId": "DocumentsController_verify",
+        "parameters": [
+          {
+            "name": "appId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "docId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyDocumentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/api/applications/{appId}/documents/{docId}": {
+      "delete": {
+        "operationId": "DocumentsController_deleteDocument",
+        "parameters": [
+          {
+            "name": "appId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "docId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "documents"
+        ]
+      }
+    },
+    "/api/applications/{appId}/documents/{docId}/url": {
+      "get": {
+        "operationId": "DocumentsController_getSignedUrl",
+        "parameters": [
+          {
+            "name": "appId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "docId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "documents"
         ]
       }
     },
@@ -802,154 +1156,6 @@
         },
         "tags": [
           "tasks"
-        ]
-      }
-    },
-    "/api/document-requirements": {
-      "get": {
-        "operationId": "DocumentsController_list",
-        "parameters": [
-          {
-            "name": "productId",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "documents"
-        ]
-      },
-      "post": {
-        "operationId": "DocumentsController_create",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateRequirementDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "documents"
-        ]
-      }
-    },
-    "/api/applications/{appId}/documents/{docId}/verify": {
-      "post": {
-        "operationId": "DocumentsController_verify",
-        "parameters": [
-          {
-            "name": "appId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "docId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/VerifyDocumentDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "204": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "documents"
-        ]
-      }
-    },
-    "/api/applications/{appId}/documents/{docId}": {
-      "delete": {
-        "operationId": "DocumentsController_deleteDocument",
-        "parameters": [
-          {
-            "name": "appId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "docId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "documents"
-        ]
-      }
-    },
-    "/api/applications/{appId}/documents/{docId}/url": {
-      "get": {
-        "operationId": "DocumentsController_getSignedUrl",
-        "parameters": [
-          {
-            "name": "appId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "docId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "documents"
         ]
       }
     },
@@ -1206,6 +1412,62 @@
         ]
       }
     },
+    "/api/reports/collections": {
+      "get": {
+        "operationId": "ReportsController_collections",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/reports/cohort": {
+      "get": {
+        "operationId": "ReportsController_cohort",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/reports/officer-scorecard": {
+      "get": {
+        "operationId": "ReportsController_officerScorecard",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/reports/concentration": {
+      "get": {
+        "operationId": "ReportsController_concentration",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/api/clients/{clientId}/nfs": {
       "get": {
         "operationId": "NfsController_list",
@@ -1389,6 +1651,21 @@
       }
     },
     "schemas": {
+      "UpdateProfileDto": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "fullName"
+        ]
+      },
       "CreateAssistedClientDto": {
         "type": "object",
         "properties": {
@@ -1466,6 +1743,9 @@
             "type": "number"
           },
           "yearsInOperation": {
+            "type": "number"
+          },
+          "monthsInOperation": {
             "type": "number"
           },
           "numberOfEmployees": {
@@ -1555,6 +1835,9 @@
           "yearsInOperation": {
             "type": "number"
           },
+          "monthsInOperation": {
+            "type": "number"
+          },
           "numberOfEmployees": {
             "type": "number"
           },
@@ -1625,10 +1908,14 @@
             "enum": [
               "Draft",
               "Submitted",
-              "UnderReview",
+              "Screening",
+              "DueDiligence",
+              "Evaluation",
               "InfoRequested",
               "Approved",
               "Rejected",
+              "BoardApproved",
+              "Contracting",
               "Disbursed",
               "InRepayment",
               "Closed"
@@ -1642,21 +1929,68 @@
           "toStatus"
         ]
       },
+      "ConsentItemDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Stable key for the statement, e.g. \"popia_processing\"."
+          },
+          "section": {
+            "type": "string",
+            "description": "Grouping: POPIA, Policy or Terms."
+          },
+          "prompt": {
+            "type": "string",
+            "description": "The statement as it was shown to the applicant."
+          },
+          "answer": {
+            "type": "boolean",
+            "description": "Always true — an applicant cannot proceed without acknowledging every item."
+          }
+        },
+        "required": [
+          "key",
+          "section",
+          "prompt",
+          "answer"
+        ]
+      },
       "RecordConsentDto": {
         "type": "object",
         "properties": {
           "version": {
             "type": "string",
-            "description": "Consent copy/version identifier, e.g. \"2026-07-01\"."
+            "description": "Consent copy/version identifier, e.g. \"2026-07-16\"."
           },
           "items": {
-            "type": "object",
-            "additionalProperties": true
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsentItemDto"
+            }
           }
         },
         "required": [
           "version",
           "items"
+        ]
+      },
+      "SetRiskGradeDto": {
+        "type": "object",
+        "properties": {
+          "riskGrade": {
+            "type": "string",
+            "enum": [
+              "Low",
+              "Moderate",
+              "High",
+              "Worst"
+            ],
+            "description": "Risk grade driving the booked annual rate (prime + margin)."
+          }
+        },
+        "required": [
+          "riskGrade"
         ]
       },
       "CreateNoteDto": {
@@ -1699,11 +2033,113 @@
           },
           "status": {
             "type": "string"
+          },
+          "documentRequestId": {
+            "type": "string"
           }
         },
         "required": [
           "docType",
           "storagePath"
+        ]
+      },
+      "QuoteDto": {
+        "type": "object",
+        "properties": {
+          "principal": {
+            "type": "number",
+            "description": "Loan principal in Rand."
+          },
+          "daysFinanced": {
+            "type": "number",
+            "description": "Days financed (maturity term in days)."
+          },
+          "riskGrade": {
+            "type": "string",
+            "enum": [
+              "Low",
+              "Moderate",
+              "High",
+              "Worst"
+            ],
+            "description": "Risk grade set by the Risk Analyst."
+          },
+          "daysLate": {
+            "type": "number",
+            "description": "Days past maturity. Omit or 0 for an on-time quote."
+          }
+        },
+        "required": [
+          "principal",
+          "daysFinanced",
+          "riskGrade"
+        ]
+      },
+      "CreateRequirementDto": {
+        "type": "object",
+        "properties": {
+          "loanProductId": {
+            "type": "string"
+          },
+          "requiredAtStatus": {
+            "type": "string"
+          },
+          "docType": {
+            "type": "string"
+          },
+          "isRequired": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "requiredAtStatus",
+          "docType",
+          "isRequired"
+        ]
+      },
+      "CreateDocumentRequestDto": {
+        "type": "object",
+        "properties": {
+          "docType": {
+            "type": "string"
+          },
+          "customName": {
+            "type": "string"
+          },
+          "details": {
+            "type": "string"
+          },
+          "fileType": {
+            "type": "string",
+            "enum": [
+              "pdf",
+              "doc",
+              "docx",
+              "any"
+            ],
+            "default": "pdf"
+          }
+        },
+        "required": [
+          "docType"
+        ]
+      },
+      "VerifyDocumentDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "Verified",
+              "Rejected"
+            ]
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
         ]
       },
       "DisburseDto": {
@@ -1780,46 +2216,6 @@
             "type": "string"
           }
         }
-      },
-      "CreateRequirementDto": {
-        "type": "object",
-        "properties": {
-          "loanProductId": {
-            "type": "string"
-          },
-          "requiredAtStatus": {
-            "type": "string"
-          },
-          "docType": {
-            "type": "string"
-          },
-          "isRequired": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "requiredAtStatus",
-          "docType",
-          "isRequired"
-        ]
-      },
-      "VerifyDocumentDto": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "string",
-            "enum": [
-              "Verified",
-              "Rejected"
-            ]
-          },
-          "note": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "status"
-        ]
       },
       "CreateNfsDto": {
         "type": "object",

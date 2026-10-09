@@ -10,7 +10,7 @@ import { RecordConsentDto } from './dto/record-consent.dto';
 import { randomUUID } from 'crypto';
 import axios from 'axios';
 import { currentTenant } from '../tenancy/request-context';
-import { LIMITS } from '../common/generated-constraints';
+import { LIMITS, countWords, stripPurposeCategory } from '../common/generated-constraints';
 import { ConflictError, NotFoundError, PermissionError, ValidationError } from '../common/errors';
 import { PricingService } from '../pricing/pricing.service';
 import { DocumentsService } from '../documents/documents.service';
@@ -184,6 +184,7 @@ export class ApplicationsService {
               la.created_at as "createdAt", la.submitted_at as "submittedAt",
               la.assigned_to_user_id as "assignedToUserId", la.loan_product_id as "loanProductId",
               la.monthly_revenue::float8 as "monthlyRevenue", la.years_in_operation as "yearsInOperation",
+              la.months_in_operation as "monthsInOperation",
               la.number_of_employees as "numberOfEmployees", la.bank_name as "bankName",
               la.current_step as "currentStep", la.draft_state as "draftState", la.last_saved_at as "lastSavedAt",
               la.risk_grade as "riskGrade",
@@ -411,11 +412,12 @@ export class ApplicationsService {
     await this.db.execute(
       `insert into public.loan_applications
          (id, client_id, requested_amount, term_months, purpose, status, assigned_to_user_id, loan_product_id,
-          monthly_revenue, years_in_operation, number_of_employees, bank_name, current_step, draft_state, last_saved_at, created_at)
-       values ($1,$2,$3,$4,$5,'Draft',$6,$7,$8,$9,$10,$11,$12,$13::jsonb,now(),now())`,
+          monthly_revenue, years_in_operation, months_in_operation, number_of_employees, bank_name, current_step, draft_state, last_saved_at, created_at)
+       values ($1,$2,$3,$4,$5,'Draft',$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb,now(),now())`,
       [
         appId, clientId, body.requestedAmount ?? 0, body.termMonths ?? 0, body.purpose ?? '', assignedTo, product.id,
-        body.monthlyRevenue ?? null, body.yearsInOperation ?? null, body.numberOfEmployees ?? null, body.bankName ?? null,
+        body.monthlyRevenue ?? null, body.yearsInOperation ?? null, body.monthsInOperation ?? null,
+        body.numberOfEmployees ?? null, body.bankName ?? null,
         body.currentStep ?? 1, body.draftState != null ? JSON.stringify(body.draftState) : null,
       ],
     );
@@ -456,6 +458,7 @@ export class ApplicationsService {
     setIf('assigned_to_user_id', body.assignedToUserId);
     setIf('monthly_revenue', body.monthlyRevenue);
     setIf('years_in_operation', body.yearsInOperation);
+    setIf('months_in_operation', body.monthsInOperation);
     setIf('number_of_employees', body.numberOfEmployees);
     setIf('bank_name', body.bankName);
     setIf('current_step', body.currentStep);
@@ -592,9 +595,13 @@ export class ApplicationsService {
 
     // `purpose` is stored as "<category>: <text>"; an unfinished wizard leaves
     // it empty or as a bare ": ".
-    const purposeText = (purpose ?? '').replace(/^[^:]*:\s*/, '').trim();
-    if (purposeText.length < LIMITS.purpose.minLength) {
-      errors.push({ field: 'purpose', message: 'Describe what the loan is for before submitting.', code: 'required' });
+    const purposeText = stripPurposeCategory(purpose ?? '').trim();
+    if (countWords(purposeText) < LIMITS.purpose.minWords) {
+      errors.push({
+        field: 'purpose',
+        message: `Describe what the loan is for in at least ${LIMITS.purpose.minWords} words before submitting.`,
+        code: 'required',
+      });
     }
 
     if (!proj.requestedAmount || Number(proj.requestedAmount) <= 0) {

@@ -1,5 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
 import { basename, extname } from 'path';
+import {
+  ALLOWED_DOCUMENT_EXTENSIONS,
+  ALLOWED_DOCUMENT_MIME_TYPES,
+} from './generated-constraints';
 
 /**
  * Server-side upload validation (platform-architecture-design.md §6.3).
@@ -8,18 +12,18 @@ import { basename, extname } from 'path';
  * extension). That check is bypassable by anyone calling the API directly,
  * which is now the documented integration path — so it is re-done here.
  *
- * Kept deliberately aligned with what the client offers: the dropzones pass
- * `accept=".pdf,.doc,.docx"`. If that list changes, change this one too —
- * a type the UI accepts but the API rejects is a confusing dead end, and a
- * type the API accepts but the UI doesn't is unvalidated surface.
+ * The allowlists come from the generated mirror of
+ * packages/domain/constraints.ts, which is also what the dropzones build their
+ * `accept` attribute from. They used to be declared here under a comment
+ * asking the next person to remember to update the UI by hand — client-ui had
+ * the list hardcoded at three call sites and admin-ui's uploader had no check
+ * at all. One list, nothing to remember. Re-exported because callers and
+ * scripts/test-file-validation.mjs import them from this module.
  */
-export const ALLOWED_DOCUMENT_EXTENSIONS = ['.pdf', '.doc', '.docx'] as const;
-
-export const ALLOWED_DOCUMENT_MIME_TYPES = [
-  'application/pdf',
-  'application/msword', // .doc
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-] as const;
+export {
+  ALLOWED_DOCUMENT_EXTENSIONS,
+  ALLOWED_DOCUMENT_MIME_TYPES,
+} from './generated-constraints';
 
 /**
  * Size is NOT enforced here, and cannot be: the browser uploads directly to

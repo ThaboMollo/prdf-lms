@@ -19,6 +19,7 @@ import { createLoansUseCases } from '../logic/usecases/loans'
 import { useFormErrors, FieldError, fieldErrorAttrs, fieldDomId, type FieldErrorMap } from '../hooks/useFormErrors'
 import { NumericInput } from '../components/shared/NumericInput'
 import { formatCurrency, formatDate, formatDateTime } from '../lib/format'
+import { formatTimeInOperation } from '../../../packages/domain/businessAge'
 import { buildLoanName } from '../../../packages/domain/loanName'
 import { listAssignableUsers } from '../lib/api'
 import type {
@@ -418,6 +419,19 @@ function OverviewTab({ detail }: { detail: ApplicationDetails }) {
       <dd>{formatDateTime(detail.createdAt)}</dd>
       <dt>Submitted</dt>
       <dd>{formatDateTime(detail.submittedAt)}</dd>
+
+      {/* Step 2 of the applicant's own wizard. These were collected from day
+          one and returned by this endpoint, but never shown here — so the
+          revenue, trading history and headcount an assessor is supposed to be
+          weighing were only visible to the applicant who typed them. */}
+      <dt>Monthly revenue</dt>
+      <dd>{detail.monthlyRevenue == null ? '—' : formatCurrency(detail.monthlyRevenue)}</dd>
+      <dt>Time in operation</dt>
+      <dd>{formatTimeInOperation(detail.yearsInOperation, detail.monthsInOperation)}</dd>
+      <dt>Employees</dt>
+      <dd>{detail.numberOfEmployees ?? '—'}</dd>
+      <dt>Bank</dt>
+      <dd>{detail.bankName || '—'}</dd>
     </dl>
   )
 }

@@ -24,6 +24,7 @@ export type ReviewBusiness = {
 export type ReviewFinancials = {
   monthlyRevenue: number | null
   yearsInOperation: number | null
+  monthsInOperation: number | null
   numberOfEmployees: number | null
   bankName: string
 }
@@ -135,6 +136,7 @@ export function buildReviewModelFromWizard(
       ? {
           monthlyRevenue: step2.monthlyRevenue,
           yearsInOperation: step2.yearsInOperation,
+          monthsInOperation: step2.monthsInOperation ?? null,
           numberOfEmployees: step2.numberOfEmployees,
           bankName: step2.bankName,
         }
@@ -207,6 +209,7 @@ export function buildReviewModelFromApplication(
   const financials: ReviewFinancials = {
     monthlyRevenue: s2?.monthlyRevenue ?? details.monthlyRevenue ?? null,
     yearsInOperation: s2?.yearsInOperation ?? details.yearsInOperation ?? null,
+    monthsInOperation: s2?.monthsInOperation ?? details.monthsInOperation ?? null,
     numberOfEmployees: s2?.numberOfEmployees ?? details.numberOfEmployees ?? null,
     bankName: s2?.bankName || details.bankName || '—',
   }

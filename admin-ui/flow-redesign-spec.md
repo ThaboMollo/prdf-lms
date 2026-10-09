@@ -146,7 +146,7 @@ Split view inside the Documents tab:
 ### 4.6 Portfolio (`/portfolio`)
 
 - **Health KPIs:** Total loans · Active · Outstanding principal · In arrears (PAR) — from `reports.getPortfolioSummary`.
-- **Arrears table** (`reports.getArrears`): loan · client · instalment · due date · outstanding · days overdue — **rows link to the case Money tab** (fixes break #5). Keep the existing CSV export.
+- **Arrears table** (`reports.getArrears`): loan · client · instalment · due date · outstanding · days overdue — **rows link to the case Money tab** (fixes break #5). Keep the existing export (now an Excel workbook).
 
 ### 4.7 Reports (`/reports`) — see §7
 
@@ -250,7 +250,7 @@ Carries the full live report set from `pages/ReportsPage.tsx` + `logic/usecases/
 | Portfolio & Risk | Debtors Book Age Analysis (`getDebtorsAgeAnalysis`, severity-coloured) · Portfolio-at-Risk % (`getPortfolioSummary`/`getArrears`) · **Collections vs Due** (proposed) |
 | Compliance (NCR/SEDFA) | Demographic Breakdown (`getDemographicBreakdown`) · Province Breakdown (`getProvinceBreakdown`) · Spatial Classification (donut) |
 | Activity | Staff Productivity (`getProductivity`) · Audit Log (`getAuditLog`) |
-| Export Center | CSV downloads for all of the above (existing `handleExportCsv`) |
+| Export Center | Excel (`.xlsx`) downloads for all of the above (existing `handleExport`) |
 
 **Proposed additions** (post-parity): Collections performance (expected vs actual over time) · Cohort/vintage analysis (arrears by loan age) · Officer scorecard (productivity + quality) · Concentration risk (exposure by sector/province/size band).
 

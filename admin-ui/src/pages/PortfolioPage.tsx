@@ -9,6 +9,7 @@ import { PaginationControls } from '../components/shared/PaginationControls'
 import { formatCurrency, formatDate } from '../lib/format'
 import { paginateItems, parsePageParam } from '../lib/pagination'
 import { createReportsUseCases } from '../logic/usecases/reports'
+import { downloadWorkbook } from '../lib/workbook'
 
 type PortfolioPageProps = {
   session: Session
@@ -16,21 +17,32 @@ type PortfolioPageProps = {
 
 const ARREARS_PAGE_SIZE = 12
 
-function toArrearsCsv(items: ArrearsItem[]): string {
-  const headers = ['loanId', 'applicationId', 'installmentNo', 'dueDate', 'dueTotal', 'paidAmount', 'outstandingAmount', 'daysOverdue']
-  const rows = items.map((item) =>
-    [
-      item.loanId,
-      item.applicationId,
-      String(item.installmentNo),
-      item.dueDate,
-      item.dueTotal.toFixed(2),
-      item.paidAmount.toFixed(2),
-      item.outstandingAmount.toFixed(2),
-      String(item.daysOverdue)
-    ].join(',')
-  )
-  return [headers.join(','), ...rows].join('\n')
+// Headers are Title Case here, matching the other seven reports — this one was
+// the odd camelCase file out while it was CSV.
+function arrearsSheet(items: ArrearsItem[]) {
+  return {
+    name: 'Arrears',
+    columns: [
+      { header: 'Loan ID', key: 'loanId', width: 38 },
+      { header: 'Application ID', key: 'applicationId', width: 38 },
+      { header: 'Installment No', key: 'installmentNo', format: 'integer' as const },
+      { header: 'Due Date', key: 'dueDate', width: 14 },
+      { header: 'Due Total', key: 'dueTotal', format: 'currency' as const },
+      { header: 'Paid Amount', key: 'paidAmount', format: 'currency' as const },
+      { header: 'Outstanding Amount', key: 'outstandingAmount', format: 'currency' as const, width: 20 },
+      { header: 'Days Overdue', key: 'daysOverdue', format: 'integer' as const },
+    ],
+    rows: items.map((item) => ({
+      loanId: item.loanId,
+      applicationId: item.applicationId,
+      installmentNo: item.installmentNo,
+      dueDate: item.dueDate,
+      dueTotal: item.dueTotal,
+      paidAmount: item.paidAmount,
+      outstandingAmount: item.outstandingAmount,
+      daysOverdue: item.daysOverdue,
+    })),
+  }
 }
 
 export function PortfolioPage({ session }: PortfolioPageProps) {
@@ -49,11 +61,13 @@ export function PortfolioPage({ session }: PortfolioPageProps) {
     queryFn: () => reportsUseCases.getArrears()
   })
 
-  const csvHref = useMemo(() => {
-    if (!arrearsQuery.data) return null
-    const csv = toArrearsCsv(arrearsQuery.data)
-    return `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`
-  }, [arrearsQuery.data])
+  // A binary workbook cannot ride on a `data:` URI the way the CSV string did,
+  // so this is a click handler rather than a precomputed href.
+  const handleExport = () => {
+    if (!arrearsQuery.data) return
+    void downloadWorkbook('arrears-report.xlsx', [arrearsSheet(arrearsQuery.data)])
+  }
+
 
   const pagedArrears = useMemo(
     () => paginateItems(arrearsQuery.data ?? [], arrearsPage, ARREARS_PAGE_SIZE),
@@ -65,7 +79,15 @@ export function PortfolioPage({ session }: PortfolioPageProps) {
       <PageHeader
         title="Portfolio Dashboard"
         subtitle="Monitor portfolio health, exposure, and overdue installments."
-        actions={csvHref ? <a href={csvHref} className="btn" download="arrears-report.csv">Export CSV</a> : null}
+        actions={
+          // Shown as soon as the query has resolved, empty or not — matching
+          // what the CSV button did. A header-only "nothing is in arrears"
+          // workbook is a legitimate thing to file, and making the control
+          // vanish on a clean book reads as a broken page rather than good news.
+          arrearsQuery.data
+            ? <button type="button" className="btn" onClick={handleExport}>Export Excel</button>
+            : null
+        }
       />
 
       {summaryQuery.data ? (

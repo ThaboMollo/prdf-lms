@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { LIMITS } from './constraints'
+import { LIMITS, countWords } from './constraints'
 
 // Authoritative copy — matches admin-ui's live-enforced staff-assisted-creation
 // flow (businessName required). client-ui's dead ApplicationsPage.tsx had a
@@ -14,7 +14,10 @@ export const createApplicationSchema = z.object({
   purpose: z
     .string()
     .trim()
-    .min(LIMITS.purpose.minLength, `Purpose must be at least ${LIMITS.purpose.minLength} characters long.`),
+    .refine(
+      (v) => countWords(v) >= LIMITS.purpose.minWords,
+      `Purpose must be at least ${LIMITS.purpose.minWords} words long.`,
+    ),
 })
 
 export const uploadSchema = z.object({

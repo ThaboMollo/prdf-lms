@@ -2334,7 +2334,7 @@
                   "fill": "#FFFFFFCC",
                   "textGrowth": "fixed-width",
                   "width": 560,
-                  "content": "Check your eligibility, prepare your documents, and apply in under 10 minutes.",
+                  "content": "Check your eligibility, prepare your documents, and apply in about 5 - 10 minutes.",
                   "textAlign": "center",
                   "fontFamily": "$font-body",
                   "fontSize": 16,
@@ -7627,14 +7627,14 @@
                 {
                   "type": "frame",
                   "id": "yfwTm",
-                  "name": "Bullet Apply in under 10 minutes",
+                  "name": "Bullet Apply in about 5 - 10 minutes",
                   "gap": 12,
                   "alignItems": "center",
                   "children": [
                     {
                       "type": "frame",
                       "id": "HfX4a",
-                      "name": "Check Apply in under 10 minutes",
+                      "name": "Check Apply in about 5 - 10 minutes",
                       "width": 22,
                       "height": 22,
                       "fill": "$c-brand-accent",
@@ -7645,7 +7645,7 @@
                         {
                           "type": "icon",
                           "id": "Ir1QI",
-                          "name": "Check Icon Apply in under 10 minutes",
+                          "name": "Check Icon Apply in about 5 - 10 minutes",
                           "width": 12,
                           "height": 12,
                           "icon": "check",
@@ -7657,10 +7657,10 @@
                     {
                       "type": "text",
                       "id": "uNQX5",
-                      "name": "Bullet Text Apply in under 10 minutes",
+                      "name": "Bullet Text Apply in about 5 - 10 minutes",
                       "opacity": 0.85,
                       "fill": "#FFFFFF",
-                      "content": "Apply in under 10 minutes",
+                      "content": "Apply in about 5 - 10 minutes",
                       "fontFamily": "Inter",
                       "fontSize": 14,
                       "fontWeight": "normal"
