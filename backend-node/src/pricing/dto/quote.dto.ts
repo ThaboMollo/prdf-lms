@@ -24,4 +24,10 @@ export class QuoteDto {
   @IsInt()
   @Min(0)
   daysLate?: number;
+
+  @ApiPropertyOptional({ description: 'Quote at this annual rate (% p.a.) instead of prime + the grade margin — the Due Diligence override.' })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  annualRatePct?: number;
 }

@@ -125,15 +125,31 @@ export class PricingService {
     ensureInternal(await fetchUserRoles(this.db, actor.userId));
 
     const config = await this.loadConfig();
-    const marginPct = await this.loadMargin(dto.riskGrade);
+    const marginPct = await this.effectiveMargin(config, dto.riskGrade, dto.annualRatePct);
 
-    return computeQuote(config, {
+    const breakdown = computeQuote(config, {
       principal: dto.principal,
       daysFinanced: dto.daysFinanced,
       riskGrade: dto.riskGrade,
       marginPct,
       daysLate: dto.daysLate ?? 0,
     });
+    return dto.annualRatePct != null ? { ...breakdown, annualRatePct: dto.annualRatePct } : breakdown;
+  }
+
+  /**
+   * The margin to price at. With a Due Diligence rate override the margin is
+   * whatever lifts prime to that rate, so the shared engine (a pure mirror of
+   * packages/domain/pricing.ts) prices the override without being forked. The
+   * grade is still validated as active either way.
+   */
+  private async effectiveMargin(
+    config: PricingConfig,
+    grade: RiskGrade,
+    annualRatePctOverride?: number | null,
+  ): Promise<number> {
+    const gradeMargin = await this.loadMargin(grade);
+    return annualRatePctOverride != null ? annualRatePctOverride - config.primeRatePct : gradeMargin;
   }
 
   /**
@@ -161,6 +177,8 @@ export class PricingService {
     principal: number;
     termMonths: number;
     riskGrade: RiskGrade;
+    /** Due Diligence override, % p.a. Replaces prime + margin when set. */
+    annualRatePctOverride?: number | null;
   }): Promise<{
     annualRatePct: number;
     daysFinanced: number;
@@ -174,7 +192,7 @@ export class PricingService {
     netAdvance: number;
   }> {
     const config = await this.loadConfig();
-    const marginPct = await this.loadMargin(input.riskGrade);
+    const marginPct = await this.effectiveMargin(config, input.riskGrade, input.annualRatePctOverride);
     const daysFinanced = this.monthsToDays(input.termMonths, config.daysPerYear);
 
     const breakdown = computeQuote(config, {
@@ -186,7 +204,7 @@ export class PricingService {
     });
 
     return {
-      annualRatePct: annualRate(config, marginPct),
+      annualRatePct: input.annualRatePctOverride ?? annualRate(config, marginPct),
       daysFinanced,
       interest: breakdown.interest,
       initiationFee: breakdown.initiationFee,

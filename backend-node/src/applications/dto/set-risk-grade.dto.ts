@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsIn } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsIn, IsNumber, IsOptional, Max } from 'class-validator';
 import { RiskGrade } from '../../common/pricing';
 
 /**
@@ -16,4 +16,15 @@ export class SetRiskGradeDto {
   @ApiProperty({ enum: RISK_GRADES, description: 'Risk grade driving the booked annual rate (prime + margin).' })
   @IsIn(RISK_GRADES)
   riskGrade!: RiskGrade;
+
+  /**
+   * Annual rate (% p.a.) keyed in at Due Diligence; overrides prime + margin at
+   * booking. null clears it; omitting it leaves any stored override untouched
+   * (the Pricing tab saves the grade alone).
+   */
+  @ApiPropertyOptional({ nullable: true, description: 'Interest rate override, % p.a. (0 < rate <= 100). null clears it.' })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @Max(100)
+  interestRatePct?: number | null;
 }

@@ -85,6 +85,8 @@ export type ApplicationDetails = ApplicationSummary & {
   clientDetails?: ClientDetails
   /** Grade the Risk Analyst set at Due Diligence; null until graded. */
   riskGrade?: RiskGrade | null
+  /** Annual rate (% p.a.) keyed in at Due Diligence; replaces prime + grade margin when set. */
+  interestRateOverride?: number | null
   // Step 2 of the applicant's wizard. GET /api/applications/:id has always
   // returned these; admin-ui simply never typed them, so the whole financial
   // profile an assessor is meant to be assessing was invisible here.
@@ -928,6 +930,8 @@ export type PricingQuoteInput = {
   daysFinanced: number
   riskGrade: RiskGrade
   daysLate?: number
+  /** Quote at this annual rate instead of prime + the grade's margin. */
+  annualRatePct?: number
 }
 
 /**
@@ -937,17 +941,28 @@ export type PricingQuoteInput = {
  * what the loan is booked at when the case reaches Approved (prime + the
  * grade's margin), replacing the legacy flat product rate.
  */
+export type RiskDecision = {
+  applicationId: string
+  riskGrade: RiskGrade
+  interestRateOverride: number | null
+}
+
+/**
+ * Pass interestRatePct to set (a number) or clear (null) the Due Diligence
+ * rate override; omit it to save the grade and leave any override as it is.
+ */
 export async function saveRiskGrade(
   accessToken: string,
   applicationId: string,
-  riskGrade: RiskGrade
-): Promise<{ applicationId: string; riskGrade: RiskGrade }> {
+  riskGrade: RiskGrade,
+  interestRatePct?: number | null
+): Promise<RiskDecision> {
   const response = await fetch(`${apiBaseUrl}/api/applications/${applicationId}/risk-grade`, {
     method: 'POST',
     headers: authHeaders(accessToken),
-    body: JSON.stringify({ riskGrade })
+    body: JSON.stringify(interestRatePct === undefined ? { riskGrade } : { riskGrade, interestRatePct })
   })
-  return parseResponse<{ applicationId: string; riskGrade: RiskGrade }>(response)
+  return parseResponse<RiskDecision>(response)
 }
 
 export async function requestPricingQuote(

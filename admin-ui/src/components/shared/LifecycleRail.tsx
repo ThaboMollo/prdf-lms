@@ -13,10 +13,10 @@ const HAPPY_PATH = [
   'Diligence',
   'Evaluation',
   'Approved',
-  'Board',
-  'Contracting',
-  'Disbursed',
-  'Repaying',
+  'Financing stage',
+  'Contracting stage',
+  'Disbursements',
+  'Post investment',
   'Closed'
 ] as const
 

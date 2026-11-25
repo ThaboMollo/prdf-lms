@@ -14,6 +14,7 @@ import { calculateDaysElapsed, formatCurrency, formatDateTime } from '../lib/for
 import { buildLoanName } from '../../../packages/domain/loanName'
 import { paginateItems, parsePageParam } from '../lib/pagination'
 import type { ApplicationSummary, LoanApplicationStatus } from '../lib/api'
+import { stageLabel } from '../lib/stageLabels'
 
 type PipelinePageProps = {
   session: Session
@@ -28,7 +29,8 @@ const FILTERS: { key: string; label: string }[] = [
   { key: 'Evaluation', label: 'Evaluation' },
   { key: 'InfoRequested', label: 'Info Requested' },
   { key: 'Approved', label: 'Approved' },
-  { key: 'Contracting', label: 'Contracting' },
+  { key: 'BoardApproved', label: 'Financing stage' },
+  { key: 'Contracting', label: 'Contracting stage' },
   { key: 'SLA', label: 'SLA Breached' }
 ]
 
@@ -141,7 +143,7 @@ export function PipelinePage({ session }: PipelinePageProps) {
                     </div>
                     <span className="pipeline-row__status">
                       <SlaBadge status={app.status} submittedAt={app.submittedAt} />
-                      <StatusBadge status={app.status} />
+                      <StatusBadge status={app.status} label={stageLabel(app.status)} />
                     </span>
                   </button>
                 </li>

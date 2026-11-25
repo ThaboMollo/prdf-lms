@@ -16,6 +16,8 @@ type CasePricingProps = {
   termMonths: number
   /** The grade already stored on the application, if the Risk Analyst has graded it. */
   savedRiskGrade: RiskGrade | null
+  /** Annual rate keyed in at Due Diligence; quotes use it instead of prime + margin. */
+  savedRateOverride?: number | null
   /** Once a loan exists its rate is a snapshot and the grade is locked. */
   hasBookedLoan: boolean
   onRiskGradeSaved?: (grade: RiskGrade) => void
@@ -28,11 +30,11 @@ type CasePricingProps = {
  * without noticing quoted a quarter's interest.
  */
 const DAYS_PER_YEAR = 365
-function monthsToDays(months: number): number {
+export function monthsToDays(months: number): number {
   return Math.round(months * (DAYS_PER_YEAR / 12))
 }
 
-const RISK_GRADES: { value: RiskGrade; label: string }[] = [
+export const RISK_GRADES: { value: RiskGrade; label: string }[] = [
   { value: 'Low', label: 'Low' },
   { value: 'Moderate', label: 'Moderate' },
   { value: 'High', label: 'High' },
@@ -56,6 +58,7 @@ export function CasePricing({
   defaultAmount,
   termMonths,
   savedRiskGrade,
+  savedRateOverride = null,
   hasBookedLoan,
   onRiskGradeSaved
 }: CasePricingProps) {
@@ -87,7 +90,8 @@ export function CasePricing({
         principal,
         daysFinanced,
         riskGrade,
-        daysLate: daysLate || 0
+        daysLate: daysLate || 0,
+        ...(savedRateOverride != null ? { annualRatePct: savedRateOverride } : {})
       }),
     onSuccess: (result) => setQuote(result),
     onError: (error) =>
@@ -144,6 +148,11 @@ export function CasePricing({
                 ? `Saved as ${storedGrade}. The loan will be booked at this grade when the case is approved.`
                 : 'Not graded yet. Save a grade before approving, or the loan falls back to the legacy product rate.'}
           </p>
+          {savedRateOverride != null ? (
+            <p className="muted-text">
+              Interest rate overridden at Due Diligence to {savedRateOverride.toFixed(2)}% p.a. — quotes and booking use this rate, not prime + the grade margin.
+            </p>
+          ) : null}
         </div>
         <button
           className="btn"

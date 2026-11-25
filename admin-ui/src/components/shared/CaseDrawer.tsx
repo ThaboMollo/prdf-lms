@@ -6,6 +6,7 @@ import { formatCurrency, formatDateTime } from '../../lib/format'
 import { buildLoanName } from '../../../../packages/domain/loanName'
 import { LifecycleRail } from './LifecycleRail'
 import { StatusBadge } from './StatusBadge'
+import { stageLabel } from '../../lib/stageLabels'
 
 type CaseDrawerContextValue = {
   /** Open the case-preview drawer for an application id. */
@@ -160,7 +161,7 @@ function CaseDrawerPanel({ accessToken, openId, onClose }: CaseDrawerPanelProps)
                       {formatCurrency(detail.requestedAmount)} · #{detail.id.slice(0, 8)}
                     </p>
                   </div>
-                  <StatusBadge status={detail.status} />
+                  <StatusBadge status={detail.status} label={stageLabel(detail.status)} />
                 </div>
 
                 <LifecycleRail status={detail.status} />

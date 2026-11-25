@@ -22,6 +22,7 @@ import { getPrimaryRole, toAppRoles } from '../lib/rbac'
 import { createApplicationsUseCases } from '../logic/usecases/applications'
 import { createNotificationsUseCases } from '../logic/usecases/notifications'
 import { createTasksUseCases } from '../logic/usecases/tasks'
+import { stageLabel } from '../lib/stageLabels'
 
 type DashboardPageProps = {
   session: Session
@@ -226,7 +227,7 @@ function QueuePanel({
                 <p className="list-title">{buildLoanName({ businessName: app.businessName, applicantFullName: app.applicantFullName, date: app.createdAt })}</p>
                 <small>{formatCurrency(app.requestedAmount)} · Updated {formatDateTime(app.submittedAt ?? app.createdAt)}</small>
               </div>
-              <StatusBadge status={app.status} />
+              <StatusBadge status={app.status} label={stageLabel(app.status)} />
             </>
           )
           return onOpenCase ? (

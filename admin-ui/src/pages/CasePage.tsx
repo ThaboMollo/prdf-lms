@@ -14,6 +14,7 @@ import { CaseTasks } from '../features/applications/CaseTasks'
 import { CaseNotes } from '../features/applications/CaseNotes'
 import { CaseAdvisory } from '../features/applications/CaseAdvisory'
 import { CasePricing } from '../features/applications/CasePricing'
+import { DueDiligenceDecision } from '../features/applications/DueDiligenceDecision'
 import { createApplicationsUseCases } from '../logic/usecases/applications'
 import { createLoansUseCases } from '../logic/usecases/loans'
 import { useFormErrors, FieldError, fieldErrorAttrs, fieldDomId, type FieldErrorMap } from '../hooks/useFormErrors'
@@ -22,6 +23,7 @@ import { formatCurrency, formatDate, formatDateTime } from '../lib/format'
 import { formatTimeInOperation } from '../../../packages/domain/businessAge'
 import { buildLoanName } from '../../../packages/domain/loanName'
 import { listAssignableUsers } from '../lib/api'
+import { stageLabel } from '../lib/stageLabels'
 import type {
   ApplicationDetails,
   AssignableUser,
@@ -215,7 +217,7 @@ export function CasePage({ session }: CasePageProps) {
           <PageHeader
             title={businessName}
             subtitle={`${detail.clientDetails?.fullName ?? 'Client'} · ${formatCurrency(detail.requestedAmount)} · #${detail.id.slice(0, 8)}`}
-            actions={<StatusBadge status={detail.status} />}
+            actions={<StatusBadge status={detail.status} label={stageLabel(detail.status)} />}
           />
 
           <div className="card">
@@ -225,6 +227,19 @@ export function CasePage({ session }: CasePageProps) {
           <div className="case-layout">
             <aside className="case-rail stack-sm">
               <NextStepCard status={detail.status} onGoToMoney={() => setTab('money')} />
+              {detail.status === 'DueDiligence' ? (
+                <DueDiligenceDecision
+                  accessToken={accessToken}
+                  applicationId={detail.id}
+                  requestedAmount={detail.requestedAmount}
+                  termMonths={detail.termMonths}
+                  savedRiskGrade={detail.riskGrade ?? null}
+                  savedRateOverride={detail.interestRateOverride ?? null}
+                  onSaved={() => {
+                    void queryClient.refetchQueries({ queryKey: ['case-application', id] })
+                  }}
+                />
+              ) : null}
               <div className="card stack-sm">
                 <h3>Case actions</h3>
                 <label>
@@ -251,7 +266,7 @@ export function CasePage({ session }: CasePageProps) {
                       <select value={statusTarget} onChange={(event) => setStatusTarget(event.target.value as LoanApplicationStatus)}>
                         <option value="">— select next status —</option>
                         {allowedNextStatuses(detail.status).map((status) => (
-                          <option key={status} value={status}>{status}</option>
+                          <option key={status} value={status}>{stageLabel(status)}</option>
                         ))}
                       </select>
                     </label>
@@ -312,6 +327,7 @@ export function CasePage({ session }: CasePageProps) {
                 defaultAmount={detail.requestedAmount}
                 termMonths={detail.termMonths}
                 savedRiskGrade={detail.riskGrade ?? null}
+                savedRateOverride={detail.interestRateOverride ?? null}
                 hasBookedLoan={Boolean(detail.loanId)}
                 onRiskGradeSaved={() => {
                   void queryClient.refetchQueries({ queryKey: ['case-application', id] })
@@ -352,7 +368,7 @@ function NextStepCard({ status, onGoToMoney }: { status: LoanApplicationStatus; 
     message = 'Check mandatory documents, then advance to Due Diligence.'
   } else if (status === 'DueDiligence') {
     title = 'Due diligence'
-    message = 'Assess financial health and risk, then advance to Evaluation.'
+    message = 'Assess financial health, set the risk grade and interest rate, then advance to Evaluation.'
   } else if (status === 'Evaluation') {
     title = 'Evaluation'
     message = 'Assess viability and alignment, then approve or decline.'
@@ -363,14 +379,17 @@ function NextStepCard({ status, onGoToMoney }: { status: LoanApplicationStatus; 
     title = 'Board sign-off'
     message = 'Awaiting the Board to authorise funding.'
   } else if (status === 'BoardApproved') {
-    title = 'Contracting'
-    message = 'Legal generates the contract, then hand to Finance.'
+    title = 'Financing stage'
+    message = 'Draw up the term sheets, then hand over to Legal for contracting.'
   } else if (status === 'Contracting') {
-    title = 'Ready for payout'
-    message = 'Finance verifies the account and disburses in the Money tab.'
+    title = 'Contracting stage'
+    message = 'Contracts are drawn up. Finance verifies the account and disburses in the Money tab, based on the term sheets.'
+  } else if (status === 'Disbursed') {
+    title = 'Disbursements'
+    message = 'Funds paid out. Move to Post investment once repayment monitoring begins.'
   } else if (status === 'InRepayment') {
-    title = 'Loan servicing'
-    message = 'Record repayments and track arrears in the Money tab.'
+    title = 'Post investment'
+    message = 'Monitor repayments and track arrears in the Money tab.'
   } else if (status === 'Rejected' || status === 'Closed') {
     title = 'Case closed'
     message = 'This case is no longer active.'
@@ -414,7 +433,7 @@ function OverviewTab({ detail }: { detail: ApplicationDetails }) {
       <dt>Purpose</dt>
       <dd>{detail.purpose}</dd>
       <dt>Status</dt>
-      <dd>{detail.status}</dd>
+      <dd>{stageLabel(detail.status)}</dd>
       <dt>Created</dt>
       <dd>{formatDateTime(detail.createdAt)}</dd>
       <dt>Submitted</dt>
@@ -668,7 +687,7 @@ function HistoryTab({ history, loading }: { history: StatusHistoryItem[]; loadin
     <ol className="timeline">
       {history.map((item) => (
         <li key={item.id}>
-          <p><strong>{item.fromStatus ?? 'None'}</strong> to <strong>{item.toStatus}</strong></p>
+          <p><strong>{item.fromStatus ? stageLabel(item.fromStatus) : 'None'}</strong> to <strong>{stageLabel(item.toStatus)}</strong></p>
           <small>{formatDateTime(item.changedAt)}</small>
           {item.note ? <p>{item.note}</p> : null}
         </li>

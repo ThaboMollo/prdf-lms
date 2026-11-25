@@ -72,7 +72,7 @@ export class ApplicationsController {
 
   @Post(':id/risk-grade')
   setRiskGrade(@GetCurrentUser() user: CurrentUser, @Param('id') id: string, @Body() body: SetRiskGradeDto) {
-    return this.svc.setRiskGrade(user, id, body.riskGrade);
+    return this.svc.setRiskGrade(user, id, body.riskGrade, body.interestRatePct);
   }
 
   @Get(':id/history')

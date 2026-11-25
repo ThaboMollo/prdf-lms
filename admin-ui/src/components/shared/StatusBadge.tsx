@@ -2,6 +2,8 @@
 
 type StatusBadgeProps = {
   status: LoanApplicationStatus | string
+  /** Overrides the derived label, e.g. stageLabel() for application stages. */
+  label?: string
 }
 
 function toStatusClass(status: string): string {
@@ -17,6 +19,6 @@ function toLabel(status: string): string {
   return status.replace(/([a-z])([A-Z])/g, '$1 $2')
 }
 
-export function StatusBadge({ status }: StatusBadgeProps) {
-  return <span className={`status-badge ${toStatusClass(status)}`}>{toLabel(status)}</span>
+export function StatusBadge({ status, label }: StatusBadgeProps) {
+  return <span className={`status-badge ${toStatusClass(status)}`}>{label ?? toLabel(status)}</span>
 }

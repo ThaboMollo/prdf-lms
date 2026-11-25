@@ -188,6 +188,7 @@ export class ApplicationsService {
               la.number_of_employees as "numberOfEmployees", la.bank_name as "bankName",
               la.current_step as "currentStep", la.draft_state as "draftState", la.last_saved_at as "lastSavedAt",
               la.risk_grade as "riskGrade",
+              la.interest_rate_override::float8 as "interestRateOverride",
               l.id as "loanId",
               jsonb_build_object(
                 'businessName', c.business_name,
@@ -259,8 +260,10 @@ export class ApplicationsService {
       term_months: number;
       loan_product_id: string | null;
       risk_grade: RiskGrade | null;
+      interest_rate_override: number | null;
     }>(
-      `select requested_amount, term_months, loan_product_id, risk_grade from public.loan_applications where id = $1`,
+      `select requested_amount, term_months, loan_product_id, risk_grade, interest_rate_override::float8 as interest_rate_override
+         from public.loan_applications where id = $1`,
       [applicationId],
     );
     if (!source) return;
@@ -281,6 +284,9 @@ export class ApplicationsService {
         principal: Number(source.requested_amount),
         termMonths: source.term_months,
         riskGrade: source.risk_grade,
+        // The rate the Risk Analyst keyed in at Due Diligence, if any, beats
+        // the calculated prime + margin (Admin Corrections V3).
+        annualRatePctOverride: source.interest_rate_override,
       });
 
       await this.db.execute(
@@ -323,11 +329,25 @@ export class ApplicationsService {
    * This is what makes the Pricing tab more than a calculator: the grade set
    * here is the one ensureLoanCreatedForApproved() books the loan at.
    */
-  async setRiskGrade(actor: CurrentUser, applicationId: string, riskGrade: RiskGrade) {
+  async setRiskGrade(
+    actor: CurrentUser,
+    applicationId: string,
+    riskGrade: RiskGrade,
+    interestRatePct?: number | null,
+  ) {
     ensureInternal(await fetchUserRoles(this.db, actor.userId));
 
-    const existing = await this.db.queryOne<{ status: string; risk_grade: string | null }>(
-      `select status, risk_grade from public.loan_applications where id = $1`,
+    if (interestRatePct != null && !(interestRatePct > 0 && interestRatePct <= 100)) {
+      throw new ValidationError('Interest rate must be above 0 and at most 100% p.a.', 'interestRatePct');
+    }
+
+    const existing = await this.db.queryOne<{
+      status: string;
+      risk_grade: string | null;
+      interest_rate_override: number | null;
+    }>(
+      `select status, risk_grade, interest_rate_override::float8 as interest_rate_override
+         from public.loan_applications where id = $1`,
       [applicationId],
     );
     if (!existing) throw new NotFoundError('Application not found.');
@@ -345,10 +365,13 @@ export class ApplicationsService {
       );
     }
 
-    await this.db.execute(`update public.loan_applications set risk_grade = $1 where id = $2`, [
-      riskGrade,
-      applicationId,
-    ]);
+    // undefined = grade-only save (Pricing tab): keep whatever override is stored.
+    const override = interestRatePct === undefined ? existing.interest_rate_override : interestRatePct;
+
+    await this.db.execute(
+      `update public.loan_applications set risk_grade = $1, interest_rate_override = $2 where id = $3`,
+      [riskGrade, override, applicationId],
+    );
 
     await this.db.execute(
       `insert into public.audit_log (id, entity, entity_id, action, actor_user_id, at, metadata) values ($1,'loan_applications',$2,'SetRiskGrade',$3,now(),$4::jsonb)`,
@@ -356,11 +379,16 @@ export class ApplicationsService {
         randomUUID(),
         applicationId,
         actor.userId,
-        JSON.stringify({ from: existing.risk_grade, to: riskGrade }),
+        JSON.stringify({
+          from: existing.risk_grade,
+          to: riskGrade,
+          interestRateOverrideFrom: existing.interest_rate_override,
+          interestRateOverrideTo: override,
+        }),
       ],
     );
 
-    return { applicationId, riskGrade };
+    return { applicationId, riskGrade, interestRateOverride: override };
   }
 
   async create(actor: CurrentUser, body: CreateApplicationDto) {
@@ -656,6 +684,18 @@ export class ApplicationsService {
     if (!proj) return null;
     this.ensureCanAccess(roles, actor.userId, proj);
     this.ensureTransitionAllowed(roles, proj.status, toStatus);
+
+    // Due Diligence is where the risk grade is set; the case cannot go on to
+    // Evaluation (and from there to booking) without one.
+    if (proj.status === 'DueDiligence' && toStatus === 'Evaluation') {
+      const graded = await this.db.queryOne<{ risk_grade: string | null }>(
+        `select risk_grade from public.loan_applications where id = $1`,
+        [applicationId],
+      );
+      if (!graded?.risk_grade) {
+        throw new ValidationError('Set the risk grade before advancing to Evaluation.', 'riskGrade');
+      }
+    }
 
     await this.db.execute(
       `update public.loan_applications set status=$1, submitted_at=case when $1='Submitted' and submitted_at is null then now() else submitted_at end where id=$2`,
